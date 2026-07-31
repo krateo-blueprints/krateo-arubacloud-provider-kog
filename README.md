@@ -24,9 +24,12 @@ providers with zero plugins**.
 | `openapi/` | The same specs **patched** to be oasgen-consumable (`scripts/patch_oas.py`) |
 | `configmaps/` | One ConfigMap per provider embedding its patched spec (the `oasPath` source) |
 | `restdefinitions/<provider>/` | One `RestDefinition` per manageable resource — **no proxies** |
+| `restactions/compute/` | Snowplow RESTActions that drive `CloudServer`'s multi-call lifecycle (delegated via `*ApiRef`) |
+| `compositions/` | A Krateo `CompositionDefinition` + Helm chart provisioning a whole environment |
 | `samples/<provider>/` | A `<Kind>Configuration` + a `<Kind>` CR skeleton per resource, plus the shared auth `Secret` |
-| `scripts/` | Reproducible generators (`patch_oas.py`, `generate_restdefinitions.py`, `gen_configmaps.py`, `gen_samples_and_coverage.py`) |
+| `scripts/` | Reproducible generators (`patch_oas.py`, `generate_restdefinitions.py`, `gen_configmaps.py`, `gen_samples_and_coverage.py`, `validate.py`) |
 | `docs/oasgen-provider-evolution.md` | **Every issue that requires an oasgen-provider evolution** (the analytical deliverable) |
+| `docs/lifecycle-beyond-crud.md` | **Proxy-free solution** for lifecycle beyond the 5 CRUD verbs (RESTAction delegation + Composition) |
 | `docs/coverage.md` | Full resource/verb coverage matrix |
 
 ## Coverage at a glance
@@ -68,10 +71,12 @@ resource:
 ```
 
 The full old-plugin → native-feature mapping is in the evolution report's
-appendix. The only remaining proxy-shaped need — `compute/CloudServer`'s
-multi-call create/lifecycle — is covered by the fork's Snowplow `createApiRef`/
-`updateApiRef` delegation (design documented, RESTActions out of scope for a
-pure-OAS generator), not by a bespoke web service.
+appendix. The one remaining proxy-shaped need — `compute/CloudServer`'s
+multi-call, action-driven lifecycle — is solved **without a proxy** by delegating
+create/update/delete to Snowplow RESTActions via the fork's `*ApiRef`
+(`restactions/compute/`), with a Krateo Composition (`compositions/`) for
+whole-environment provisioning. See
+[`docs/lifecycle-beyond-crud.md`](docs/lifecycle-beyond-crud.md).
 
 ## Prerequisites
 

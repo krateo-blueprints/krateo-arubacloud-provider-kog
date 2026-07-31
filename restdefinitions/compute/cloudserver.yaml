@@ -1,5 +1,5 @@
 # Aruba Cloud CloudServer (compute provider) - generated, no proxy.
-# CloudServer has NO update verb; its lifecycle (power on/off, set password, associate elastic IPs / security groups / subnets, attach data volumes, restore) is expressed as separate action sub-endpoints. Only create/get/findby/delete are generated. Full lifecycle needs oasgen 'action verbs' or Snowplow createApiRef/updateApiRef delegation - see docs/oasgen-provider-evolution.md.
+# CloudServer has NO single create/update endpoint; its lifecycle (power on/off, associate elastic IPs / security groups / subnets, attach data volumes, restore) is a multi-call sequence. create/update/delete are delegated to Snowplow RESTActions via *ApiRef (NO proxy); observe stays native via get/findby. See docs/lifecycle-beyond-crud.md.
 apiVersion: ogen.krateo.io/v1alpha1
 kind: RestDefinition
 metadata:
@@ -15,21 +15,27 @@ spec:
     - metadata.id
     excludedSpecFields:
     - cloudServerId
+    createApiRef:
+      name: arubacloud-compute-cloudserver-create
+      namespace: krateo-system
+      extras:
+        api-version: '1.0'
+    updateApiRef:
+      name: arubacloud-compute-cloudserver-update
+      namespace: krateo-system
+      extras:
+        api-version: '1.0'
+    deleteApiRef:
+      name: arubacloud-compute-cloudserver-delete
+      namespace: krateo-system
+      extras:
+        api-version: '1.0'
     verbsDescription:
     - action: findby
       method: GET
       path: /projects/{projectId}/providers/Aruba.Compute/cloudServers
     - action: get
       method: GET
-      path: /projects/{projectId}/providers/Aruba.Compute/cloudServers/{cloudServerId}
-      requestFieldMapping:
-      - inPath: cloudServerId
-        inCustomResource: status.metadata.id
-    - action: create
-      method: POST
-      path: /projects/{projectId}/providers/Aruba.Compute/cloudServers
-    - action: delete
-      method: DELETE
       path: /projects/{projectId}/providers/Aruba.Compute/cloudServers/{cloudServerId}
       requestFieldMapping:
       - inPath: cloudServerId

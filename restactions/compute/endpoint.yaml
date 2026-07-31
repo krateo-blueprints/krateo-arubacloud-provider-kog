@@ -1,0 +1,13 @@
+# Snowplow Endpoint (a Kubernetes Secret) that the CloudServer RESTActions call.
+# It points at the Aruba Cloud API and carries the Bearer token. This is the SAME
+# token used by the *Configuration resources; the RESTActions run under Snowplow's
+# identity, so they need their own endpoint reference.
+apiVersion: v1
+kind: Secret
+type: Opaque
+metadata:
+  name: arubacloud-endpoint
+  namespace: krateo-system
+stringData:
+  server-url: https://api.arubacloud.com
+  token: REPLACE_WITH_ARUBA_JWT   # short-lived Bearer token; rotate as needed

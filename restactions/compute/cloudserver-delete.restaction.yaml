@@ -1,0 +1,62 @@
+# CloudServer DELETE (teardown) — delegated from the CloudServer RestDefinition
+# via `deleteApiRef`. The controller holds the finalizer until this succeeds, and
+# it MUST be idempotent and tolerate an already-gone server.
+#
+# Data volumes are detached before the server is deleted, then the server is
+# removed. If the server is already gone, the guard iterators yield [] and every
+# step is skipped, so re-running is safe.
+apiVersion: templates.krateo.io/v1
+kind: RESTAction
+metadata:
+  name: arubacloud-compute-cloudserver-delete
+  namespace: krateo-system
+  annotations:
+    krateo.io/verbose: "true"
+spec:
+  api:
+    - name: server
+      endpointRef:
+        name: arubacloud-endpoint
+        namespace: krateo-system
+      verb: GET
+      path: ${ "/projects/" + .spec.projectId + "/providers/Aruba.Compute/cloudServers?api-version=1.0" }
+      headers:
+        - "Accept: application/json"
+      continueOnError: true
+      filter: >-
+        .spec.metadata.name as $n
+        | { self: ((.values // []) | map(select(.metadata.name == $n)) | .[0]) }
+
+    # Detach any attached data volumes first (skipped when there are none).
+    - name: detachVolumes
+      endpointRef:
+        name: arubacloud-endpoint
+        namespace: krateo-system
+      dependsOn:
+        name: server
+        iterator: >-
+          (.server.self // {}) as $s
+          | (($s.properties.dataVolumes // []) | map(.uri // .)) as $vols
+          | if $s.id != null and ($vols | length) > 0
+            then [ { id: $s.id, detach: $vols } ] else [] end
+      verb: POST
+      continueOnError: true
+      path: ${ "/projects/" + $.spec.projectId + "/providers/Aruba.Compute/cloudServers/" + .id + "/attachDetachDataVolumes?api-version=1.0" }
+      headers:
+        - "Content-Type: application/json"
+      payload: |
+        ${ { volumesToAttach: [], volumesToDetach: .detach } }
+
+    # Delete the server (skipped when already absent).
+    - name: delete
+      endpointRef:
+        name: arubacloud-endpoint
+        namespace: krateo-system
+      dependsOn:
+        name: server
+        iterator: >-
+          (.server.self // {}) as $s
+          | if $s.id != null then [ $s.id ] else [] end
+      verb: DELETE
+      continueOnError: true
+      path: ${ "/projects/" + $.spec.projectId + "/providers/Aruba.Compute/cloudServers/" + . + "?api-version=1.0" }

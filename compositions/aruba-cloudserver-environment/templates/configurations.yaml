@@ -1,0 +1,13 @@
+{{- $verbs := list "findby" "get" "create" "update" "delete" -}}
+{{- range $kind := list "Vpc" "Subnet" "SecurityGroup" "CloudServer" }}
+---
+apiVersion: arubacloud.ogen.krateo.io/v1alpha1
+kind: {{ $kind }}Configuration
+metadata:
+  name: {{ $.Values.name }}-{{ $kind | lower }}-config
+  namespace: {{ $.Values.namespace }}
+spec:
+  {{- include "aruba.authentication" $ | nindent 2 }}
+  configuration:
+    {{- include "aruba.queryConfig" (dict "apiVersion" $.Values.apiVersion "verbs" $verbs) | nindent 4 }}
+{{- end }}

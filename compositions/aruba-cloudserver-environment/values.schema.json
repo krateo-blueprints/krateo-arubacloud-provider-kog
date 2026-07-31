@@ -1,0 +1,41 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["projectId", "location", "name", "tokenSecret"],
+  "properties": {
+    "namespace": {"type": "string", "default": "default"},
+    "projectId": {"type": "string", "description": "Aruba project id"},
+    "location": {"type": "string", "description": "Aruba location value, e.g. ITBG-Bergamo"},
+    "apiVersion": {"type": "string", "default": "1.0"},
+    "name": {"type": "string", "description": "Environment name prefix"},
+    "tokenSecret": {
+      "type": "object",
+      "required": ["name", "namespace", "key"],
+      "properties": {
+        "name": {"type": "string"},
+        "namespace": {"type": "string"},
+        "key": {"type": "string"}
+      }
+    },
+    "vpc": {
+      "type": "object",
+      "properties": {"cidr": {"type": "string"}}
+    },
+    "subnet": {
+      "type": "object",
+      "properties": {
+        "cidr": {"type": "string"},
+        "type": {"type": "string", "enum": ["Basic", "Advanced"]}
+      }
+    },
+    "securityGroup": {"type": "object"},
+    "cloudServer": {
+      "type": "object",
+      "properties": {
+        "flavorName": {"type": "string"},
+        "bootVolume": {"type": "object"},
+        "userData": {"type": "string"}
+      }
+    }
+  }
+}

@@ -87,13 +87,25 @@ PROVIDERS = {
 #   note         - short rationale, echoed into the generated file header
 OVERRIDES = {
     "compute/cloudServers": dict(
-        metaWrap=True, note=(
-            "CloudServer has NO update verb; its lifecycle (power on/off, set "
-            "password, associate elastic IPs / security groups / subnets, attach "
-            "data volumes, restore) is expressed as separate action sub-endpoints. "
-            "Only create/get/findby/delete are generated. Full lifecycle needs "
-            "oasgen 'action verbs' or Snowplow createApiRef/updateApiRef delegation "
-            "- see docs/oasgen-provider-evolution.md.")),
+        metaWrap=True,
+        # CloudServer lifecycle (power on/off, associate EIPs/SGs/subnets, attach
+        # data volumes, restore) is a MULTI-CALL sequence, not one create/update.
+        # Instead of a bespoke proxy we delegate create/update/delete to Snowplow
+        # RESTActions via the fork's *ApiRef; observe stays native (get/findby).
+        # See docs/lifecycle-beyond-crud.md and restactions/compute/.
+        apiRefs=dict(
+            namespace=CM_NS,
+            extras={"api-version": "1.0"},
+            create="arubacloud-compute-cloudserver-create",
+            update="arubacloud-compute-cloudserver-update",
+            delete="arubacloud-compute-cloudserver-delete",
+        ),
+        note=(
+            "CloudServer has NO single create/update endpoint; its lifecycle (power "
+            "on/off, associate elastic IPs / security groups / subnets, attach data "
+            "volumes, restore) is a multi-call sequence. create/update/delete are "
+            "delegated to Snowplow RESTActions via *ApiRef (NO proxy); observe stays "
+            "native via get/findby. See docs/lifecycle-beyond-crud.md.")),
     "project/folders": dict(
         metaWrap=False, idField="name", statusId="status.id",
         note="Folder create body is flat {name, default}; id is a top-level response field."),
@@ -321,6 +333,24 @@ def render(r):
 
     if excluded:
         resource["excludedSpecFields"] = sorted(excluded)
+
+    # Delegate mutating verbs to Snowplow RESTActions (multi-call lifecycle) while
+    # keeping observe native. createApiRef requires get/findby, which we retain.
+    apirefs = ov.get("apiRefs")
+    if apirefs:
+        verbs = [v for v in verbs if v["action"] in ("findby", "get")]
+        ns = apirefs["namespace"]
+        extras = apirefs.get("extras")
+        for verb_key, field in (("create", "createApiRef"),
+                                ("update", "updateApiRef"),
+                                ("delete", "deleteApiRef")):
+            name = apirefs.get(verb_key)
+            if not name:
+                continue
+            ref = {"name": name, "namespace": ns}
+            if extras:
+                ref["extras"] = dict(extras)  # independent copy -> no YAML anchors
+            resource[field] = ref
 
     resource["verbsDescription"] = verbs
     cfg = config_fields(r)

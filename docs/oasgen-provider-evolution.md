@@ -208,6 +208,14 @@ can source it. Without both halves, `secretRef` cannot be wired from a pure OAS.
 
 This is where genuine, non-cosmetic evolution is required.
 
+> **A working, proxy-free solution to this whole category is implemented in this
+> repository** — see [`lifecycle-beyond-crud.md`](lifecycle-beyond-crud.md).
+> `compute/CloudServer` delegates create/update/delete to Snowplow RESTActions via
+> `*ApiRef` (`restactions/compute/`), and a Krateo Composition
+> (`compositions/`) provisions a whole environment. The items below therefore
+> describe the *gap* and, where relevant, whether it is closed by delegation
+> today or still wants first-class support.
+
 ### C1 — lifecycle as POST action sub-endpoints (🟥)
 oasgen models exactly five verbs (findby/get/create/update/delete). Many Aruba
 operations are neither — they are imperative actions on an existing resource:

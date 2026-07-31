@@ -1,0 +1,92 @@
+{{/*
+  The environment resources. They are created together by the Krateo Composition;
+  the CloudServer's own multi-call lifecycle (power, associations, volumes) is
+  handled by its RestDefinition's *ApiRef delegation to Snowplow RESTActions.
+
+  NOTE on cross-resource references: Aruba refers to a VPC/subnet/SG by a runtime
+  URI that only exists after creation. Helm cannot know it at render time, so this
+  composition provisions the networking and passes the desired subnet/SG selection
+  through spec.properties; wiring the concrete runtime URIs into the CloudServer is
+  a known gap (see docs/lifecycle-beyond-crud.md, "Cross-resource references").
+*/}}
+apiVersion: arubacloud.ogen.krateo.io/v1alpha1
+kind: Vpc
+metadata:
+  name: {{ .Values.name }}-vpc
+  namespace: {{ .Values.namespace }}
+spec:
+  configurationRef:
+    name: {{ .Values.name }}-vpc-config
+    namespace: {{ .Values.namespace }}
+  projectId: {{ .Values.projectId | quote }}
+  metadata:
+    name: {{ .Values.name }}-vpc
+    location:
+      value: {{ .Values.location | quote }}
+  properties:
+    network:
+      address: {{ .Values.vpc.cidr | quote }}
+---
+apiVersion: arubacloud.ogen.krateo.io/v1alpha1
+kind: Subnet
+metadata:
+  name: {{ .Values.name }}-subnet
+  namespace: {{ .Values.namespace }}
+spec:
+  configurationRef:
+    name: {{ .Values.name }}-subnet-config
+    namespace: {{ .Values.namespace }}
+  projectId: {{ .Values.projectId | quote }}
+  vpcId: REPLACE_WITH_VPC_ID   # set once the Vpc above reports status.metadata.id
+  metadata:
+    name: {{ .Values.name }}-subnet
+    location:
+      value: {{ .Values.location | quote }}
+  properties:
+    type: {{ .Values.subnet.type | quote }}
+    network:
+      address: {{ .Values.subnet.cidr | quote }}
+---
+apiVersion: arubacloud.ogen.krateo.io/v1alpha1
+kind: SecurityGroup
+metadata:
+  name: {{ .Values.name }}-sg
+  namespace: {{ .Values.namespace }}
+spec:
+  configurationRef:
+    name: {{ .Values.name }}-securitygroup-config
+    namespace: {{ .Values.namespace }}
+  projectId: {{ .Values.projectId | quote }}
+  vpcId: REPLACE_WITH_VPC_ID
+  metadata:
+    name: {{ .Values.name }}-sg
+    location:
+      value: {{ .Values.location | quote }}
+---
+apiVersion: arubacloud.ogen.krateo.io/v1alpha1
+kind: CloudServer
+metadata:
+  name: {{ .Values.name }}-server
+  namespace: {{ .Values.namespace }}
+  annotations:
+    krateo.io/connector-verbose: "true"
+spec:
+  configurationRef:
+    name: {{ .Values.name }}-cloudserver-config
+    namespace: {{ .Values.namespace }}
+  projectId: {{ .Values.projectId | quote }}
+  metadata:
+    name: {{ .Values.name }}-server
+    location:
+      value: {{ .Values.location | quote }}
+  properties:
+    dataCenter: {{ .Values.location | quote }}
+    flavorName: {{ .Values.cloudServer.flavorName | quote }}
+    bootVolume: {{ .Values.cloudServer.bootVolume | toYaml | nindent 6 }}
+    {{- with .Values.cloudServer.userData }}
+    userData: {{ . | quote }}
+    {{- end }}
+    # subnets / securityGroups: set to the created resources' runtime URIs; the
+    # CloudServer update RESTAction then keeps the associations reconciled.
+    subnets: []
+    securityGroups: []
