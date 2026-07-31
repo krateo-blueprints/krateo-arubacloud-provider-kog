@@ -1,0 +1,90 @@
+# Aruba Cloud Registry (container provider) - generated, no proxy.
+apiVersion: ogen.krateo.io/v1alpha1
+kind: RestDefinition
+metadata:
+  name: arubacloud-container-registry
+spec:
+  oasPath: configmap://krateo-system/arubacloud-container-openapi/container.json
+  resourceGroup: arubacloud.ogen.krateo.io
+  resource:
+    kind: Registry
+    identifiers:
+    - metadata.name
+    additionalStatusFields:
+    - metadata.id
+    excludedSpecFields:
+    - id
+    verbsDescription:
+    - action: findby
+      method: GET
+      path: /projects/{projectId}/providers/Aruba.Container/registries
+    - action: get
+      method: GET
+      path: /projects/{projectId}/providers/Aruba.Container/registries/{id}
+      requestFieldMapping:
+      - inPath: id
+        inCustomResource: status.metadata.id
+    - action: create
+      method: POST
+      path: /projects/{projectId}/providers/Aruba.Container/registries
+    - action: update
+      method: PUT
+      path: /projects/{projectId}/providers/Aruba.Container/registries/{id}
+      requestFieldMapping:
+      - inPath: id
+        inCustomResource: status.metadata.id
+    - action: delete
+      method: DELETE
+      path: /projects/{projectId}/providers/Aruba.Container/registries/{id}
+      requestFieldMapping:
+      - inPath: id
+        inCustomResource: status.metadata.id
+    configurationFields:
+    - fromOpenAPI:
+        name: api-version
+        in: query
+      fromRestDefinition:
+        actions:
+        - '*'
+    - fromOpenAPI:
+        name: filter
+        in: query
+      fromRestDefinition:
+        actions:
+        - findby
+    - fromOpenAPI:
+        name: sort
+        in: query
+      fromRestDefinition:
+        actions:
+        - findby
+    - fromOpenAPI:
+        name: projection
+        in: query
+      fromRestDefinition:
+        actions:
+        - findby
+    - fromOpenAPI:
+        name: offset
+        in: query
+      fromRestDefinition:
+        actions:
+        - findby
+    - fromOpenAPI:
+        name: limit
+        in: query
+      fromRestDefinition:
+        actions:
+        - findby
+    - fromOpenAPI:
+        name: loadHarborVersion
+        in: query
+      fromRestDefinition:
+        actions:
+        - findby
+    - fromOpenAPI:
+        name: ignoreDeletedStatus
+        in: query
+      fromRestDefinition:
+        actions:
+        - get

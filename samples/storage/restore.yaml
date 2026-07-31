@@ -1,0 +1,19 @@
+apiVersion: arubacloud.ogen.krateo.io/v1alpha1
+kind: Restore
+metadata:
+  name: example-restore
+  namespace: default
+  annotations:
+    krateo.io/connector-verbose: 'true'
+spec:
+  configurationRef:
+    name: restore-config
+    namespace: default
+  projectId: REPLACE
+  backupId: REPLACE
+  metadata:
+    name: example-restore
+    location: {}
+    tags: []
+  properties:
+    # fill from openapi/storage.json

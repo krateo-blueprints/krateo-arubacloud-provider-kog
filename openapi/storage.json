@@ -1,0 +1,5718 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "Aruba.StorageProvider.Api",
+    "description": "Aruba.StorageProvider.Api HTTP API\n\nDownload the <a href=\"/openapi/storage-provider.json\" target=\"_blank\"> OpenAPI file</a>",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://api.arubacloud.com"
+    }
+  ],
+  "paths": {
+    "/projects/{projectId}/providers/Aruba.Storage/backups/{id}": {
+      "get": {
+        "tags": [
+          "Backup"
+        ],
+        "summary": "Get Backup",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "includeDeleted",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          {
+            "name": "api-version",
+            "in": "query",
+            "description": "The requested API version",
+            "schema": {
+              "type": "string",
+              "default": "1"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackupResponseDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackupResponseDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackupResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "APIDOC": true
+      },
+      "put": {
+        "tags": [
+          "Backup"
+        ],
+        "summary": "Update Backup",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "projectId",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "api-version",
+            "in": "query",
+            "description": "The requested API version",
+            "schema": {
+              "type": "string",
+              "default": "1"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "",
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/BackupUpdateDto"
+                  }
+                ]
+              }
+            },
+            "text/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/BackupUpdateDto"
+                  }
+                ]
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/BackupUpdateDto"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackupResponseDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackupResponseDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackupResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "APIDOC": true
+      },
+      "delete": {
+        "tags": [
+          "Backup"
+        ],
+        "summary": "Delete Backup",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "api-version",
+            "in": "query",
+            "description": "The requested API version",
+            "schema": {
+              "type": "string",
+              "default": "1"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackupResponseDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackupResponseDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackupResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "APIDOC": true
+      }
+    },
+    "/projects/{projectId}/providers/Aruba.Storage/backups": {
+      "get": {
+        "tags": [
+          "Backup"
+        ],
+        "summary": "List Backups",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "filter",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "projection",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "api-version",
+            "in": "query",
+            "description": "The requested API version",
+            "schema": {
+              "type": "string",
+              "default": "1"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackupListResponseDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackupListResponseDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackupListResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "APIDOC": true
+      },
+      "post": {
+        "tags": [
+          "Backup"
+        ],
+        "summary": "Create Backup",
+        "parameters": [
+          {
+            "name": "ce-CreatedBySchedule",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "projectId",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "api-version",
+            "in": "query",
+            "description": "The requested API version",
+            "schema": {
+              "type": "string",
+              "default": "1"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "",
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/BackupDto"
+                  }
+                ]
+              }
+            },
+            "text/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/BackupDto"
+                  }
+                ]
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/BackupDto"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackupResponseDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackupResponseDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackupResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "APIDOC": true
+      }
+    },
+    "/projects/{projectId}/providers/Aruba.Storage/blockStorages": {
+      "post": {
+        "tags": [
+          "BlockStorages"
+        ],
+        "summary": "Create BlockStorage",
+        "parameters": [
+          {
+            "name": "ce-resourceId",
+            "in": "header",
+            "description": "",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "projectId",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "api-version",
+            "in": "query",
+            "description": "The requested API version",
+            "schema": {
+              "type": "string",
+              "default": "1"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "",
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/VolumeDto"
+                  }
+                ]
+              }
+            },
+            "text/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/VolumeDto"
+                  }
+                ]
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/VolumeDto"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/VolumeResponseDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VolumeResponseDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VolumeResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "APIDOC": true
+      },
+      "get": {
+        "tags": [
+          "BlockStorages"
+        ],
+        "summary": "List BlockStorage",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "filter",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "projection",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "api-version",
+            "in": "query",
+            "description": "The requested API version",
+            "schema": {
+              "type": "string",
+              "default": "1"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/VolumeListResponseDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VolumeListResponseDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VolumeListResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "APIDOC": true
+      }
+    },
+    "/projects/{projectId}/providers/Aruba.Storage/blockStorages/{id}": {
+      "put": {
+        "tags": [
+          "BlockStorages"
+        ],
+        "summary": "Update BlockStorage",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "projectId",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "api-version",
+            "in": "query",
+            "description": "The requested API version",
+            "schema": {
+              "type": "string",
+              "default": "1"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "",
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/VolumeUpdateDto"
+                  }
+                ]
+              }
+            },
+            "text/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/VolumeUpdateDto"
+                  }
+                ]
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/VolumeUpdateDto"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/VolumeResponseDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VolumeResponseDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VolumeResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "APIDOC": true
+      },
+      "delete": {
+        "tags": [
+          "BlockStorages"
+        ],
+        "summary": "Delete BlockStorage",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "api-version",
+            "in": "query",
+            "description": "The requested API version",
+            "schema": {
+              "type": "string",
+              "default": "1"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/VolumeResponseDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VolumeResponseDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VolumeResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "APIDOC": true
+      },
+      "get": {
+        "tags": [
+          "BlockStorages"
+        ],
+        "summary": "Get BlockStorage",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "includeDeleted",
+            "in": "query",
+            "description": "",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          {
+            "name": "api-version",
+            "in": "query",
+            "description": "The requested API version",
+            "schema": {
+              "type": "string",
+              "default": "1"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/VolumeResponseDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VolumeResponseDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VolumeResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "APIDOC": true
+      }
+    },
+    "/projects/{projectId}/providers/Aruba.Storage/backups/{backupId}/restores": {
+      "post": {
+        "tags": [
+          "Restore"
+        ],
+        "summary": "Create Restore",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "backupId",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "api-version",
+            "in": "query",
+            "description": "The requested API version",
+            "schema": {
+              "type": "string",
+              "default": "1"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "",
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/RestoreDto"
+                  }
+                ]
+              }
+            },
+            "text/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/RestoreDto"
+                  }
+                ]
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/RestoreDto"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/RestoreResponseDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RestoreResponseDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RestoreResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "APIDOC": true
+      },
+      "get": {
+        "tags": [
+          "Restore"
+        ],
+        "summary": "List Restores",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "backupId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "filter",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "projection",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "api-version",
+            "in": "query",
+            "description": "The requested API version",
+            "schema": {
+              "type": "string",
+              "default": "1"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/RestoreListResponseDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RestoreListResponseDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RestoreListResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "APIDOC": true
+      }
+    },
+    "/projects/{projectId}/providers/Aruba.Storage/backups/{backupId}/restores/{id}": {
+      "put": {
+        "tags": [
+          "Restore"
+        ],
+        "summary": "Update Restore",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "projectId",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "backupId",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "api-version",
+            "in": "query",
+            "description": "The requested API version",
+            "schema": {
+              "type": "string",
+              "default": "1"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "",
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/RestoreUpdateDto"
+                  }
+                ]
+              }
+            },
+            "text/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/RestoreUpdateDto"
+                  }
+                ]
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/RestoreUpdateDto"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/RestoreResponseDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RestoreResponseDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RestoreResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "APIDOC": true
+      },
+      "delete": {
+        "tags": [
+          "Restore"
+        ],
+        "summary": "Delete Restore",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "backupId",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "api-version",
+            "in": "query",
+            "description": "The requested API version",
+            "schema": {
+              "type": "string",
+              "default": "1"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/RestoreResponseDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RestoreResponseDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RestoreResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "APIDOC": true
+      },
+      "get": {
+        "tags": [
+          "Restore"
+        ],
+        "summary": "Get Restore by Id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "backupId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "includeDeleted",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          {
+            "name": "api-version",
+            "in": "query",
+            "description": "The requested API version",
+            "schema": {
+              "type": "string",
+              "default": "1"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/RestoreResponseDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RestoreResponseDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RestoreResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "APIDOC": true
+      }
+    },
+    "/projects/{projectId}/providers/Aruba.Storage/snapshots": {
+      "post": {
+        "tags": [
+          "Snapshot"
+        ],
+        "summary": "Create Snapshot",
+        "parameters": [
+          {
+            "name": "ce-resourceId",
+            "in": "header",
+            "description": "",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "projectId",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "api-version",
+            "in": "query",
+            "description": "The requested API version",
+            "schema": {
+              "type": "string",
+              "default": "1"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "",
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/SnapshotDto"
+                  }
+                ]
+              }
+            },
+            "text/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/SnapshotDto"
+                  }
+                ]
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/SnapshotDto"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/SnapshotResponseDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SnapshotResponseDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SnapshotResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "APIDOC": true
+      },
+      "get": {
+        "tags": [
+          "Snapshot"
+        ],
+        "summary": "List Snapshot",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "filter",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "projection",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "api-version",
+            "in": "query",
+            "description": "The requested API version",
+            "schema": {
+              "type": "string",
+              "default": "1"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/SnapshotListResponseDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SnapshotListResponseDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SnapshotListResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "APIDOC": true
+      }
+    },
+    "/projects/{projectId}/providers/Aruba.Storage/snapshots/{id}": {
+      "put": {
+        "tags": [
+          "Snapshot"
+        ],
+        "summary": "Update Snapshot",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "projectId",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "api-version",
+            "in": "query",
+            "description": "The requested API version",
+            "schema": {
+              "type": "string",
+              "default": "1"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "",
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/SnapshotUpdateDto"
+                  }
+                ]
+              }
+            },
+            "text/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/SnapshotUpdateDto"
+                  }
+                ]
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/SnapshotUpdateDto"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/SnapshotResponseDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SnapshotResponseDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SnapshotResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "APIDOC": true
+      },
+      "delete": {
+        "tags": [
+          "Snapshot"
+        ],
+        "summary": "Delete Snapshot",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "api-version",
+            "in": "query",
+            "description": "The requested API version",
+            "schema": {
+              "type": "string",
+              "default": "1"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/SnapshotResponseDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SnapshotResponseDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SnapshotResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "APIDOC": true
+      },
+      "get": {
+        "tags": [
+          "Snapshot"
+        ],
+        "summary": "Get Snapshot",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "includeDeleted",
+            "in": "query",
+            "description": "",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          {
+            "name": "api-version",
+            "in": "query",
+            "description": "The requested API version",
+            "schema": {
+              "type": "string",
+              "default": "1"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/SnapshotResponseDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SnapshotResponseDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SnapshotResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "APIDOC": true
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Addon": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AddonDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "productName": {
+            "type": "string"
+          },
+          "attributes": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "price": {
+            "type": "number",
+            "format": "double"
+          },
+          "plans": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PricingPlanDto"
+            }
+          },
+          "extraInfo": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ProductExtraInfoDto"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "BackupChainResponseDto": {
+        "type": "object",
+        "properties": {
+          "full": {
+            "type": "string",
+            "description": "Uri of the Full backup in the chain."
+          },
+          "previous": {
+            "type": "string",
+            "description": "Uri of the previous backup in the chain (null if Full)."
+          },
+          "next": {
+            "type": "string",
+            "description": "Uri of the next incremental backup in the chain (null if last)."
+          }
+        },
+        "additionalProperties": false
+      },
+      "BackupDto": {
+        "type": "object",
+        "properties": {
+          "metadata": {
+            "$ref": "#/components/schemas/MetadataDto"
+          },
+          "properties": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/BackupPropertiesDto"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "BackupInternalDataInfoResponseDto": {
+        "type": "object",
+        "properties": {
+          "sizeBytes": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "expireAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "backupChain": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/BackupChainResponseDto"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "BackupInternalDataResponseDto": {
+        "type": "object",
+        "properties": {
+          "infrastructure": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/InfrastructureResponseDto"
+              }
+            ]
+          },
+          "info": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/BackupInternalDataInfoResponseDto"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "BackupListResponseDto": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "self": {
+            "type": "string"
+          },
+          "prev": {
+            "type": "string"
+          },
+          "next": {
+            "type": "string"
+          },
+          "first": {
+            "type": "string"
+          },
+          "last": {
+            "type": "string"
+          },
+          "values": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BackupResponseDto"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "BackupPlatformSize": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "deploymentId": {
+            "type": "string"
+          },
+          "time": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "message": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "involvedObject": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/InvolvedObject"
+              }
+            ]
+          },
+          "metadata": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PlatformMetadata"
+              }
+            ]
+          },
+          "osResourceId": {
+            "type": "string"
+          },
+          "properties": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/BackupPlatformSizeProperties"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "description": "Platform event containing the backup size reported by the platform."
+      },
+      "BackupPlatformSizeProperties": {
+        "type": "object",
+        "properties": {
+          "size": {
+            "type": "integer",
+            "description": "Backup size in megabytes (mebibytes MiB) reported by the platform.",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "BackupPropertiesDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "The backup type (Full, Incremental)"
+          },
+          "sourceVolume": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GenericResourceDto"
+              }
+            ],
+            "description": "The source volume for this backup"
+          },
+          "retentionDays": {
+            "type": "integer",
+            "description": "Retention days for the backup",
+            "format": "int32"
+          },
+          "billingPeriod": {
+            "type": "string",
+            "description": "Retention days for the backup"
+          }
+        },
+        "additionalProperties": false
+      },
+      "BackupPropertiesResponseDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "The backup type (Full, Incremental)"
+          },
+          "sourceVolume": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/BackupVolumeResponseDto"
+              }
+            ],
+            "description": "The source volume for this backup"
+          },
+          "retentionDays": {
+            "type": "integer",
+            "description": "Retention days for the backup",
+            "format": "int32"
+          },
+          "billingPeriod": {
+            "type": "string",
+            "description": "The backup type (Full, Incremental)"
+          }
+        },
+        "additionalProperties": false
+      },
+      "BackupResponseDto": {
+        "type": "object",
+        "properties": {
+          "metadata": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MetadataResponseDto"
+              }
+            ]
+          },
+          "status": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/StatusResponseDto"
+              }
+            ]
+          },
+          "properties": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/BackupPropertiesResponseDto"
+              }
+            ]
+          },
+          "managedBy": {
+            "type": "string"
+          },
+          "data": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/BackupInternalDataResponseDto"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "BackupTypologyExtraInfo": {
+        "type": "object",
+        "properties": {
+          "minRetentionDays": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "maxRetentionDays": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "maxBackupForVolume": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "BackupUpdateDto": {
+        "type": "object",
+        "properties": {
+          "metadata": {
+            "$ref": "#/components/schemas/MetadataDto"
+          },
+          "properties": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/BackupUpdatePropertiesDto"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "BackupUpdatePropertiesDto": {
+        "type": "object",
+        "properties": {
+          "billingPeriod": {
+            "type": "string",
+            "description": "The billing period for blockStorage. Only Hour is a valid value"
+          }
+        },
+        "additionalProperties": false
+      },
+      "BackupVolumeResponseDto": {
+        "type": "object",
+        "properties": {
+          "uri": {
+            "type": "string",
+            "description": "Uri of the volume"
+          },
+          "name": {
+            "type": "string",
+            "description": "Current name of the volume"
+          },
+          "bootable": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false,
+        "description": "Source volume of backup"
+      },
+      "BillingPlanDto": {
+        "type": "object",
+        "properties": {
+          "billingPeriod": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "BillingPlanResponseDto": {
+        "type": "object",
+        "properties": {
+          "billingPeriod": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CategoryDtoBackupTypologyExtraInfo": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "typology": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TypologyDtoBackupTypologyExtraInfo"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "CategoryDtoRestoreTypologyExtraInfo": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "typology": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TypologyDtoRestoreTypologyExtraInfo"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "CategoryDtoSnapshotTypologyExtraInfo": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "typology": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TypologyDtoSnapshotTypologyExtraInfo"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "CategoryDtoVolumeTypologyExtraInfo": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "typology": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TypologyDtoVolumeTypologyExtraInfo"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "CategoryDtoVolumeUpdateTypologyExtraInfo": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "typology": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TypologyDtoVolumeUpdateTypologyExtraInfo"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "CategoryResponseDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "typology": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TypologyResponseDto"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "ComponentConfigurationDto": {
+        "type": "object",
+        "properties": {
+          "typology": {
+            "type": "string"
+          },
+          "attributes": {}
+        },
+        "additionalProperties": false
+      },
+      "CompoundProvisioningCompleted": {
+        "type": "object",
+        "properties": {
+          "correlationId": {
+            "type": "string"
+          },
+          "createdBy": {
+            "type": "string"
+          },
+          "deploymentId": {
+            "type": "string"
+          },
+          "location": {
+            "type": "string"
+          },
+          "projectId": {
+            "type": "string"
+          },
+          "typology": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TypologyData"
+              }
+            ]
+          },
+          "uri": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CompoundProvisioningFailed": {
+        "type": "object",
+        "properties": {
+          "correlationId": {
+            "type": "string"
+          },
+          "createdBy": {
+            "type": "string"
+          },
+          "deploymentId": {
+            "type": "string"
+          },
+          "location": {
+            "type": "string"
+          },
+          "projectId": {
+            "type": "string"
+          },
+          "typology": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TypologyData"
+              }
+            ]
+          },
+          "uri": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ConvertKaasVolumeToStandAloneRequest": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string"
+          },
+          "deploymentId": {
+            "type": "string"
+          },
+          "typology": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "DataCenterDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "allowedServices": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "DeleteInfrastructureResourceRequest": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string"
+          },
+          "deploymentId": {
+            "type": "string"
+          },
+          "typologyId": {
+            "type": "string"
+          },
+          "key": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "DetachVolumeRequest": {
+        "type": "object",
+        "properties": {
+          "kaasId": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string"
+          },
+          "nodeId": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "volumeId": {
+            "type": "string"
+          },
+          "projectId": {
+            "type": "string"
+          },
+          "retryCounter": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "DisableMode": {
+        "enum": [
+          "Manual",
+          "Automatic"
+        ],
+        "type": "string"
+      },
+      "DisableReason": {
+        "enum": [
+          "Spamming",
+          "NoCredit",
+          "SQLInjection",
+          "Phishing",
+          "UnauthorizedStolenCredentialsAccess",
+          "Virus",
+          "CopyrightViolation",
+          "OtherAttackTypes"
+        ],
+        "type": "string"
+      },
+      "DisableRequestDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DisableReason"
+              }
+            ]
+          },
+          "mode": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DisableMode"
+              }
+            ]
+          },
+          "note": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "DisableStatusInfoResponseDto": {
+        "type": "object",
+        "properties": {
+          "isDisabled": {
+            "type": "boolean"
+          },
+          "reasons": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "previousStatus": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PreviousStatusResponseDto"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "EcommerceDto": {
+        "type": "object",
+        "properties": {
+          "subscriptionServices": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SubscriptionServicesDto"
+              }
+            ]
+          },
+          "productCatalog": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ProductCatalogDto"
+              }
+            ]
+          },
+          "project": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "EcommerceResponseDto": {
+        "type": "object",
+        "properties": {
+          "subscriptionServices": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SubscriptionServicesResponseDto"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "EnableRequestDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DisableReason"
+              }
+            ]
+          },
+          "mode": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DisableMode"
+              }
+            ]
+          },
+          "note": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "FullPayload.LinkedResourceDto": {
+        "type": "object",
+        "properties": {
+          "uri": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "FullPayload.LocationDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "country": {
+            "type": "string"
+          },
+          "city": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          },
+          "dataCenters": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DataCenterDto"
+            }
+          },
+          "unavailable": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "FullPayload.ProjectDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "folderId": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "GenericResourceDto": {
+        "type": "object",
+        "properties": {
+          "uri": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "GenericResourceResponseDto": {
+        "type": "object",
+        "properties": {
+          "uri": {
+            "type": "string",
+            "description": "Uri of the resource"
+          }
+        },
+        "additionalProperties": false
+      },
+      "IdentityDto": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          },
+          "account": {
+            "type": "string"
+          },
+          "tenant": {
+            "type": "string"
+          },
+          "company": {
+            "type": "string"
+          },
+          "groupMembership": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "currency": {
+            "type": "string"
+          },
+          "azp": {
+            "type": "string"
+          },
+          "ownerId": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "InfrastructureResponseDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "value": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ValueResponseDto"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "InvolvedObject": {
+        "type": "object",
+        "properties": {
+          "apiVersion": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "namespace": {
+            "type": "string"
+          },
+          "uid": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "JobType": {
+        "enum": [
+          "BackupDisabledPeriodsActionJob",
+          "SnapshotDisabledPeriodsActionJob",
+          "VolumeDisabledPeriodsActionJob",
+          "BackupRetentionDaysActionJob"
+        ],
+        "type": "string"
+      },
+      "LinkedResourceResponseDto": {
+        "type": "object",
+        "properties": {
+          "uri": {
+            "type": "string"
+          },
+          "strictCorrelation": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ListResponseDtoTemplate": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "self": {
+            "type": "string"
+          },
+          "prev": {
+            "type": "string"
+          },
+          "next": {
+            "type": "string"
+          },
+          "first": {
+            "type": "string"
+          },
+          "last": {
+            "type": "string"
+          },
+          "values": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Template"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "LocationResponseDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "country": {
+            "type": "string"
+          },
+          "city": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "MetadataDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Name of the resource"
+          },
+          "location": {
+            "$ref": "#/components/schemas/LocationDto"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "List of tags for the resource"
+          }
+        },
+        "additionalProperties": false,
+        "description": "Metadata of the resource"
+      },
+      "MetadataResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "uri": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "location": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LocationResponseDto"
+              }
+            ]
+          },
+          "project": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ProjectResponseDto"
+              }
+            ]
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "category": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CategoryResponseDto"
+              }
+            ]
+          },
+          "creationDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "createdBy": {
+            "type": "string"
+          },
+          "ownerId": {
+            "type": "string"
+          },
+          "updateDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedBy": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "createdUser": {
+            "type": "string"
+          },
+          "updatedUser": {
+            "type": "string"
+          },
+          "linkedResources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LinkedResourceResponseDto"
+            }
+          },
+          "managedBy": {
+            "type": "string"
+          },
+          "annotations": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "OperativeSystem": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/OsType"
+              }
+            ]
+          },
+          "username": {
+            "type": "string"
+          },
+          "family": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "OperativeSystemDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/OsType"
+              }
+            ]
+          },
+          "username": {
+            "type": "string"
+          },
+          "family": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "OrchestrateVolumeDeleteRequest": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string"
+          },
+          "volumeId": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "OsType": {
+        "enum": [
+          "Linux",
+          "Windows"
+        ],
+        "type": "string"
+      },
+      "ParentTypologyDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PlatformMetadata": {
+        "type": "object",
+        "properties": {
+          "creationTimestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "name": {
+            "type": "string"
+          },
+          "namespace": {
+            "type": "string"
+          },
+          "uid": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PreviousStatusResponseDto": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string"
+          },
+          "creationDate": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PricingPlanDto": {
+        "type": "object",
+        "properties": {
+          "productPlan": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ProductPlanDto"
+              }
+            ]
+          },
+          "productPlanPhases": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProductPlanPhasesDto"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "ProblemDetails": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "instance": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": true
+      },
+      "ProductAttributeDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ProductCatalogDto": {
+        "type": "object",
+        "properties": {
+          "products": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProductDto"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "ProductDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "variantId": {
+            "type": "string"
+          },
+          "variantName": {
+            "type": "string"
+          },
+          "categoryName": {
+            "type": "string"
+          },
+          "attributes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProductAttributeDto"
+            }
+          },
+          "plans": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PricingPlanDto"
+            }
+          },
+          "addons": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AddonDto"
+            }
+          },
+          "extraInfo": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ProductExtraInfoDto"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "ProductExtraInfoDto": {
+        "type": "object",
+        "properties": {
+          "provisioningProductId": {
+            "type": "string"
+          },
+          "provisioningProductName": {
+            "type": "string"
+          },
+          "trial": {
+            "type": "string"
+          },
+          "osType": {
+            "type": "string"
+          },
+          "typologyId": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ProductPlanDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "productVariantId": {
+            "type": "string"
+          },
+          "displayOrder": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "attributes": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ProductPlanPhasesDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "fixedPrice": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ProductPriceDto"
+              }
+            ]
+          },
+          "billingPeriod": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ProductPriceDto": {
+        "type": "object",
+        "properties": {
+          "price": {
+            "type": "number",
+            "format": "double"
+          },
+          "currency": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ProjectResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "folderId": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "RelatesToDto": {
+        "type": "object",
+        "properties": {
+          "typology": {
+            "type": "string"
+          },
+          "uri": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "RemoveSnapshotFromVolumeRequest": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string"
+          },
+          "snapshotId": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "RestoreDto": {
+        "type": "object",
+        "properties": {
+          "metadata": {
+            "$ref": "#/components/schemas/MetadataDto"
+          },
+          "properties": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RestorePropertiesDto"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "RestoreListResponseDto": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "self": {
+            "type": "string"
+          },
+          "prev": {
+            "type": "string"
+          },
+          "next": {
+            "type": "string"
+          },
+          "first": {
+            "type": "string"
+          },
+          "last": {
+            "type": "string"
+          },
+          "values": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RestoreResponseDto"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "RestorePropertiesDto": {
+        "type": "object",
+        "properties": {
+          "destinationVolume": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GenericResourceDto"
+              }
+            ],
+            "description": "The source volume for this restore"
+          }
+        },
+        "additionalProperties": false
+      },
+      "RestorePropertiesResponseDto": {
+        "type": "object",
+        "properties": {
+          "destinationVolume": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GenericResourceResponseDto"
+              }
+            ],
+            "description": "The source volume for this restore"
+          }
+        },
+        "additionalProperties": false
+      },
+      "RestoreResponseDto": {
+        "type": "object",
+        "properties": {
+          "metadata": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MetadataResponseDto"
+              }
+            ]
+          },
+          "status": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/StatusResponseDto"
+              }
+            ]
+          },
+          "properties": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RestorePropertiesResponseDto"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "RestoreTypologyExtraInfo": {
+        "type": "object",
+        "additionalProperties": false
+      },
+      "RestoreUpdateDto": {
+        "type": "object",
+        "properties": {
+          "metadata": {
+            "$ref": "#/components/schemas/MetadataDto"
+          },
+          "properties": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RestoreUpdatePropertiesDto"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "RestoreUpdatePropertiesDto": {
+        "type": "object",
+        "additionalProperties": false
+      },
+      "ServiceDto": {
+        "type": "object",
+        "properties": {
+          "initialOrder": {
+            "type": "boolean"
+          },
+          "orderItemId": {
+            "type": "string"
+          },
+          "productVariantId": {
+            "type": "string"
+          },
+          "productPlanId": {
+            "type": "string"
+          },
+          "type": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ServiceType"
+              }
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "serviceId": {
+            "type": "string"
+          },
+          "serviceGroupId": {
+            "type": "string"
+          },
+          "creationDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "quantity": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "resource": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ServiceResourceDto"
+              }
+            ]
+          },
+          "extraInfo": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SubscriptionExtraInfoDto"
+              }
+            ]
+          },
+          "totalPrice": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ServiceResourceDto": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ServiceResponseDto": {
+        "type": "object",
+        "properties": {
+          "initialOrder": {
+            "type": "boolean"
+          },
+          "orderItemId": {
+            "type": "string"
+          },
+          "productVariantId": {
+            "type": "string"
+          },
+          "productPlanId": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "serviceId": {
+            "type": "string"
+          },
+          "serviceGroupId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "creationDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "quantity": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalPrice": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ServiceType": {
+        "enum": [
+          "Base",
+          "Addon"
+        ],
+        "type": "string"
+      },
+      "SizeRequirements": {
+        "type": "object",
+        "properties": {
+          "cpu": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "ram": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "hd": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "SizeRequirementsDto": {
+        "type": "object",
+        "properties": {
+          "cpu": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "ram": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "hd": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "SnapshotDto": {
+        "type": "object",
+        "properties": {
+          "metadata": {
+            "$ref": "#/components/schemas/MetadataDto"
+          },
+          "properties": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SnapshotPropertiesDto"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "SnapshotListResponseDto": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "self": {
+            "type": "string"
+          },
+          "prev": {
+            "type": "string"
+          },
+          "next": {
+            "type": "string"
+          },
+          "first": {
+            "type": "string"
+          },
+          "last": {
+            "type": "string"
+          },
+          "values": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SnapshotResponseDto"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "SnapshotPropertiesDto": {
+        "type": "object",
+        "properties": {
+          "billingPeriod": {
+            "type": "string",
+            "description": "The billing period for blockStorage. Only Hour is a valid value"
+          },
+          "volume": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GenericResourceDto"
+              }
+            ],
+            "description": "Existing block storage from which the snapshot will be created"
+          }
+        },
+        "additionalProperties": false
+      },
+      "SnapshotPropertiesResponseDto": {
+        "type": "object",
+        "properties": {
+          "sizeGb": {
+            "type": "integer",
+            "description": "The blockStoages's size in gigabyte",
+            "format": "int32"
+          },
+          "billingPeriod": {
+            "type": "string",
+            "description": "The billing period for blockStorage. Only Hour is a valid value"
+          },
+          "volume": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SnapshotVolumeResponseDto"
+              }
+            ],
+            "description": "Original volume the snapshot was created from"
+          },
+          "dataCenter": {
+            "type": "string",
+            "description": "The datacenter where blockstorage will be created\n\nFor more information, check the <a href=\"/api/docs/metadata/#location-and-data-center\" target=\"_blank\">documentation</a>."
+          },
+          "type": {
+            "type": "string",
+            "description": "The type of the original volume from which the snapshot was created"
+          },
+          "bootable": {
+            "type": "boolean",
+            "description": "True if the original volume of the snapshot was a bootable disk"
+          }
+        },
+        "additionalProperties": false
+      },
+      "SnapshotResponseDto": {
+        "type": "object",
+        "properties": {
+          "metadata": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MetadataResponseDto"
+              }
+            ]
+          },
+          "status": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/StatusResponseDto"
+              }
+            ]
+          },
+          "properties": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SnapshotPropertiesResponseDto"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "SnapshotTypologyExtraInfo": {
+        "type": "object",
+        "additionalProperties": false
+      },
+      "SnapshotUpdateDto": {
+        "type": "object",
+        "properties": {
+          "metadata": {
+            "$ref": "#/components/schemas/MetadataDto"
+          },
+          "properties": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SnapshotUpdatePropertiesDto"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "SnapshotUpdatePropertiesDto": {
+        "type": "object",
+        "properties": {
+          "billingPeriod": {
+            "type": "string",
+            "description": "The billing period for blockStorage. Only Hour is a valid value"
+          }
+        },
+        "additionalProperties": false
+      },
+      "SnapshotVolumeResponseDto": {
+        "type": "object",
+        "properties": {
+          "uri": {
+            "type": "string",
+            "description": "Uri of the volume"
+          },
+          "name": {
+            "type": "string",
+            "description": "Current name of the volume"
+          },
+          "compoundResource": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GenericResourceResponseDto"
+              }
+            ],
+            "description": "The resource used by the volume at the time the snapshot was created"
+          }
+        },
+        "additionalProperties": false
+      },
+      "SourceType": {
+        "enum": [
+          "Linux",
+          "Windows",
+          "APP"
+        ],
+        "type": "string"
+      },
+      "StatusErrorResponseDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "StatusResponseDto": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string"
+          },
+          "creationDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "disableStatusInfo": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DisableStatusInfoResponseDto"
+              }
+            ]
+          },
+          "failureReason": {
+            "type": "string"
+          },
+          "error": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/StatusErrorResponseDto"
+              }
+            ]
+          },
+          "reservedTo": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "StoragePropertiesResponseDto": {
+        "type": "object",
+        "properties": {
+          "linkedResources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LinkedResourceResponseDto"
+            }
+          },
+          "totalSize": {
+            "type": "integer",
+            "description": "Maximum size in GB",
+            "format": "int32"
+          },
+          "usedSize": {
+            "type": "integer",
+            "description": "Used size in GB",
+            "format": "int32"
+          },
+          "volumeCount": {
+            "type": "integer",
+            "description": "Volume count",
+            "format": "int32"
+          },
+          "totalPrice": {
+            "type": "number",
+            "description": "TotalPrice",
+            "format": "double"
+          },
+          "billingPeriod": {
+            "type": "string",
+            "description": "Type of Billing period"
+          },
+          "currency": {
+            "type": "string",
+            "description": "Currency"
+          }
+        },
+        "additionalProperties": false
+      },
+      "StorageResponseDto": {
+        "type": "object",
+        "properties": {
+          "metadata": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MetadataResponseDto"
+              }
+            ]
+          },
+          "status": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/StatusResponseDto"
+              }
+            ]
+          },
+          "properties": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/StoragePropertiesResponseDto"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "StorageResponseListDto": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "self": {
+            "type": "string"
+          },
+          "prev": {
+            "type": "string"
+          },
+          "next": {
+            "type": "string"
+          },
+          "first": {
+            "type": "string"
+          },
+          "last": {
+            "type": "string"
+          },
+          "values": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StorageResponseDto"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "SubscriptionExtraInfoDto": {
+        "type": "object",
+        "properties": {
+          "provisioningProductId": {
+            "type": "string"
+          },
+          "provisioningProductName": {
+            "type": "string"
+          },
+          "dataCenter": {
+            "type": "string",
+            "description": "For more information, check the <a href=\"/api/docs/metadata/#location-and-data-center\" target=\"_blank\">documentation</a>."
+          }
+        },
+        "additionalProperties": false
+      },
+      "SubscriptionServicesDto": {
+        "type": "object",
+        "properties": {
+          "serviceBasketId": {
+            "type": "string"
+          },
+          "subscriptionId": {
+            "type": "string"
+          },
+          "billingContainerId": {
+            "type": "string"
+          },
+          "serviceGroupId": {
+            "type": "string"
+          },
+          "orderId": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "totalPrice": {
+            "type": "number",
+            "format": "double"
+          },
+          "plan": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/BillingPlanDto"
+              }
+            ]
+          },
+          "services": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ServiceDto"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "SubscriptionServicesResponseDto": {
+        "type": "object",
+        "properties": {
+          "serviceBasketId": {
+            "type": "string"
+          },
+          "subscriptionId": {
+            "type": "string"
+          },
+          "billingContainerId": {
+            "type": "string"
+          },
+          "serviceGroupId": {
+            "type": "string"
+          },
+          "orderId": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "totalPrice": {
+            "type": "number",
+            "format": "double"
+          },
+          "plan": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/BillingPlanResponseDto"
+              }
+            ]
+          },
+          "services": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ServiceResponseDto"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "Template": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "icon": {
+            "type": "string"
+          },
+          "minRequirements": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SizeRequirements"
+              }
+            ]
+          },
+          "maxRequirements": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SizeRequirements"
+              }
+            ]
+          },
+          "defaultRequirements": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SizeRequirements"
+              }
+            ]
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "allowedLocations": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "os": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/OperativeSystem"
+              }
+            ]
+          },
+          "identificationCode": {
+            "type": "string"
+          },
+          "userData": {
+            "type": "string"
+          },
+          "addons": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Addon"
+            }
+          },
+          "sourceType": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SourceType"
+              }
+            ]
+          },
+          "createdOn": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "lastUpdatedOn": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "isDefault": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "TemplateAddonDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "TemplateCreateDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "icon": {
+            "type": "string"
+          },
+          "minRequirements": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SizeRequirementsDto"
+              }
+            ]
+          },
+          "maxRequirements": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SizeRequirementsDto"
+              }
+            ]
+          },
+          "defaultRequirements": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SizeRequirementsDto"
+              }
+            ]
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "allowedLocations": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "os": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/OperativeSystemDto"
+              }
+            ]
+          },
+          "identificationCode": {
+            "type": "string"
+          },
+          "userData": {
+            "type": "string"
+          },
+          "addons": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TemplateAddonDto"
+            }
+          },
+          "sourceType": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SourceType"
+              }
+            ]
+          },
+          "isDefault": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "TemplateDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "icon": {
+            "type": "string"
+          },
+          "minRequirements": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SizeRequirementsDto"
+              }
+            ]
+          },
+          "maxRequirements": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SizeRequirementsDto"
+              }
+            ]
+          },
+          "defaultRequirements": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SizeRequirementsDto"
+              }
+            ]
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "allowedLocations": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "os": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/OperativeSystemDto"
+              }
+            ]
+          },
+          "identificationCode": {
+            "type": "string"
+          },
+          "userData": {
+            "type": "string"
+          },
+          "addons": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TemplateAddonDto"
+            }
+          },
+          "sourceType": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SourceType"
+              }
+            ]
+          },
+          "createdOn": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "lastUpdatedOn": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "sshEnabled": {
+            "type": "boolean"
+          },
+          "isDefault": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "TemplateUpdateDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "icon": {
+            "type": "string"
+          },
+          "minRequirements": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SizeRequirementsDto"
+              }
+            ]
+          },
+          "maxRequirements": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SizeRequirementsDto"
+              }
+            ]
+          },
+          "defaultRequirements": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SizeRequirementsDto"
+              }
+            ]
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "allowedLocations": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "os": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/OperativeSystemDto"
+              }
+            ]
+          },
+          "identificationCode": {
+            "type": "string"
+          },
+          "userData": {
+            "type": "string"
+          },
+          "addons": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TemplateAddonDto"
+            }
+          },
+          "sourceType": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SourceType"
+              }
+            ]
+          },
+          "isDefault": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "TypologyData": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "TypologyDtoBackupTypologyExtraInfo": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "controllerName": {
+            "type": "string"
+          },
+          "limitResourceAvailableForLocation": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "extraInfo": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/BackupTypologyExtraInfo"
+              }
+            ]
+          },
+          "parents": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ParentTypologyDto"
+            }
+          },
+          "skipEcommerce": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "TypologyDtoRestoreTypologyExtraInfo": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "controllerName": {
+            "type": "string"
+          },
+          "limitResourceAvailableForLocation": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "extraInfo": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RestoreTypologyExtraInfo"
+              }
+            ]
+          },
+          "parents": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ParentTypologyDto"
+            }
+          },
+          "skipEcommerce": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "TypologyDtoSnapshotTypologyExtraInfo": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "controllerName": {
+            "type": "string"
+          },
+          "limitResourceAvailableForLocation": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "extraInfo": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SnapshotTypologyExtraInfo"
+              }
+            ]
+          },
+          "parents": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ParentTypologyDto"
+            }
+          },
+          "skipEcommerce": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "TypologyDtoVolumeTypologyExtraInfo": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "controllerName": {
+            "type": "string"
+          },
+          "limitResourceAvailableForLocation": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "extraInfo": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VolumeTypologyExtraInfo"
+              }
+            ]
+          },
+          "parents": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ParentTypologyDto"
+            }
+          },
+          "skipEcommerce": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "TypologyDtoVolumeUpdateTypologyExtraInfo": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "controllerName": {
+            "type": "string"
+          },
+          "limitResourceAvailableForLocation": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "extraInfo": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VolumeUpdateTypologyExtraInfo"
+              }
+            ]
+          },
+          "parents": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ParentTypologyDto"
+            }
+          },
+          "skipEcommerce": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "TypologyResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "UserPayload.LocationDto": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "UserSnapshotDto": {
+        "type": "object",
+        "properties": {
+          "metadata": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MetadataDto"
+              }
+            ]
+          },
+          "properties": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SnapshotPropertiesDto"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "UserVolumeDto": {
+        "type": "object",
+        "properties": {
+          "metadata": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MetadataDto"
+              }
+            ]
+          },
+          "properties": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/UserVolumePropertiesDto"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "UserVolumePropertiesDto": {
+        "type": "object",
+        "properties": {
+          "linkedResources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FullPayload.LinkedResourceDto"
+            }
+          },
+          "sizeGb": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "billingPeriod": {
+            "type": "string"
+          },
+          "dataCenter": {
+            "type": "string",
+            "description": "For more information, check the <a href=\"/api/docs/metadata/#location-and-data-center\" target=\"_blank\">documentation</a>."
+          },
+          "bootable": {
+            "type": "boolean"
+          },
+          "image": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ValueResponseDto": {
+        "type": "object",
+        "properties": {
+          "uid": {
+            "type": "string"
+          },
+          "resourceId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "nameSpace": {
+            "type": "string"
+          },
+          "projectId": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "VolumeAttachDto": {
+        "type": "object",
+        "properties": {
+          "nodeId": {
+            "type": "string",
+            "description": "Node id of the server the volume is goint to be attached to"
+          }
+        },
+        "additionalProperties": false
+      },
+      "VolumeAttached": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "deploymentId": {
+            "type": "string"
+          },
+          "time": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "message": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "involvedObject": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/InvolvedObject"
+              }
+            ]
+          },
+          "metadata": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PlatformMetadata"
+              }
+            ]
+          },
+          "osResourceId": {
+            "type": "string"
+          },
+          "properties": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VolumeAttachedProperties"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "VolumeAttachedProperties": {
+        "type": "object",
+        "properties": {
+          "device": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "VolumeDetached": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "deploymentId": {
+            "type": "string"
+          },
+          "time": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "message": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "involvedObject": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/InvolvedObject"
+              }
+            ]
+          },
+          "metadata": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PlatformMetadata"
+              }
+            ]
+          },
+          "osResourceId": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "VolumeDisableDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DisableReason"
+              }
+            ]
+          },
+          "mode": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DisableMode"
+              }
+            ]
+          },
+          "note": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "VolumeDto": {
+        "type": "object",
+        "properties": {
+          "metadata": {
+            "$ref": "#/components/schemas/MetadataDto"
+          },
+          "properties": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VolumePropertiesDto"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "VolumeEnableDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DisableReason"
+              }
+            ]
+          },
+          "mode": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DisableMode"
+              }
+            ]
+          },
+          "note": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "VolumeInfoDto": {
+        "type": "object",
+        "properties": {
+          "device": {
+            "type": "string"
+          },
+          "osResourceId": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "VolumeInternalDataDto": {
+        "type": "object",
+        "properties": {
+          "private": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VolumeInternalDataPrivateDto"
+              }
+            ]
+          },
+          "infrastructure": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VolumeInternalDataInfrastructureDto"
+              }
+            ],
+            "description": ""
+          },
+          "info": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VolumeInfoDto"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "VolumeInternalDataInfrastructureDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "value": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VolumeInternalDataInfrastructureValueDto"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "description": ""
+      },
+      "VolumeInternalDataInfrastructureValueDto": {
+        "type": "object",
+        "properties": {
+          "uid": {
+            "type": "string"
+          },
+          "resourceId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "namespace": {
+            "type": "string"
+          },
+          "projectId": {
+            "type": "string"
+          },
+          "ocmResourceId": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "VolumeInternalDataPrivateDto": {
+        "type": "object",
+        "properties": {
+          "nodeId": {
+            "type": "string"
+          },
+          "detaching": {
+            "type": "boolean"
+          },
+          "attaching": {
+            "type": "boolean"
+          },
+          "state": {
+            "type": "string"
+          },
+          "kaasId": {
+            "type": "string"
+          },
+          "failureReason": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "VolumeListResponseDto": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "self": {
+            "type": "string"
+          },
+          "prev": {
+            "type": "string"
+          },
+          "next": {
+            "type": "string"
+          },
+          "first": {
+            "type": "string"
+          },
+          "last": {
+            "type": "string"
+          },
+          "values": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VolumeResponseDto"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "VolumePropertiesDto": {
+        "type": "object",
+        "properties": {
+          "sizeGb": {
+            "type": "integer",
+            "description": "The blockStoages's size in gigabyte",
+            "format": "int32"
+          },
+          "billingPeriod": {
+            "type": "string",
+            "description": "The billing period for blockStorage. Only Hour is a valid value"
+          },
+          "dataCenter": {
+            "type": "string",
+            "description": "The datacenter where blockstorage will be created\n\nFor more information, check the <a href=\"/api/docs/metadata/#location-and-data-center\" target=\"_blank\">documentation</a>."
+          },
+          "type": {
+            "type": "string",
+            "description": "Volume typology. Accepted values:\r\n- Standard\r\n- Performance"
+          },
+          "snapshot": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GenericResourceDto"
+              }
+            ],
+            "description": "The snapshot from which the block storage will be created"
+          },
+          "backup": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GenericResourceDto"
+              }
+            ]
+          },
+          "bootable": {
+            "type": "boolean",
+            "description": "If the Volume is Bootable"
+          },
+          "image": {
+            "type": "string",
+            "description": "Volume image if it's bootable"
+          }
+        },
+        "additionalProperties": false
+      },
+      "VolumePropertiesResponseDto": {
+        "type": "object",
+        "properties": {
+          "sizeGb": {
+            "type": "integer",
+            "description": "The blockStoages's size in gigabyte",
+            "format": "int32"
+          },
+          "billingPeriod": {
+            "type": "string",
+            "description": "The billing period for blockStorage. Only Hour is a valid value"
+          },
+          "dataCenter": {
+            "type": "string",
+            "description": "The datacenter where blockstorage will be created\n\nFor more information, check the <a href=\"/api/docs/metadata/#location-and-data-center\" target=\"_blank\">documentation</a>."
+          },
+          "type": {
+            "type": "string",
+            "description": "The typology of the volume (es. Standard, Performance)"
+          },
+          "bootable": {
+            "type": "boolean",
+            "description": "If the Volume is Bootable"
+          },
+          "image": {
+            "type": "string",
+            "description": "Volume image if it's bootable"
+          },
+          "linkedResources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LinkedResourceResponseDto"
+            },
+            "description": "The resource you can link to your BlockStorage. It's for future use"
+          }
+        },
+        "additionalProperties": false
+      },
+      "VolumeResponseDto": {
+        "type": "object",
+        "properties": {
+          "metadata": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MetadataResponseDto"
+              }
+            ]
+          },
+          "status": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/StatusResponseDto"
+              }
+            ]
+          },
+          "properties": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VolumePropertiesResponseDto"
+              }
+            ]
+          },
+          "data": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VolumeInternalDataDto"
+              }
+            ],
+            "description": "internal data"
+          }
+        },
+        "additionalProperties": false
+      },
+      "VolumeTypologyExtraInfo": {
+        "type": "object",
+        "additionalProperties": false
+      },
+      "VolumeUpdateDto": {
+        "type": "object",
+        "properties": {
+          "metadata": {
+            "$ref": "#/components/schemas/MetadataDto"
+          },
+          "properties": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VolumeUpdatePropertiesDto"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "VolumeUpdatePropertiesDto": {
+        "type": "object",
+        "properties": {
+          "sizeGb": {
+            "type": "integer",
+            "description": "The blockStoages's size in gigabyte",
+            "format": "int32"
+          },
+          "billingPeriod": {
+            "type": "string",
+            "description": "The billing period for blockStorage. Only Hour is a valid value"
+          },
+          "dataCenter": {
+            "type": "string",
+            "description": "The datacenter where blockstorage will be created\n\nFor more information, check the <a href=\"/api/docs/metadata/#location-and-data-center\" target=\"_blank\">documentation</a>."
+          }
+        },
+        "additionalProperties": false
+      },
+      "VolumeUpdateTypologyExtraInfo": {
+        "type": "object",
+        "additionalProperties": false
+      },
+      "CallBackType": {
+        "enum": [
+          "Validate",
+          "Mutate"
+        ],
+        "type": "string"
+      },
+      "CallBackUri": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "$ref": "#/components/schemas/CallBackType"
+          },
+          "uri": {
+            "type": "string",
+            "format": "uri"
+          }
+        },
+        "additionalProperties": false
+      },
+      "LinkedResourceDto": {
+        "type": "object",
+        "properties": {
+          "uri": {
+            "type": "string",
+            "description": "Uri of the resource to link"
+          }
+        },
+        "additionalProperties": false,
+        "description": "Linked resource"
+      },
+      "LocationDto": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string",
+            "description": "Value of the region in which the resource will be located.\r\nAvailable regions at present:\r\n- ITBG-Bergamo\n\nFor more information, check the <a href=\"/api/docs/metadata/#location-and-data-center\" target=\"_blank\">documentation</a>."
+          }
+        },
+        "additionalProperties": false,
+        "description": "Contains information about the Region of a resource"
+      },
+      "MetadataDtoV2": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Name of the resource"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "List of tags for the resource"
+          }
+        },
+        "additionalProperties": false,
+        "description": "Metadata of the resource"
+      },
+      "PropertiesBaseDto": {
+        "type": "object",
+        "properties": {
+          "linkedResources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LinkedResourceDto"
+            },
+            "description": "List of linked resources"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ProviderConfig": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "uri": {
+            "type": "string"
+          },
+          "providerResourceConfigs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProviderResourceConfig"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "ProviderResourceConfig": {
+        "type": "object",
+        "properties": {
+          "resource": {
+            "type": "string"
+          },
+          "callBackUris": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CallBackUri"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "ResourceBaseDto": {
+        "type": "object",
+        "properties": {
+          "metadata": {
+            "$ref": "#/components/schemas/MetadataDto"
+          },
+          "properties": {
+            "$ref": "#/components/schemas/PropertiesBaseDto"
+          }
+        },
+        "additionalProperties": false,
+        "description": "Classe base del full paylod di una risorsa con tipizzazione a object delle custom properties\r\ne delle extra info della tipologia"
+      },
+      "ResourceBaseDtoV2": {
+        "type": "object",
+        "properties": {
+          "metadata": {
+            "$ref": "#/components/schemas/MetadataDtoV2"
+          },
+          "properties": {
+            "$ref": "#/components/schemas/PropertiesBaseDto"
+          }
+        },
+        "additionalProperties": false,
+        "description": "Classe base del full paylod di una risorsa con tipizzazione a object delle custom properties\r\ne delle extra info della tipologia"
+      }
+    },
+    "securitySchemes": {
+      "accessToken": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  },
+  "security": [
+    {
+      "accessToken": []
+    }
+  ]
+}

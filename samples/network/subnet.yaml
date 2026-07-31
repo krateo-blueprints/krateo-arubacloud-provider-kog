@@ -1,0 +1,19 @@
+apiVersion: arubacloud.ogen.krateo.io/v1alpha1
+kind: Subnet
+metadata:
+  name: example-subnet
+  namespace: default
+  annotations:
+    krateo.io/connector-verbose: 'true'
+spec:
+  configurationRef:
+    name: subnet-config
+    namespace: default
+  projectId: REPLACE
+  vpcId: REPLACE
+  metadata:
+    name: example-subnet
+    location: {}
+    tags: []
+  properties:
+    # fill from openapi/network.json

@@ -1,0 +1,84 @@
+# Aruba Cloud SecurityGroup (network provider) - generated, no proxy.
+apiVersion: ogen.krateo.io/v1alpha1
+kind: RestDefinition
+metadata:
+  name: arubacloud-network-securitygroup
+spec:
+  oasPath: configmap://krateo-system/arubacloud-network-openapi/network.json
+  resourceGroup: arubacloud.ogen.krateo.io
+  resource:
+    kind: SecurityGroup
+    identifiers:
+    - metadata.name
+    additionalStatusFields:
+    - metadata.id
+    excludedSpecFields:
+    - id
+    verbsDescription:
+    - action: findby
+      method: GET
+      path: /projects/{projectId}/providers/Aruba.Network/vpcs/{vpcId}/securityGroups
+    - action: get
+      method: GET
+      path: /projects/{projectId}/providers/Aruba.Network/vpcs/{vpcId}/securityGroups/{id}
+      requestFieldMapping:
+      - inPath: id
+        inCustomResource: status.metadata.id
+    - action: create
+      method: POST
+      path: /projects/{projectId}/providers/Aruba.Network/vpcs/{vpcId}/securityGroups
+    - action: update
+      method: PUT
+      path: /projects/{projectId}/providers/Aruba.Network/vpcs/{vpcId}/securityGroups/{id}
+      requestFieldMapping:
+      - inPath: id
+        inCustomResource: status.metadata.id
+    - action: delete
+      method: DELETE
+      path: /projects/{projectId}/providers/Aruba.Network/vpcs/{vpcId}/securityGroups/{id}
+      requestFieldMapping:
+      - inPath: id
+        inCustomResource: status.metadata.id
+    configurationFields:
+    - fromOpenAPI:
+        name: api-version
+        in: query
+      fromRestDefinition:
+        actions:
+        - '*'
+    - fromOpenAPI:
+        name: filter
+        in: query
+      fromRestDefinition:
+        actions:
+        - findby
+    - fromOpenAPI:
+        name: sort
+        in: query
+      fromRestDefinition:
+        actions:
+        - findby
+    - fromOpenAPI:
+        name: projection
+        in: query
+      fromRestDefinition:
+        actions:
+        - findby
+    - fromOpenAPI:
+        name: offset
+        in: query
+      fromRestDefinition:
+        actions:
+        - findby
+    - fromOpenAPI:
+        name: limit
+        in: query
+      fromRestDefinition:
+        actions:
+        - findby
+    - fromOpenAPI:
+        name: ignoreDeletedStatus
+        in: query
+      fromRestDefinition:
+        actions:
+        - get

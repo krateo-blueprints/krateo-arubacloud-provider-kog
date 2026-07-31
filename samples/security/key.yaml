@@ -1,0 +1,15 @@
+apiVersion: arubacloud.ogen.krateo.io/v1alpha1
+kind: Key
+metadata:
+  name: example-key
+  namespace: default
+  annotations:
+    krateo.io/connector-verbose: 'true'
+spec:
+  configurationRef:
+    name: key-config
+    namespace: default
+  projectId: REPLACE
+  id: REPLACE
+  name: REPLACE
+  algorithm: Aes

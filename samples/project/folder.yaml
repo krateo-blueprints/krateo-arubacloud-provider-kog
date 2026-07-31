@@ -1,0 +1,13 @@
+apiVersion: arubacloud.ogen.krateo.io/v1alpha1
+kind: Folder
+metadata:
+  name: example-folder
+  namespace: default
+  annotations:
+    krateo.io/connector-verbose: 'true'
+spec:
+  configurationRef:
+    name: folder-config
+    namespace: default
+  name: REPLACE
+  default: false

@@ -1,0 +1,20 @@
+apiVersion: arubacloud.ogen.krateo.io/v1alpha1
+kind: SecurityRule
+metadata:
+  name: example-securityrule
+  namespace: default
+  annotations:
+    krateo.io/connector-verbose: 'true'
+spec:
+  configurationRef:
+    name: securityrule-config
+    namespace: default
+  projectId: REPLACE
+  vpcId: REPLACE
+  securityGroupId: REPLACE
+  metadata:
+    name: example-securityrule
+    location: {}
+    tags: []
+  properties:
+    # fill from openapi/network.json

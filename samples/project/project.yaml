@@ -1,0 +1,16 @@
+apiVersion: arubacloud.ogen.krateo.io/v1alpha1
+kind: Project
+metadata:
+  name: example-project
+  namespace: default
+  annotations:
+    krateo.io/connector-verbose: 'true'
+spec:
+  configurationRef:
+    name: project-config
+    namespace: default
+  metadata:
+    name: example-project
+    tags: []
+  properties:
+    # fill from openapi/project.json

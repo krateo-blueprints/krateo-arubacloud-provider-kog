@@ -1,0 +1,18 @@
+apiVersion: arubacloud.ogen.krateo.io/v1alpha1
+kind: Dbaas
+metadata:
+  name: example-dbaas
+  namespace: default
+  annotations:
+    krateo.io/connector-verbose: 'true'
+spec:
+  configurationRef:
+    name: dbaas-config
+    namespace: default
+  projectId: REPLACE
+  metadata:
+    name: example-dbaas
+    location: {}
+    tags: []
+  properties:
+    # fill from openapi/database.json

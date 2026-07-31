@@ -1,0 +1,19 @@
+apiVersion: arubacloud.ogen.krateo.io/v1alpha1
+kind: VpnRoute
+metadata:
+  name: example-vpnroute
+  namespace: default
+  annotations:
+    krateo.io/connector-verbose: 'true'
+spec:
+  configurationRef:
+    name: vpnroute-config
+    namespace: default
+  projectId: REPLACE
+  vpnTunnelId: REPLACE
+  metadata:
+    name: example-vpnroute
+    location: {}
+    tags: []
+  properties:
+    # fill from openapi/network.json

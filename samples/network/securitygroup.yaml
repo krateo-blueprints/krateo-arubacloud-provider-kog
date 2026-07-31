@@ -1,0 +1,19 @@
+apiVersion: arubacloud.ogen.krateo.io/v1alpha1
+kind: SecurityGroup
+metadata:
+  name: example-securitygroup
+  namespace: default
+  annotations:
+    krateo.io/connector-verbose: 'true'
+spec:
+  configurationRef:
+    name: securitygroup-config
+    namespace: default
+  projectId: REPLACE
+  vpcId: REPLACE
+  metadata:
+    name: example-securitygroup
+    location: {}
+    tags: []
+  properties:
+    # fill from openapi/network.json

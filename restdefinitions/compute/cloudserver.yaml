@@ -1,0 +1,73 @@
+# Aruba Cloud CloudServer (compute provider) - generated, no proxy.
+# CloudServer has NO update verb; its lifecycle (power on/off, set password, associate elastic IPs / security groups / subnets, attach data volumes, restore) is expressed as separate action sub-endpoints. Only create/get/findby/delete are generated. Full lifecycle needs oasgen 'action verbs' or Snowplow createApiRef/updateApiRef delegation - see docs/oasgen-provider-evolution.md.
+apiVersion: ogen.krateo.io/v1alpha1
+kind: RestDefinition
+metadata:
+  name: arubacloud-compute-cloudserver
+spec:
+  oasPath: configmap://krateo-system/arubacloud-compute-openapi/compute.json
+  resourceGroup: arubacloud.ogen.krateo.io
+  resource:
+    kind: CloudServer
+    identifiers:
+    - metadata.name
+    additionalStatusFields:
+    - metadata.id
+    excludedSpecFields:
+    - cloudServerId
+    verbsDescription:
+    - action: findby
+      method: GET
+      path: /projects/{projectId}/providers/Aruba.Compute/cloudServers
+    - action: get
+      method: GET
+      path: /projects/{projectId}/providers/Aruba.Compute/cloudServers/{cloudServerId}
+      requestFieldMapping:
+      - inPath: cloudServerId
+        inCustomResource: status.metadata.id
+    - action: create
+      method: POST
+      path: /projects/{projectId}/providers/Aruba.Compute/cloudServers
+    - action: delete
+      method: DELETE
+      path: /projects/{projectId}/providers/Aruba.Compute/cloudServers/{cloudServerId}
+      requestFieldMapping:
+      - inPath: cloudServerId
+        inCustomResource: status.metadata.id
+    configurationFields:
+    - fromOpenAPI:
+        name: api-version
+        in: query
+      fromRestDefinition:
+        actions:
+        - '*'
+    - fromOpenAPI:
+        name: filter
+        in: query
+      fromRestDefinition:
+        actions:
+        - findby
+    - fromOpenAPI:
+        name: sort
+        in: query
+      fromRestDefinition:
+        actions:
+        - findby
+    - fromOpenAPI:
+        name: projection
+        in: query
+      fromRestDefinition:
+        actions:
+        - findby
+    - fromOpenAPI:
+        name: offset
+        in: query
+      fromRestDefinition:
+        actions:
+        - findby
+    - fromOpenAPI:
+        name: limit
+        in: query
+      fromRestDefinition:
+        actions:
+        - findby

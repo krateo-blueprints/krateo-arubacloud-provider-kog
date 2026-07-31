@@ -1,0 +1,12 @@
+apiVersion: arubacloud.ogen.krateo.io/v1alpha1
+kind: LoadBalancer
+metadata:
+  name: example-loadbalancer
+  namespace: default
+  annotations:
+    krateo.io/connector-verbose: 'true'
+spec:
+  configurationRef:
+    name: loadbalancer-config
+    namespace: default
+  projectId: REPLACE

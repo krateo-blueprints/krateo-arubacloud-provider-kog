@@ -1,0 +1,17 @@
+apiVersion: arubacloud.ogen.krateo.io/v1alpha1
+kind: Hpc
+metadata:
+  name: example-hpc
+  namespace: default
+  annotations:
+    krateo.io/connector-verbose: 'true'
+spec:
+  configurationRef:
+    name: hpc-config
+    namespace: default
+  projectId: REPLACE
+  metadata:
+    name: example-hpc
+    tags: []
+  properties:
+    # fill from openapi/baremetal.json

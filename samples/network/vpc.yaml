@@ -1,0 +1,18 @@
+apiVersion: arubacloud.ogen.krateo.io/v1alpha1
+kind: Vpc
+metadata:
+  name: example-vpc
+  namespace: default
+  annotations:
+    krateo.io/connector-verbose: 'true'
+spec:
+  configurationRef:
+    name: vpc-config
+    namespace: default
+  projectId: REPLACE
+  metadata:
+    name: example-vpc
+    location: {}
+    tags: []
+  properties:
+    # fill from openapi/network.json

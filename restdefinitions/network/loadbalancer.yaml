@@ -1,0 +1,67 @@
+# Aruba Cloud LoadBalancer (network provider) - generated, no proxy.
+apiVersion: ogen.krateo.io/v1alpha1
+kind: RestDefinition
+metadata:
+  name: arubacloud-network-loadbalancer
+spec:
+  oasPath: configmap://krateo-system/arubacloud-network-openapi/network.json
+  resourceGroup: arubacloud.ogen.krateo.io
+  resource:
+    kind: LoadBalancer
+    identifiers:
+    - name
+    excludedSpecFields:
+    - id
+    verbsDescription:
+    - action: findby
+      method: GET
+      path: /projects/{projectId}/providers/Aruba.Network/loadBalancers
+    - action: get
+      method: GET
+      path: /projects/{projectId}/providers/Aruba.Network/loadBalancers/{id}
+      requestFieldMapping:
+      - inPath: id
+        inCustomResource: status.id
+    configurationFields:
+    - fromOpenAPI:
+        name: api-version
+        in: query
+      fromRestDefinition:
+        actions:
+        - '*'
+    - fromOpenAPI:
+        name: filter
+        in: query
+      fromRestDefinition:
+        actions:
+        - findby
+    - fromOpenAPI:
+        name: sort
+        in: query
+      fromRestDefinition:
+        actions:
+        - findby
+    - fromOpenAPI:
+        name: projection
+        in: query
+      fromRestDefinition:
+        actions:
+        - findby
+    - fromOpenAPI:
+        name: offset
+        in: query
+      fromRestDefinition:
+        actions:
+        - findby
+    - fromOpenAPI:
+        name: limit
+        in: query
+      fromRestDefinition:
+        actions:
+        - findby
+    - fromOpenAPI:
+        name: ignoreDeletedStatus
+        in: query
+      fromRestDefinition:
+        actions:
+        - get

@@ -1,0 +1,79 @@
+# Aruba Cloud Folder (project provider) - generated, no proxy.
+# Folder create body is flat {name, default}; id is a top-level response field.
+apiVersion: ogen.krateo.io/v1alpha1
+kind: RestDefinition
+metadata:
+  name: arubacloud-project-folder
+spec:
+  oasPath: configmap://krateo-system/arubacloud-project-openapi/project.json
+  resourceGroup: arubacloud.ogen.krateo.io
+  resource:
+    kind: Folder
+    identifiers:
+    - name
+    additionalStatusFields:
+    - id
+    excludedSpecFields:
+    - id
+    verbsDescription:
+    - action: findby
+      method: GET
+      path: /folders
+    - action: get
+      method: GET
+      path: /folders/{id}
+      requestFieldMapping:
+      - inPath: id
+        inCustomResource: status.id
+    - action: create
+      method: POST
+      path: /folders
+    - action: update
+      method: PUT
+      path: /folders/{id}
+      requestFieldMapping:
+      - inPath: id
+        inCustomResource: status.id
+    - action: delete
+      method: DELETE
+      path: /folders/{id}
+      requestFieldMapping:
+      - inPath: id
+        inCustomResource: status.id
+    configurationFields:
+    - fromOpenAPI:
+        name: api-version
+        in: query
+      fromRestDefinition:
+        actions:
+        - '*'
+    - fromOpenAPI:
+        name: filter
+        in: query
+      fromRestDefinition:
+        actions:
+        - findby
+    - fromOpenAPI:
+        name: sort
+        in: query
+      fromRestDefinition:
+        actions:
+        - findby
+    - fromOpenAPI:
+        name: projection
+        in: query
+      fromRestDefinition:
+        actions:
+        - findby
+    - fromOpenAPI:
+        name: offset
+        in: query
+      fromRestDefinition:
+        actions:
+        - findby
+    - fromOpenAPI:
+        name: limit
+        in: query
+      fromRestDefinition:
+        actions:
+        - findby

@@ -1,0 +1,19 @@
+apiVersion: arubacloud.ogen.krateo.io/v1alpha1
+kind: KaasBackup
+metadata:
+  name: example-kaasbackup
+  namespace: default
+  annotations:
+    krateo.io/connector-verbose: 'true'
+spec:
+  configurationRef:
+    name: kaasbackup-config
+    namespace: default
+  projectId: REPLACE
+  kaasId: REPLACE
+  metadata:
+    name: example-kaasbackup
+    location: {}
+    tags: []
+  properties:
+    # fill from openapi/container.json
