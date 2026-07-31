@@ -3,13 +3,17 @@
   * every RestDefinition verb path+method exists in its referenced patched OAS;
   * every requestFieldMapping.inPath is a real path parameter of that verb's path;
   * every oasPath configmap:// reference resolves to a generated ConfigMap;
-  * all RestDefinition / ConfigMap / sample YAML is parseable.
+  * all RestDefinition / ConfigMap / sample / restaction YAML is parseable;
+  * every Composition chart passes `helm lint` and renders valid YAML with
+    `helm template` (skipped with a warning if the helm binary is absent).
 Exits non-zero if anything fails.
 """
 import glob
 import json
 import os
 import re
+import shutil
+import subprocess
 import sys
 
 import yaml
@@ -45,19 +49,58 @@ def main():
                 if "inPath" in rfm and rfm["inPath"] not in pps:
                     errors.append(f"{f}: {v['action']} inPath '{rfm['inPath']}' not in {pps}")
 
-    for f in glob.glob("samples/**/*.yaml", recursive=True) + glob.glob("configmaps/*.yaml"):
+    for f in (glob.glob("samples/**/*.yaml", recursive=True)
+              + glob.glob("configmaps/*.yaml")
+              + glob.glob("restactions/**/*.yaml", recursive=True)):
         try:
-            yaml.safe_load(open(f))
+            list(yaml.safe_load_all(open(f)))
         except Exception as e:
             errors.append(f"{f}: {e}")
 
-    print(f"Checked {len(rds)} RestDefinitions, {len(cm_names)} ConfigMaps.")
+    charts = validate_charts(errors)
+
+    print(f"Checked {len(rds)} RestDefinitions, {len(cm_names)} ConfigMaps, {charts} chart(s).")
     if errors:
         print(f"{len(errors)} ERROR(S):")
         for e in errors:
             print("  -", e)
         sys.exit(1)
-    print("OK: all verb paths/methods exist in their OAS; all oasPaths resolve; all YAML valid.")
+    print("OK: verb paths/methods exist in their OAS; oasPaths resolve; YAML valid; charts render.")
+
+
+def find_helm():
+    return shutil.which("helm") or next(
+        (p for p in ("/root/go/bin/helm", os.path.expanduser("~/go/bin/helm"))
+         if os.path.isfile(p)), None)
+
+
+def validate_charts(errors):
+    """helm lint + helm template each Composition chart; render must be valid YAML."""
+    chart_dirs = sorted(os.path.dirname(f) for f in glob.glob("compositions/**/Chart.yaml", recursive=True))
+    if not chart_dirs:
+        return 0
+    helm = find_helm()
+    if not helm:
+        print("WARNING: helm not found (PATH or ~/go/bin) - skipping chart lint/template.")
+        print("         install with: go install helm.sh/helm/v3/cmd/helm@latest")
+        return 0
+    for d in chart_dirs:
+        lint = subprocess.run([helm, "lint", d], capture_output=True, text=True)
+        if lint.returncode != 0:
+            errors.append(f"helm lint failed for {d}:\n{lint.stdout}{lint.stderr}")
+            continue
+        tmpl = subprocess.run([helm, "template", "validate", d], capture_output=True, text=True)
+        if tmpl.returncode != 0:
+            errors.append(f"helm template failed for {d}:\n{tmpl.stderr}")
+            continue
+        try:
+            docs = [x for x in yaml.safe_load_all(tmpl.stdout) if x]
+        except Exception as e:
+            errors.append(f"{d}: rendered output is not valid YAML: {e}")
+            continue
+        if not docs:
+            errors.append(f"{d}: helm template rendered no resources")
+    return len(chart_dirs)
 
 
 if __name__ == "__main__":
