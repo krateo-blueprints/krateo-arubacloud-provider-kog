@@ -21,7 +21,7 @@ providers with zero plugins**.
 Full docs live in [`docs/`](docs/index.md):
 
 - [Getting started](docs/getting-started.md) · [Architecture](docs/architecture.md) · [Authentication](docs/authentication.md)
-- [Provider reference](docs/providers/README.md) (per-provider pages) · [Coverage matrix](docs/coverage.md) · [OAS patches](docs/oas-patches.md)
+- [Provider reference](docs/providers/README.md) (per-provider pages) · [Coverage matrix](docs/coverage.md) · [OAS patches](docs/oas-patches.md) · [Terraform parity](docs/terraform-parity.md)
 - [Adding a resource](docs/adding-a-resource.md) · [Lifecycle beyond CRUD](docs/lifecycle-beyond-crud.md) · [oasgen-provider evolution](docs/oasgen-provider-evolution.md) · [Troubleshooting](docs/troubleshooting.md)
 
 ## What's here

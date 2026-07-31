@@ -19,6 +19,7 @@ official OpenAPI specifications.
 | [Provider reference](providers/README.md) | Per-provider pages: every resource, its verbs, endpoints, config and samples |
 | [Coverage matrix](coverage.md) | The full resource/verb table + what is intentionally not generated |
 | [OAS patches](oas-patches.md) | Every transformation applied to the raw specs, and why |
+| [Terraform parity](terraform-parity.md) | Resource cross-map vs the official Aruba Cloud Terraform provider |
 
 ## Design & extension
 
