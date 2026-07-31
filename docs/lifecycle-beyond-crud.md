@@ -138,12 +138,13 @@ supply the ids (or use Krateo composition expressions) until it lands.
 
 ## Caveats
 
-- These RESTActions and the Composition chart are a **reviewed reference
-  implementation**. `api.arubacloud.com` is unreachable from the build
-  environment and no Snowplow/Helm runtime was available here, so they are
-  validated for shape and template correctness, not executed. Validate the JQ
-  payloads, the extras key layout (`.spec.*` assumption), and Aruba's action
-  payloads against a live cluster before production use.
+- The Composition chart is validated with `helm lint` and `helm template`
+  (renders 8 well-formed resources — the 4 CRs + their 4 Configurations). The
+  RESTActions are a **reviewed reference implementation**: `api.arubacloud.com`
+  and a Snowplow runtime are unreachable from the build environment, so they are
+  validated for shape, not executed. Validate the JQ payloads, the extras key
+  layout (`.spec.*` assumption), and Aruba's action payloads against a live
+  cluster before production use.
 - `updateApiRef` fires on drift detected by native Observe. Desired power state
   is not an OAS field, so these RESTActions assume "keep it powered on"; a
   declarative `spec.powerState` would need an OAS-declared field (evolution report
