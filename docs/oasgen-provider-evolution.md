@@ -81,6 +81,8 @@ value type** (they become untyped maps in the CRD).
 `map[string]T` in the generated CRD. Annotations/labels are first-class
 Kubernetes concepts; degrading them to untyped is a real ergonomic loss.
 
+> Filed upstream: [braghettos/krateo-oasgen-provider#45](https://github.com/braghettos/krateo-oasgen-provider/issues/45).
+
 ### A3 — `readOnly` / `writeOnly` (🟧 ignored, 25 occurrences)
 Dropped by the patch. Concrete server-managed fields that should be
 **status-only** but currently land in the spec as writable:
