@@ -48,6 +48,16 @@ def main():
             for rfm in v.get("requestFieldMapping", []):
                 if "inPath" in rfm and rfm["inPath"] not in pps:
                     errors.append(f"{f}: {v['action']} inPath '{rfm['inPath']}' not in {pps}")
+            # async poll endpoint must exist in the OAS (param-name agnostic: the
+            # {operationId} token maps onto whatever the OAS calls that segment)
+            poll = v.get("async", {}).get("poll", {})
+            if poll.get("path"):
+                norm = lambda s: re.sub(r"\{[^}]+\}", "{}", s)
+                oas_norm = {norm(k) for k in spec["paths"]}
+                if norm(poll["path"]) not in oas_norm:
+                    errors.append(f"{f}: async poll path not in OAS: {poll['path']}")
+                if not poll.get("statusPath") or not poll.get("successValues"):
+                    errors.append(f"{f}: async poll missing statusPath/successValues")
 
     for f in (glob.glob("samples/**/*.yaml", recursive=True)
               + glob.glob("configmaps/*.yaml")

@@ -106,6 +106,33 @@ OVERRIDES = {
             "volumes, restore) is a multi-call sequence. create/update/delete are "
             "delegated to Snowplow RESTActions via *ApiRef (NO proxy); observe stays "
             "native via get/findby. See docs/lifecycle-beyond-crud.md.")),
+    "baremetal/hpcs": dict(
+        metaWrap=True,
+        # HPC provisioning is asynchronous: create returns 201 {monitorUri}; the
+        # monitor endpoint reports status InProgress|Succeeded|Failed. This is the
+        # operation-handle async case the fork's `async` block handles natively —
+        # in requeue mode it is the idiomatic, non-blocking, level-based controller
+        # wait (superior to a one-shot CLI wait). See docs/async-readiness.md.
+        async_=dict(
+            action="create",
+            mode="requeue",
+            operationRef=dict(
+                In="body", path="monitorUri",
+                # monitorUri is a path; bind {operationId} to its trailing id
+                jq=dict(inline='. | split("/") | last')),
+            poll=dict(
+                method="GET",
+                path="/projects/{projectId}/providers/Aruba.Baremetal/hpcs/monitor/{operationId}",
+                statusPath="status",
+                successValues=["Succeeded"],
+                failureValues=["Failed"],
+                intervalSeconds=5, maxAttempts=120),
+            postGet=True),
+        note=(
+            "HPC provisioning is asynchronous. create returns 201 {monitorUri}; the "
+            "controller polls GET .../hpcs/monitor/{id} (status Succeeded|Failed) via "
+            "the async block in requeue mode, then re-runs findby to populate status. "
+            "HPC has no delete verb in the API.")),
     "project/folders": dict(
         metaWrap=False, idField="name", statusId="status.id",
         note="Folder create body is flat {name, default}; id is a top-level response field."),
@@ -318,6 +345,25 @@ def render(r):
                       "requestFieldMapping": id_mapping_for(r, idp)})
         if not ov.get("idField") or idp != ov["idField"]:
             excluded.add(idp)
+
+    # Async readiness: attach the async block to the matching mutating verb. This
+    # turns an asynchronous API into a synchronous, level-based reconcile — the
+    # controller-native form of a provisioning wait.
+    a = ov.get("async_")
+    if a:
+        opref = a["operationRef"]
+        async_cfg = {
+            "mode": a.get("mode", "requeue"),
+            "operationRef": {"in": opref["In"], "path": opref["path"]},
+            "poll": a["poll"],
+        }
+        if opref.get("jq"):
+            async_cfg["operationRef"]["jq"] = opref["jq"]
+        if a.get("postGet"):
+            async_cfg["postGet"] = True
+        for v in verbs:
+            if v["action"] == a["action"]:
+                v["async"] = async_cfg
 
     resource = {"kind": r["kind"]}
     if r["meta"]:

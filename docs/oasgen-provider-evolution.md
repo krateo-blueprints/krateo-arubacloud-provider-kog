@@ -37,7 +37,7 @@ Scope analysed: 11 specs, ~108 operations, **34 manageable resources** across th
 | B3 | `findby` list envelope (`{total, values[]}`) | 🟧 | all list endpoints | Explicit `findby.itemsPath` / response-collection selector |
 | B4 | Secret-bearing spec fields (password, keys) | 🟧 | `database/DatabaseUser`, `compute/KeyPair`, `container/Registry` | `secretRef` resolver + OAS-declarable `*SecretRef` field |
 | C1 | Lifecycle expressed as POST action sub-endpoints | 🟥 | compute, container, database, project, baremetal | First-class "action verbs" or `createApiRef`/`updateApiRef` delegation |
-| C2 | Async readiness via `status.state`, not an op handle | 🟧 | all create/update | Status-field readiness polling in `async` (not only operation-handle) |
+| C2 | Async readiness | 🟩 | all create/update | Solved by `async` (requeue); wired on `Hpc`. Residual: state enums absent from OAS |
 | C3 | Create requires multiple chained calls | 🟥 | `compute/CloudServer` | Multi-call composition (`createApiRef` / Snowplow) |
 | C4 | Resource has no delete verb | 🟧 | `baremetal/Hpc` | Allow lifecycle without delete; skip finalizer teardown |
 | C5 | Update only via sub-endpoint (no `PUT {id}`) | 🟧 | `compute/CloudServer` | `updateApiRef` delegation / action verbs |
@@ -241,17 +241,26 @@ These are dropped from the generated RestDefinitions (they cannot be verbs).
    the recommended path today for CloudServer (see C3). It needs the RESTActions
    to exist, which is out of scope for a pure-OAS generator.
 
-### C2 — async readiness via `status.state`, not an operation handle (🟧)
+### C2 — async readiness (🟩 largely solved; one ergonomic residual)
 Aruba creates return the resource immediately with `status.state = InCreation`,
 transitioning to `Active` (and `baremetal` exposes a dedicated
-`GET …/hpcs/monitor/{id}` progress endpoint). The fork's `async` block polls an
-**operation handle** returned by the trigger call; Aruba instead wants "poll the
-resource's own GET until `status.state ∈ {Active}`".
+`GET …/hpcs/monitor/{id}` progress endpoint). This is **controller-native
+territory** and the fork's per-verb `async` block handles it — in `requeue` mode
+it is a non-blocking, level-based wait with terminal-failure detection. Both Aruba
+shapes are expressible:
 
-**Evolution:** a status-field readiness mode for `async` (poll the resource GET,
-match a JSONPath against success/failure value sets) in addition to the
-operation-handle mode. Until then, readiness relies on Observe re-running until
-the resource looks settled, with no explicit "failed provisioning" detection.
+- **operation handle** — `baremetal/Hpc` is wired end to end (create returns
+  `monitorUri`; poll `…/hpcs/monitor/{operationId}` for `Succeeded`/`Failed`). See
+  [async-readiness](async-readiness.md).
+- **status field** — point `async.poll` at the resource's own GET with
+  `statusPath: status.state`, `successValues: [Active]`. Expressible today.
+
+**Residual (ergonomic only):** the `state` value set is **not enumerated in the
+source OAS**, so `Active`/failure values are domain knowledge supplied per resource
+rather than derived. A convenience would be an OAS-hint or a "poll-own-get until
+`status.state`" shorthand so the status-field pattern needs no hand-entered value
+set. This no longer blocks readiness — it is wired for HPC and enable-per-resource
+elsewhere.
 
 ### C3 — multi-call create composition (🟥) — `compute/CloudServer`
 A usable CloudServer is created by chaining calls: create the server (OAS

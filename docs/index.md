@@ -26,6 +26,7 @@ official OpenAPI specifications.
 | Doc | What it covers |
 |-----|----------------|
 | [Adding a resource](adding-a-resource.md) | How the generator maps an API shape to a RestDefinition, and how to add/override one |
+| [Async readiness](async-readiness.md) | Controller-native provisioning waits via the `async` block (wired on `Hpc`) |
 | [Lifecycle beyond CRUD](lifecycle-beyond-crud.md) | Proxy-free solution for multi-call/action lifecycles: RESTAction delegation + Composition |
 | [oasgen-provider evolution](oasgen-provider-evolution.md) | Every issue that requires an oasgen-provider evolution (the analysis) |
 | [Troubleshooting](troubleshooting.md) | Common failures and how to diagnose them |

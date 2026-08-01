@@ -72,13 +72,25 @@ a tracked oasgen-provider evolution where relevant.
 
 | Capability | Terraform provider | This repo | Tracked as |
 |------------|--------------------|-----------|------------|
-| Async provisioning/deletion wait | `WaitForResourceActive` / `WaitForResourceDeleted` / `WaitUntilReady` at **~125 call sites**; `Read()` resumes waiting from `InCreation` | Relies on Observe re-running until settled; no terminal-failure detection | [§C2](oasgen-provider-evolution.md) |
 | Resource import | `ImportState` on every resource (**~51 sites**) — `terraform import` supported | Partial equivalent: `findby` adopts an existing resource by identifier; no explicit import UX | — |
 | Sensitive fields (passwords, private keys) | **8** `Sensitive: true` (CloudServer password, DBaaSUser password, KaaS, KeyPair private key, provider `client_secret`) | Plaintext spec field | [§B4](oasgen-provider-evolution.md) |
 | Configurable timeouts + retry | Per-resource `timeout` field, retry-on-"not yet visible" | None (fixed reconcile cadence) | — |
 | Maturity | Released, versioned, unit + schema tests | Reviewed reference, **not cluster-tested** | — |
 | Field validation | `stringvalidator.OneOf` enum checks (~16) | Roughly matched by OAS `enum`; other OAS constraints dropped | [§A6](oasgen-provider-evolution.md) |
 | Read/lookup ergonomics | Explicit **data source** per resource | `findby` / `get` verbs (observe) | — |
+
+### Async readiness: a controller strength, not a Terraform lead
+
+The Terraform provider waits for readiness with a one-shot blocking
+`WaitForResourceActive`/`WaitForResourceDeleted` (~125 call sites). A controller
+does this more naturally: the fork's per-verb **`async`** block, in `requeue`
+mode, turns an asynchronous API into a non-blocking, level-based reconcile that
+also keeps re-observing after "ready" (drift correction) — see
+[async-readiness](async-readiness.md). It is **wired** on `baremetal/Hpc` (which
+has a real `monitor` operation endpoint) and expressible on the `status.state`
+resources. The only residual is ergonomic: Aruba's `state` value set is not
+enumerated in the OAS, so success/failure values are supplied per resource rather
+than derived ([§C2](oasgen-provider-evolution.md)).
 
 ### CloudServer day-2: a tradeoff, not a Terraform lead
 
@@ -109,13 +121,14 @@ neither is a clear winner, and it is **not** an area where Terraform does more.
 ## Bottom line
 
 Full resource/API parity with the official Terraform provider, exceeding it on
-breadth. The remaining differences are runtime-maturity features — async-wait,
+breadth. The remaining Terraform leads are runtime-maturity features —
 `terraform import`, sensitive-field handling, configurable timeouts, and being a
-released/tested artifact — several of which map to oasgen-provider evolutions
+released/tested artifact — some of which map to oasgen-provider evolutions
 catalogued in [oasgen-provider-evolution.md](oasgen-provider-evolution.md).
 Closing those would make the generated, declarative provider a drop-in equivalent
-with wider coverage. (Day-2 CloudServer mutation is a design *tradeoff* between the
-two, not a Terraform lead — see above.)
+with wider coverage. Two things people often assume favour Terraform are not
+leads at all: **async readiness** is a controller strength (wired via `async`),
+and **day-2 CloudServer** mutation is a design tradeoff — see above.
 
 > Method note: the Terraform resource list was read from
 > `internal/provider/provider.go` (`Resources()`) in the upstream repository; the

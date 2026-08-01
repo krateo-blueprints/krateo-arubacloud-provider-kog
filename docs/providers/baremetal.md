@@ -13,6 +13,8 @@
 
 ## Hpc
 
+> HPC provisioning is asynchronous. create returns 201 {monitorUri}; the controller polls GET .../hpcs/monitor/{id} (status Succeeded|Failed) via the async block in requeue mode, then re-runs findby to populate status. HPC has no delete verb in the API.
+
 | Verb | Method | Path |
 |------|--------|------|
 | findby | GET | `/projects/{projectId}/providers/Aruba.Baremetal/hpcs` |

@@ -10,9 +10,3 @@ spec:
     name: cloudserver-config
     namespace: default
   projectId: REPLACE
-  metadata:
-    name: example-cloudserver
-    location: {}
-    tags: []
-  properties:
-    # fill from openapi/compute.json
