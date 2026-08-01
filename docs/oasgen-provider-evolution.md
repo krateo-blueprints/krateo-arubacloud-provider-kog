@@ -255,12 +255,19 @@ shapes are expressible:
 - **status field** — point `async.poll` at the resource's own GET with
   `statusPath: status.state`, `successValues: [Active]`. Expressible today.
 
-**Residual (ergonomic only):** the `state` value set is **not enumerated in the
-source OAS**, so `Active`/failure values are domain knowledge supplied per resource
-rather than derived. A convenience would be an OAS-hint or a "poll-own-get until
-`status.state`" shorthand so the status-field pattern needs no hand-entered value
-set. This no longer blocks readiness — it is wired for HPC and enable-per-resource
-elsewhere.
+**Residual (ergonomic only):** for the status-field shape the terminal values
+(`Active`, …) must be supplied per resource because the API models `status.state`
+as an **open string** (`{"type":"string","nullable":true}`), not an enum. This is
+by design, not an oversight: the specs are generated from ASP.NET server models and
+do emit enums where the backing type is a C# enum (18 of them, including a
+`ResourceProviderClaimStatus` lifecycle enum) — but `state` is a deliberately
+loosely-typed projection (its runtime values `Active`/`InCreation`/`Updating`/
+`Deleted` don't even match that enum, which is used only on a failure DTO). See
+[async-readiness §why](async-readiness.md#why-the-state-field-has-no-enum). The
+operation-handle shape has no such gap (HPC's monitor enum is self-describing). A
+convenience would be a "poll-own-get until `status.state`" shorthand so the
+status-field pattern needs no hand-entered value set. This no longer blocks
+readiness — it is wired for HPC and enable-per-resource elsewhere.
 
 ### C3 — multi-call create composition (🟥) — `compute/CloudServer`
 A usable CloudServer is created by chaining calls: create the server (OAS
