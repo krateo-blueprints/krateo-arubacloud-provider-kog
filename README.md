@@ -90,8 +90,8 @@ whole-environment provisioning. See
 
 - A Kubernetes cluster with the **braghettos** oasgen-provider installed
   (`ghcr.io/braghettos/krateo-oasgen-provider`) and its rest-dynamic-controller
-  (`ghcr.io/braghettos/krateo-rest-dynamic-controller` ≥ 0.16.1). The upstream
-  `krateoplatformops/oasgen-provider` does **not** yet have the features this repo
+  (`ghcr.io/braghettos/krateo-rest-dynamic-controller` ≥ 0.16.1). A stock
+  (non-braghettos) oasgen-provider does **not** have the features this repo
   relies on (nested identifiers, `fieldMapping`, `requestTransform`, `async`).
 
 ## Install

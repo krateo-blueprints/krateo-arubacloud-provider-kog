@@ -10,9 +10,9 @@ This walks through installing the provider and managing your first resource (a
   - `ghcr.io/braghettos/krateo-oasgen-provider`
   - `ghcr.io/braghettos/krateo-rest-dynamic-controller` (≥ 0.16.1)
 
-  > The upstream `krateoplatformops/oasgen-provider` does **not** yet have the
-  > features these RestDefinitions rely on (nested identifiers, `fieldMapping`,
-  > `requestTransform`, `async`, `*ApiRef`). Install the fork.
+  > A stock (non-braghettos) oasgen-provider does **not** have the features
+  > these RestDefinitions rely on (nested identifiers, `fieldMapping`,
+  > `requestTransform`, `async`, `*ApiRef`). Install the braghettos fork.
 - An Aruba Cloud Bearer token — see [authentication](authentication.md) and
   <https://api.arubacloud.com/docs/authentication/>.
 - `kubectl`, and (optional, for the Composition) `helm`.
