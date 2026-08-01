@@ -12,7 +12,7 @@ The predecessor blueprint managed a single resource (`Subnet`) and needed a Go
 proxy (`subnet-plugin`) just to reshape Aruba's `metadata` object. The
 **braghettos forks** of oasgen-provider and rest-dynamic-controller (both at
 **0.17.0**; every feature this repo uses is present since RDC 0.15.0 — see the
-[verified version matrix](docs/adversarial-review.md#feature--minimum-version-matrix-verified-per-tag))
+[verified version matrix](docs/adversarial-review.md))
 remove that need through nested identifiers, `requestFieldMapping`,
 `fieldMapping`, `secretRef`, `async` and Snowplow `*ApiRef` delegation. This repo
 uses those features to cover **34 resources across 10 providers with zero
