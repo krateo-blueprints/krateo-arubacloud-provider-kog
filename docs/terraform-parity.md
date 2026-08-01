@@ -66,17 +66,33 @@ at all (baremetal, metering, and the schedule *policy* surface).
 
 ## Where the Terraform provider is more mature
 
-These are depth/robustness differences, not coverage gaps. Each corresponds to a
-tracked oasgen-provider evolution.
+These are depth/robustness differences, not coverage gaps — verified against the
+upstream Go code (call-site counts from `internal/provider/`). Each corresponds to
+a tracked oasgen-provider evolution where relevant.
 
 | Capability | Terraform provider | This repo | Tracked as |
 |------------|--------------------|-----------|------------|
-| Async provisioning wait | Native `WaitForResourceActive` / `WaitForResourceDeleted`, resumes on `InCreation` | Relies on Observe re-running until settled | [§C2](oasgen-provider-evolution.md) |
-| CloudServer day-2 actions (power, associate, attach) | Native, tested Go | Delegated to Snowplow RESTActions (declarative, [not cluster-tested](lifecycle-beyond-crud.md#caveats)) | [§C1](oasgen-provider-evolution.md) |
-| Typed schema validation | Full schema validators | OAS constraints stripped during generation | [§A6](oasgen-provider-evolution.md) |
-| Sensitive fields (e.g. passwords) | Marked `sensitive` | Plaintext spec field | [§B4](oasgen-provider-evolution.md) |
-| Read/lookup | Explicit **data sources** per resource | `findby` / `get` verbs (observe) | — |
-| Maturity | Released, versioned, tested | Reviewed reference, **not cluster-tested** | — |
+| Async provisioning/deletion wait | `WaitForResourceActive` / `WaitForResourceDeleted` / `WaitUntilReady` at **~125 call sites**; `Read()` resumes waiting from `InCreation` | Relies on Observe re-running until settled; no terminal-failure detection | [§C2](oasgen-provider-evolution.md) |
+| Resource import | `ImportState` on every resource (**~51 sites**) — `terraform import` supported | Partial equivalent: `findby` adopts an existing resource by identifier; no explicit import UX | — |
+| Sensitive fields (passwords, private keys) | **8** `Sensitive: true` (CloudServer password, DBaaSUser password, KaaS, KeyPair private key, provider `client_secret`) | Plaintext spec field | [§B4](oasgen-provider-evolution.md) |
+| Configurable timeouts + retry | Per-resource `timeout` field, retry-on-"not yet visible" | None (fixed reconcile cadence) | — |
+| Maturity | Released, versioned, unit + schema tests | Reviewed reference, **not cluster-tested** | — |
+| Field validation | `stringvalidator.OneOf` enum checks (~16) | Roughly matched by OAS `enum`; other OAS constraints dropped | [§A6](oasgen-provider-evolution.md) |
+| Read/lookup ergonomics | Explicit **data source** per resource | `findby` / `get` verbs (observe) | — |
+
+### CloudServer day-2: a tradeoff, not a Terraform lead
+
+The Terraform provider makes CloudServer **immutable**: every API-backed attribute
+is `RequiresReplace` (14 of them) and `Update()` only touches the local `timeout`
+field — any change **destroys and recreates** the server. It never calls the
+`poweron`/`poweroff`/`associate*`/`attach*` action endpoints (there are zero such
+SDK calls in the provider). Initial networking is set through the rich create body.
+
+This repo instead attempts **in-place day-2 reconciliation** of power state and
+associations via Snowplow RESTActions ([lifecycle-beyond-crud](lifecycle-beyond-crud.md)) —
+more ambitious, but **not cluster-tested**. So on day-2 CloudServer changes the two
+projects make opposite tradeoffs (safe-but-destructive recreate vs. in-place-but-unproven);
+neither is a clear winner, and it is **not** an area where Terraform does more.
 
 ## Where this approach is ahead
 
@@ -93,11 +109,13 @@ tracked oasgen-provider evolution.
 ## Bottom line
 
 Full resource/API parity with the official Terraform provider, exceeding it on
-breadth. The remaining differences are runtime-maturity features (native
-async-wait, tested day-2 actions, typed validation, sensitive-field handling) —
-exactly the oasgen-provider evolutions catalogued in
-[oasgen-provider-evolution.md](oasgen-provider-evolution.md). Closing those would
-make the generated, declarative provider a drop-in equivalent with wider coverage.
+breadth. The remaining differences are runtime-maturity features — async-wait,
+`terraform import`, sensitive-field handling, configurable timeouts, and being a
+released/tested artifact — several of which map to oasgen-provider evolutions
+catalogued in [oasgen-provider-evolution.md](oasgen-provider-evolution.md).
+Closing those would make the generated, declarative provider a drop-in equivalent
+with wider coverage. (Day-2 CloudServer mutation is a design *tradeoff* between the
+two, not a Terraform lead — see above.)
 
 > Method note: the Terraform resource list was read from
 > `internal/provider/provider.go` (`Resources()`) in the upstream repository; the
