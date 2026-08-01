@@ -99,6 +99,11 @@ OVERRIDES = {
             create="arubacloud-compute-cloudserver-create",
             update="arubacloud-compute-cloudserver-update",
             delete="arubacloud-compute-cloudserver-delete",
+            # delete-direction invocations do NOT receive the CR spec (verified:
+            # RDC buildExtras forwards spec only for create/update), so parent
+            # path params like projectId must travel as STATIC extras on
+            # deleteApiRef. Set the real project id before installing.
+            delete_extras={"api-version": "1.0", "projectId": "REPLACE_PROJECT_ID"},
         ),
         note=(
             "CloudServer has NO single create/update endpoint; its lifecycle (power "
@@ -394,8 +399,12 @@ def render(r):
             if not name:
                 continue
             ref = {"name": name, "namespace": ns}
-            if extras:
-                ref["extras"] = dict(extras)  # independent copy -> no YAML anchors
+            # delete may need richer static extras: the CR spec is NOT forwarded on
+            # delete-direction invocations (RDC buildExtras), so parent-scoping
+            # values (e.g. projectId) must be static.
+            verb_extras = apirefs.get(f"{verb_key}_extras", extras)
+            if verb_extras:
+                ref["extras"] = dict(verb_extras)  # independent copy -> no YAML anchors
             resource[field] = ref
 
     resource["verbsDescription"] = verbs

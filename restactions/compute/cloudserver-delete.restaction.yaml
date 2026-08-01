@@ -1,10 +1,20 @@
 # CloudServer DELETE (teardown) — delegated from the CloudServer RestDefinition
-# via `deleteApiRef`. The controller holds the finalizer until this succeeds, and
-# it MUST be idempotent and tolerate an already-gone server.
+# via `deleteApiRef`. The controller holds the finalizer until the server is
+# verifiably gone, and re-invokes this on every reconcile, so it MUST be
+# idempotent and tolerate an already-gone server.
 #
-# Data volumes are detached before the server is deleted, then the server is
-# removed. If the server is already gone, the guard iterators yield [] and every
-# step is skipped, so re-running is safe.
+# CONTEXT CONTRACT (verified against rest-dynamic-controller's buildExtras,
+# observe_restaction.go): unlike create/update, a DELETE invocation does NOT
+# receive the CR's spec. It receives only:
+#   - the static extras from the RestDefinition's deleteApiRef (here: api-version
+#     and projectId — which is why projectId MUST be set statically below /
+#     in the RestDefinition, since spec.projectId is unavailable on delete);
+#   - name / namespace / uid of the CR;
+#   - each identifier's value keyed by its PATH STRING: the server name arrives
+#     as the dot-keyed extra `.["metadata.name"]`, NOT `.spec.metadata.name`.
+# Reading .spec.* here would yield null, every guard would skip, and the
+# finalizer would never release (delete deadlock). See
+# docs/oasgen-provider-evolution.md §C6.
 apiVersion: templates.krateo.io/v1
 kind: RESTAction
 metadata:
@@ -19,12 +29,13 @@ spec:
         name: arubacloud-endpoint
         namespace: krateo-system
       verb: GET
-      path: ${ "/projects/" + .spec.projectId + "/providers/Aruba.Compute/cloudServers?api-version=1.0" }
+      # projectId comes from the deleteApiRef's static extras (delete has no spec).
+      path: ${ "/projects/" + .projectId + "/providers/Aruba.Compute/cloudServers?api-version=1.0" }
       headers:
         - "Accept: application/json"
       continueOnError: true
       filter: >-
-        .spec.metadata.name as $n
+        .["metadata.name"] as $n
         | { self: ((.values // []) | map(select(.metadata.name == $n)) | .[0]) }
 
     # Detach any attached data volumes first (skipped when there are none).
@@ -41,7 +52,7 @@ spec:
             then [ { id: $s.id, detach: $vols } ] else [] end
       verb: POST
       continueOnError: true
-      path: ${ "/projects/" + $.spec.projectId + "/providers/Aruba.Compute/cloudServers/" + .id + "/attachDetachDataVolumes?api-version=1.0" }
+      path: ${ "/projects/" + $.projectId + "/providers/Aruba.Compute/cloudServers/" + .id + "/attachDetachDataVolumes?api-version=1.0" }
       headers:
         - "Content-Type: application/json"
       payload: |
@@ -59,4 +70,4 @@ spec:
           | if $s.id != null then [ $s.id ] else [] end
       verb: DELETE
       continueOnError: true
-      path: ${ "/projects/" + $.spec.projectId + "/providers/Aruba.Compute/cloudServers/" + . + "?api-version=1.0" }
+      path: ${ "/projects/" + $.projectId + "/providers/Aruba.Compute/cloudServers/" + . + "?api-version=1.0" }

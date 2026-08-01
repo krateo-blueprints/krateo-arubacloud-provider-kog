@@ -30,6 +30,7 @@ spec:
       namespace: krateo-system
       extras:
         api-version: '1.0'
+        projectId: REPLACE_PROJECT_ID
     verbsDescription:
     - action: findby
       method: GET

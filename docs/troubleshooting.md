@@ -62,6 +62,24 @@ duplicates:
 RestDefinition (this recreates the generated CRD). See
 [adding-a-resource](adding-a-resource.md#immutability).
 
+## Delegated (`*ApiRef`) actions fail with "no snowplow client is configured"
+
+RDC only enables RESTAction delegation when its `-snowplow-url` flag /
+`URL_SNOWPLOW` env is set (empty = disabled), plus `URL_AUTHN` for authenticated
+calls — and the chart's generated RDC deployment sets **neither**. Add them to
+the RDC deployment's environment. Verified against RDC `main.go` and the chart's
+`rdc/` assets ([adversarial review](adversarial-review.md) finding #3).
+
+## A delegated delete hangs forever (finalizer never released)
+
+Classic symptom of the delete-extras contract (review finding #2): delete
+RESTAction invocations do **not** receive the CR spec — only static extras,
+name/namespace/uid, and identifiers as dot-keyed extras (`.["metadata.name"]`).
+If the RESTAction reads `.spec.*`, every guard sees null and skips, snowplow
+reports success, RDC's existence check finds the resource still alive, and the
+finalizer is never released. Fix the jq to use the identifier extras and put
+parent-scoping values (e.g. `projectId`) in `deleteApiRef.extras`.
+
 ## CloudServer never converges
 
 - Apply the RESTActions and their Endpoint Secret:

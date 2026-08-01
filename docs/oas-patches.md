@@ -22,6 +22,7 @@ Representative totals across the 11 source specs:
 | strip `readOnly` / `writeOnly` | ~25 | §A3 |
 | security scheme `apiKey`-header → `http`/`bearer` | 8 | §A7 |
 | merge compute `v1.1` create into base doc | 1 | §D1 |
+| rename baremetal monitor param `{id}` → `{operationId}` | 1 | §C2 addendum |
 
 ## Each transformation
 
@@ -73,6 +74,15 @@ writable rather than status-only.
 (`compute-provider_v1.1.json`) from its other verbs. A RestDefinition references a
 single `oasPath`, so the v1.1 `POST /cloudServers` is spliced into the base compute
 document before generation.
+
+### Rename the async monitor path parameter
+
+`GET …/hpcs/monitor/{id}` becomes `GET …/hpcs/monitor/{operationId}`. This is a
+hard runtime contract of rest-dynamic-controller's async poller, not a style
+choice: the poll path is resolved by **exact string** lookup in the OAS and the
+extracted operation handle binds to a path parameter literally named
+`operationId`. With the original `{id}` name, every poll call fails with "path
+not found". See [adversarial-review](adversarial-review.md) finding #1.
 
 ## Left untouched on purpose (documented, not silently "fixed")
 

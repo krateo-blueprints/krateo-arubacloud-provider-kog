@@ -48,14 +48,20 @@ def main():
             for rfm in v.get("requestFieldMapping", []):
                 if "inPath" in rfm and rfm["inPath"] not in pps:
                     errors.append(f"{f}: {v['action']} inPath '{rfm['inPath']}' not in {pps}")
-            # async poll endpoint must exist in the OAS (param-name agnostic: the
-            # {operationId} token maps onto whatever the OAS calls that segment)
+            # Async poll path contract (verified against rest-dynamic-controller):
+            # the client resolves the poll path by EXACT string lookup in the OAS
+            # (restclient.go PathItems.Get) and binds the operation handle to a
+            # path parameter literally named {operationId} (async_handler.go).
+            # So the poll path must (a) exist verbatim in the (patched) OAS and
+            # (b) carry the {operationId} token. A param-name-agnostic check here
+            # would mask a guaranteed runtime failure.
             poll = v.get("async", {}).get("poll", {})
             if poll.get("path"):
-                norm = lambda s: re.sub(r"\{[^}]+\}", "{}", s)
-                oas_norm = {norm(k) for k in spec["paths"]}
-                if norm(poll["path"]) not in oas_norm:
-                    errors.append(f"{f}: async poll path not in OAS: {poll['path']}")
+                if poll["path"] not in spec["paths"]:
+                    errors.append(f"{f}: async poll path not in OAS verbatim: {poll['path']} "
+                                  "(patch_oas.py must rename the OAS param to {operationId})")
+                if "{operationId}" not in poll["path"]:
+                    errors.append(f"{f}: async poll path lacks the literal {{operationId}} token")
                 if not poll.get("statusPath") or not poll.get("successValues"):
                     errors.append(f"{f}: async poll missing statusPath/successValues")
 

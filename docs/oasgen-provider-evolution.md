@@ -37,7 +37,8 @@ Scope analysed: 11 specs, ~108 operations, **34 manageable resources** across th
 | B3 | `findby` list envelope (`{total, values[]}`) | 🟧 | all list endpoints | Explicit `findby.itemsPath` / response-collection selector |
 | B4 | Secret-bearing spec fields (password, keys) | 🟧 | `database/DatabaseUser`, `compute/KeyPair`, `container/Registry` | `secretRef` resolver + OAS-declarable `*SecretRef` field |
 | C1 | Lifecycle expressed as POST action sub-endpoints | 🟥 | compute, container, database, project, baremetal | First-class "action verbs" or `createApiRef`/`updateApiRef` delegation |
-| C2 | Async readiness | 🟩 | all create/update | Solved by `async` (requeue); wired on `Hpc`. Residual: state enums absent from OAS |
+| C2 | Async readiness | 🟩 | all create/update | Solved by `async` (requeue); wired on `Hpc`. Residuals: open-string state enums; `{operationId}` poll-path contract unvalidated at admission |
+| C6 | Delete-direction `*ApiRef` extras lack the spec | 🟧 | `compute/CloudServer` (any delegated delete) | Forward spec (or declared spec projections) on delete invocations |
 | C3 | Create requires multiple chained calls | 🟥 | `compute/CloudServer` | Multi-call composition (`createApiRef` / Snowplow) |
 | C4 | Resource has no delete verb | 🟧 | `baremetal/Hpc` | Allow lifecycle without delete; skip finalizer teardown |
 | C5 | Update only via sub-endpoint (no `PUT {id}`) | 🟧 | `compute/CloudServer` | `updateApiRef` delegation / action verbs |
@@ -176,12 +177,14 @@ be surprised.
 **Evolution:** none strictly required; a spec-level path-parameter alias would be
 cleaner than relying on the author to notice the mismatch.
 
-### B3 — `findby` list envelope (🟧 assumption)
+### B3 — `findby` list envelope (🟧 verified heuristic)
 Every Aruba list endpoint returns `{total, self, prev, next, first, last, values:[…]}`
-— the resources are under `values`, not at the top level. The RestDefinitions
-assume the controller can locate the item array inside this envelope (the old
-plugin returned the same shape, so the controller must already cope). There is no
-field to declare it explicitly.
+— the resources are under `values`, not at the top level. **Verified against RDC
+source** (`restclient.go: ExtractItemsFromResponse`): the controller takes the
+**first array-valued key** it finds in the response object. Aruba's envelope has
+exactly one array, so this works — but it is a heuristic over a randomly-ordered
+Go map, and a response carrying a second array field would make item extraction
+nondeterministic. There is no field to declare the items' location explicitly.
 
 **Evolution:** an explicit `findby.itemsPath` (e.g. `values`) / response-collection
 selector, so the envelope shape is declared rather than inferred. The
@@ -271,6 +274,14 @@ convenience would be a "poll-own-get until `status.state`" shorthand so the
 status-field pattern needs no hand-entered value set. This no longer blocks
 readiness — it is wired for HPC and enable-per-resource elsewhere.
 
+**Addendum (adversarial review):** two hardening asks emerged from reading the
+executor source. (a) The poll path is resolved by **exact string** lookup in the
+OAS and the handle binds to a param literally named `{operationId}` — so the OAS
+itself must be patched to use that name (`patch_oas.py` now does), and oasgen
+performs **no admission validation** of `async.poll.path`, so a mistake fails
+only at runtime. (b) See §C6 for the delete-extras gap. Full evidence:
+[adversarial-review](adversarial-review.md) findings #1/#6.
+
 ### C3 — multi-call create composition (🟥) — `compute/CloudServer`
 A usable CloudServer is created by chaining calls: create the server (OAS
 **v1.1**), then `attachDetachDataVolumes`, `associateDisassociate{Subnets,
@@ -298,6 +309,23 @@ update verb, drift on spec fields cannot be reconciled.
 **Evolution:** `updateApiRef` delegation, or action verbs (C1).
 
 ---
+
+### C6 — delete-direction `*ApiRef` invocations do not receive the spec (🟧)
+**Found by the adversarial review** (RDC `observe_restaction.go: buildExtras`):
+create/update delegation forwards the whole CR spec to the RESTAction, but a
+**delete** invocation forwards only static extras, `name`/`namespace`/`uid`, and
+identifier values keyed by their path string (`.["metadata.name"]`). A teardown
+sequence that needs any other spec field — for Aruba, the `projectId` that scopes
+every URL — cannot obtain it dynamically. The workaround is static per-
+RestDefinition extras (`deleteApiRef.extras.projectId`), which breaks down the
+moment one RestDefinition serves CRs across multiple projects.
+
+**Evolution:** forward the spec on delete invocations too (the CR still exists —
+the finalizer guarantees it), or add a declarative projection
+(`deleteApiRef.fromSpec: [projectId]`). Failure mode without it is nasty: the
+RESTAction's guards see nulls, skip every step, snowplow returns success, RDC's
+existence check finds the resource alive, and the finalizer never releases —
+a silent delete deadlock.
 
 ## Category D — cross-cutting
 

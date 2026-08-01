@@ -10,11 +10,14 @@ Kubernetes Custom Resources — generated directly from the official
 
 The predecessor blueprint managed a single resource (`Subnet`) and needed a Go
 proxy (`subnet-plugin`) just to reshape Aruba's `metadata` object. The
-**braghettos fork** of oasgen-provider (v0.9.0+; RDC ≥ 0.16.1, some features
-≥ 0.17.0) removes that need through nested identifiers, `requestFieldMapping`,
-`fieldMapping`/`requestTransform`, `secretRef`, `async` and Snowplow `*ApiRef`
-delegation. This repo uses those features to cover **34 resources across 10
-providers with zero plugins**.
+**braghettos forks** of oasgen-provider and rest-dynamic-controller (both at
+**0.17.0**; every feature this repo uses is present since RDC 0.15.0 — see the
+[verified version matrix](docs/adversarial-review.md#feature--minimum-version-matrix-verified-per-tag))
+remove that need through nested identifiers, `requestFieldMapping`,
+`fieldMapping`, `secretRef`, `async` and Snowplow `*ApiRef` delegation. This repo
+uses those features to cover **34 resources across 10 providers with zero
+plugins**, and every load-bearing claim has been
+[adversarially verified against the executor source](docs/adversarial-review.md).
 
 ## Documentation
 

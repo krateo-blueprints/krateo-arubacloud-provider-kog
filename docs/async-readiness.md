@@ -48,10 +48,15 @@ returns; each subsequent reconcile polls once and requeues until terminal — it
 never pins a worker, and it adds terminal-**failure** detection (`Failed`) that a
 blind "wait until it appears" loop lacks.
 
-> **Token note:** the poll `path` uses the literal `{operationId}` token (bound
-> from `operationRef`), which maps onto the OAS's `…/monitor/{id}` segment.
-> `scripts/validate.py` checks the poll endpoint exists in the OAS
-> param-name-agnostically.
+> **Token contract (verified against RDC source):** the client resolves the poll
+> path by **exact string** lookup in the OAS (`restclient.go: PathItems.Get`) and
+> binds the handle to a param literally named `operationId`
+> (`async_handler.go: params["operationId"]`). The OAS document itself must
+> therefore declare the monitor path as `…/monitor/{operationId}` —
+> `scripts/patch_oas.py` renames Aruba's `{id}` accordingly, and
+> `scripts/validate.py` enforces the verbatim match. A param-name-agnostic
+> reading of this contract produces a poller that can never find its path; see
+> [adversarial-review](adversarial-review.md) finding #1.
 
 ### 2. Status field on the resource (pattern for the rest)
 

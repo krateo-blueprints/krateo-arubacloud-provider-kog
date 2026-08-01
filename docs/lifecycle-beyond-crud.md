@@ -136,6 +136,27 @@ supply the ids (or use Krateo composition expressions) until it lands.
 
 ---
 
+## Runtime contracts (verified against RDC source)
+
+Two non-obvious contracts govern `*ApiRef` delegation — both found by the
+[adversarial review](adversarial-review.md) and now honoured here:
+
+1. **Snowplow must be wired.** RDC resolves RESTActions via its `-snowplow-url`
+   flag (`URL_SNOWPLOW` env; empty = disabled, with `URL_AUTHN` for
+   authenticated calls). The oasgen chart's RDC templates do **not** set these,
+   so a stock install fails delegation with *"no snowplow client is configured"*
+   until you add `URL_SNOWPLOW` (and typically `URL_AUTHN`) to the generated
+   RDC deployment's environment.
+2. **Delete invocations do not receive the spec.** RDC's `buildExtras` forwards
+   the CR spec only for create/update. A delete RESTAction gets: the
+   `deleteApiRef`'s static extras, the CR's `name`/`namespace`/`uid`, and each
+   identifier's value keyed by its path string (so the server name is
+   `.["metadata.name"]`, **not** `.spec.metadata.name`). Parent-scoping values
+   like `projectId` must therefore travel as static extras on `deleteApiRef`
+   (the generated CloudServer RD carries `projectId: REPLACE_PROJECT_ID` there —
+   set it before installing). Reading `.spec.*` in a delete RESTAction yields
+   null, every guard skips, and the finalizer never releases.
+
 ## Caveats
 
 - The Composition chart is validated with `helm lint` and `helm template`
