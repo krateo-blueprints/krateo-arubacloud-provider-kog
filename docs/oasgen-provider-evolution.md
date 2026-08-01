@@ -282,6 +282,8 @@ performs **no admission validation** of `async.poll.path`, so a mistake fails
 only at runtime. (b) See §C6 for the delete-extras gap. Full evidence:
 [adversarial-review](adversarial-review.md) findings #1/#6.
 
+> Filed upstream: [braghettos/krateo-oasgen-provider#46](https://github.com/braghettos/krateo-oasgen-provider/issues/46).
+
 ### C3 — multi-call create composition (🟥) — `compute/CloudServer`
 A usable CloudServer is created by chaining calls: create the server (OAS
 **v1.1**), then `attachDetachDataVolumes`, `associateDisassociate{Subnets,
@@ -326,6 +328,8 @@ the finalizer guarantees it), or add a declarative projection
 RESTAction's guards see nulls, skip every step, snowplow returns success, RDC's
 existence check finds the resource alive, and the finalizer never releases —
 a silent delete deadlock.
+
+> Filed upstream: [braghettos/krateo-rest-dynamic-controller#41](https://github.com/braghettos/krateo-rest-dynamic-controller/issues/41).
 
 ## Category D — cross-cutting
 

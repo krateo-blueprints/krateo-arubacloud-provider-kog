@@ -46,9 +46,11 @@ genuinely solved (#8). What remains, ranked by how fundamental it is:
    (#1), and delete-direction `*ApiRef` extras silently lack the spec (#2). Both
    are accepted by oasgen at admission (#6) and fail only at runtime — the same
    failure class as the historical `requestTransform` trap. **Evolution ask:**
-   admission-time validation of `async.poll.path` against the OAS, and either
-   spec-forwarding on delete or a declarative way to project spec fields into
-   delete extras (§C6).
+   admission-time validation of `async.poll.path` against the OAS
+   (filed: [oasgen-provider#46](https://github.com/braghettos/krateo-oasgen-provider/issues/46)),
+   and either spec-forwarding on delete or a declarative way to project spec
+   fields into delete extras (§C6; filed:
+   [rest-dynamic-controller#41](https://github.com/braghettos/krateo-rest-dynamic-controller/issues/41)).
 2. **The API's shape itself resists contract-driven generation.** `status.state`
    is an open string by upstream design ([async-readiness](async-readiness.md)),
    so readiness values are hand-supplied; lifecycle is spread across POST action
