@@ -1,0 +1,23 @@
+apiVersion: arubacloud.ogen.krateo.io/v1alpha1
+kind: GrantConfiguration
+metadata:
+  name: grant-config
+  namespace: default
+spec:
+  authentication:
+    bearer:
+      tokenRef:
+        name: arubacloud-token
+        namespace: default
+        key: token
+  configuration:
+    query:
+      findby:
+        api-version: '1.0'
+      get:
+        api-version: '1.0'
+        ignoreDeletedStatus: false
+      create:
+        api-version: '1.0'
+      delete:
+        api-version: '1.0'

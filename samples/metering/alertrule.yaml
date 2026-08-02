@@ -1,0 +1,18 @@
+apiVersion: arubacloud.ogen.krateo.io/v1alpha1
+kind: AlertRule
+metadata:
+  name: example-alertrule
+  namespace: default
+  annotations:
+    krateo.io/connector-verbose: 'true'
+spec:
+  configurationRef:
+    name: alertrule-config
+    namespace: default
+  projectId: REPLACE
+  metadata:
+    name: example-alertrule
+    location: {}
+    tags: []
+  properties:
+    # fill from openapi/metering.json

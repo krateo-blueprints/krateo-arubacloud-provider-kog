@@ -1,0 +1,79 @@
+# Aruba Cloud Key (security provider) - generated, no proxy.
+# Key create body is flat {name, algorithm}; item keyed by server id {keyId}.
+apiVersion: ogen.krateo.io/v1alpha1
+kind: RestDefinition
+metadata:
+  name: arubacloud-security-key
+spec:
+  oasPath: configmap://krateo-system/arubacloud-security-openapi/security.json
+  resourceGroup: arubacloud.ogen.krateo.io
+  resource:
+    kind: Key
+    identifiers:
+    - name
+    additionalStatusFields:
+    - id
+    excludedSpecFields:
+    - keyId
+    verbsDescription:
+    - action: findby
+      method: GET
+      path: /projects/{projectId}/providers/Aruba.Security/kms/{id}/keys
+    - action: get
+      method: GET
+      path: /projects/{projectId}/providers/Aruba.Security/kms/{id}/keys/{keyId}
+      requestFieldMapping:
+      - inPath: keyId
+        inCustomResource: status.id
+    - action: create
+      method: POST
+      path: /projects/{projectId}/providers/Aruba.Security/kms/{id}/keys
+    - action: update
+      method: PUT
+      path: /projects/{projectId}/providers/Aruba.Security/kms/{id}/keys/{keyId}
+      requestFieldMapping:
+      - inPath: keyId
+        inCustomResource: status.id
+    - action: delete
+      method: DELETE
+      path: /projects/{projectId}/providers/Aruba.Security/kms/{id}/keys/{keyId}
+      requestFieldMapping:
+      - inPath: keyId
+        inCustomResource: status.id
+    configurationFields:
+    - fromOpenAPI:
+        name: api-version
+        in: query
+      fromRestDefinition:
+        actions:
+        - '*'
+    - fromOpenAPI:
+        name: filter
+        in: query
+      fromRestDefinition:
+        actions:
+        - findby
+    - fromOpenAPI:
+        name: sort
+        in: query
+      fromRestDefinition:
+        actions:
+        - findby
+    - fromOpenAPI:
+        name: projection
+        in: query
+      fromRestDefinition:
+        actions:
+        - findby
+    - fromOpenAPI:
+        name: offset
+        in: query
+      fromRestDefinition:
+        actions:
+        - findby
+    - fromOpenAPI:
+        name: limit
+        in: query
+      fromRestDefinition:
+        actions:
+        - findby

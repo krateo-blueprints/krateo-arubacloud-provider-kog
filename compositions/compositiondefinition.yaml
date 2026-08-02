@@ -1,0 +1,17 @@
+# Krateo CompositionDefinition — registers the aruba-cloudserver-environment chart
+# as a Composition. Applying a Composition CR (an instance of the CRD this
+# definition generates) provisions the whole environment (VPC + Subnet +
+# SecurityGroup + CloudServer + their Configurations) from one set of inputs.
+#
+# Package the chart under compositions/aruba-cloudserver-environment as an OCI
+# artifact and point `spec.chart.url`/`version` at it (mirrors the pattern in
+# braghettos/krateo-oasgen-provider-chart's compositiondefinition.yaml).
+apiVersion: core.krateo.io/v1alpha1
+kind: CompositionDefinition
+metadata:
+  name: aruba-cloudserver-environment
+  namespace: krateo-system
+spec:
+  chart:
+    url: oci://ghcr.io/braghettos/krateo/aruba-cloudserver-environment
+    version: "0.1.0"

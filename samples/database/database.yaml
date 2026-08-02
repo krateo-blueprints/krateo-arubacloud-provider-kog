@@ -1,0 +1,14 @@
+apiVersion: arubacloud.ogen.krateo.io/v1alpha1
+kind: Database
+metadata:
+  name: example-database
+  namespace: default
+  annotations:
+    krateo.io/connector-verbose: 'true'
+spec:
+  configurationRef:
+    name: database-config
+    namespace: default
+  projectId: REPLACE
+  dbaasId: REPLACE
+  name: REPLACE

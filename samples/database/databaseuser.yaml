@@ -1,0 +1,15 @@
+apiVersion: arubacloud.ogen.krateo.io/v1alpha1
+kind: DatabaseUser
+metadata:
+  name: example-databaseuser
+  namespace: default
+  annotations:
+    krateo.io/connector-verbose: 'true'
+spec:
+  configurationRef:
+    name: databaseuser-config
+    namespace: default
+  projectId: REPLACE
+  dbaasId: REPLACE
+  username: REPLACE
+  password: REPLACE

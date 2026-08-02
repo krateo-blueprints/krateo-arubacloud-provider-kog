@@ -1,0 +1,18 @@
+apiVersion: arubacloud.ogen.krateo.io/v1alpha1
+kind: Backup
+metadata:
+  name: example-backup
+  namespace: default
+  annotations:
+    krateo.io/connector-verbose: 'true'
+spec:
+  configurationRef:
+    name: backup-config
+    namespace: default
+  projectId: REPLACE
+  metadata:
+    name: example-backup
+    location: {}
+    tags: []
+  properties:
+    # fill from openapi/storage.json

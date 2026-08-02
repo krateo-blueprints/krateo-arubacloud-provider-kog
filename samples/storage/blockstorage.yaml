@@ -1,0 +1,18 @@
+apiVersion: arubacloud.ogen.krateo.io/v1alpha1
+kind: BlockStorage
+metadata:
+  name: example-blockstorage
+  namespace: default
+  annotations:
+    krateo.io/connector-verbose: 'true'
+spec:
+  configurationRef:
+    name: blockstorage-config
+    namespace: default
+  projectId: REPLACE
+  metadata:
+    name: example-blockstorage
+    location: {}
+    tags: []
+  properties:
+    # fill from openapi/storage.json

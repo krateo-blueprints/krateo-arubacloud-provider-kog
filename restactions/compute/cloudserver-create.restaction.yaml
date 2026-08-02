@@ -1,0 +1,61 @@
+# CloudServer CREATE — delegated from the CloudServer RestDefinition via
+# `createApiRef`. Replaces a bespoke proxy with a declarative, idempotent
+# multi-call sequence.
+#
+# The rest-dynamic-controller invokes this RESTAction every reconcile until the
+# native `get`/`findby` observe reports the server exists (level-based
+# convergence), so it MUST be idempotent. Idempotency here is achieved with a
+# `dependsOn.iterator` guard: a step whose iterator evaluates to an EMPTY array
+# runs zero times, which is how "create only if absent" is expressed without a
+# conditional keyword.
+#
+# Context: the controller passes the CloudServer CR's whole spec (plus its
+# name/namespace/uid and the static `extras` from the RestDefinition's
+# createApiRef) as Snowplow request extras. This manifest assumes the CR spec is
+# reachable under `.spec` in the RESTAction context; adjust the JQ if your
+# oasgen/RDC build flattens extras differently.
+#
+# NOTE: reviewed reference implementation — validate against the live Aruba API
+# (unreachable from the build environment). The initial POST body already accepts
+# subnets/securityGroups/elasticIp/bootVolume, so first provisioning is a single
+# call; day-2 changes are handled by cloudserver-update.restaction.yaml.
+apiVersion: templates.krateo.io/v1
+kind: RESTAction
+metadata:
+  name: arubacloud-compute-cloudserver-create
+  namespace: krateo-system
+  annotations:
+    krateo.io/verbose: "true"
+spec:
+  api:
+    # 1. Look up any existing server (idempotency guard + gives us the id later).
+    - name: existing
+      endpointRef:
+        name: arubacloud-endpoint
+        namespace: krateo-system
+      verb: GET
+      path: ${ "/projects/" + .spec.projectId + "/providers/Aruba.Compute/cloudServers?api-version=1.0" }
+      headers:
+        - "Accept: application/json"
+      continueOnError: true
+      filter: "{ values: (.values // []) }"
+
+    # 2. Create the server ONLY when none with this name exists. The iterator
+    #    yields [spec] to run once, or [] to skip — the idempotency guard.
+    - name: create
+      endpointRef:
+        name: arubacloud-endpoint
+        namespace: krateo-system
+      dependsOn:
+        name: existing
+        iterator: >-
+          .spec.metadata.name as $n
+          | ((.existing.values // []) | map(select(.metadata.name == $n)) | length) as $count
+          | if $count > 0 then [] else [ .spec ] end
+      verb: POST
+      # In an iterated step, `.` is the current element (here, the CR spec).
+      path: ${ "/projects/" + .projectId + "/providers/Aruba.Compute/cloudServers?api-version=1.0" }
+      headers:
+        - "Content-Type: application/json"
+      payload: |
+        ${ { metadata: .metadata, properties: .properties } }

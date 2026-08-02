@@ -1,0 +1,19 @@
+apiVersion: arubacloud.ogen.krateo.io/v1alpha1
+kind: VpcPeering
+metadata:
+  name: example-vpcpeering
+  namespace: default
+  annotations:
+    krateo.io/connector-verbose: 'true'
+spec:
+  configurationRef:
+    name: vpcpeering-config
+    namespace: default
+  projectId: REPLACE
+  vpcId: REPLACE
+  metadata:
+    name: example-vpcpeering
+    location: {}
+    tags: []
+  properties:
+    # fill from openapi/network.json

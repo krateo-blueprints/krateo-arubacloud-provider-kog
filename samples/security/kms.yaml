@@ -1,0 +1,18 @@
+apiVersion: arubacloud.ogen.krateo.io/v1alpha1
+kind: Kms
+metadata:
+  name: example-kms
+  namespace: default
+  annotations:
+    krateo.io/connector-verbose: 'true'
+spec:
+  configurationRef:
+    name: kms-config
+    namespace: default
+  projectId: REPLACE
+  metadata:
+    name: example-kms
+    location: {}
+    tags: []
+  properties:
+    # fill from openapi/security.json

@@ -1,0 +1,79 @@
+# Aruba Cloud CloudServer (compute provider) - generated, no proxy.
+# CloudServer has NO single create/update endpoint; its lifecycle (power on/off, associate elastic IPs / security groups / subnets, attach data volumes, restore) is a multi-call sequence. create/update/delete are delegated to Snowplow RESTActions via *ApiRef (NO proxy); observe stays native via get/findby. See docs/lifecycle-beyond-crud.md.
+apiVersion: ogen.krateo.io/v1alpha1
+kind: RestDefinition
+metadata:
+  name: arubacloud-compute-cloudserver
+spec:
+  oasPath: configmap://krateo-system/arubacloud-compute-openapi/compute.json
+  resourceGroup: arubacloud.ogen.krateo.io
+  resource:
+    kind: CloudServer
+    identifiers:
+    - metadata.name
+    additionalStatusFields:
+    - metadata.id
+    excludedSpecFields:
+    - cloudServerId
+    createApiRef:
+      name: arubacloud-compute-cloudserver-create
+      namespace: krateo-system
+      extras:
+        api-version: '1.0'
+    updateApiRef:
+      name: arubacloud-compute-cloudserver-update
+      namespace: krateo-system
+      extras:
+        api-version: '1.0'
+    deleteApiRef:
+      name: arubacloud-compute-cloudserver-delete
+      namespace: krateo-system
+      extras:
+        api-version: '1.0'
+    verbsDescription:
+    - action: findby
+      method: GET
+      path: /projects/{projectId}/providers/Aruba.Compute/cloudServers
+    - action: get
+      method: GET
+      path: /projects/{projectId}/providers/Aruba.Compute/cloudServers/{cloudServerId}
+      requestFieldMapping:
+      - inPath: cloudServerId
+        inCustomResource: status.metadata.id
+    configurationFields:
+    - fromOpenAPI:
+        name: api-version
+        in: query
+      fromRestDefinition:
+        actions:
+        - '*'
+    - fromOpenAPI:
+        name: filter
+        in: query
+      fromRestDefinition:
+        actions:
+        - findby
+    - fromOpenAPI:
+        name: sort
+        in: query
+      fromRestDefinition:
+        actions:
+        - findby
+    - fromOpenAPI:
+        name: projection
+        in: query
+      fromRestDefinition:
+        actions:
+        - findby
+    - fromOpenAPI:
+        name: offset
+        in: query
+      fromRestDefinition:
+        actions:
+        - findby
+    - fromOpenAPI:
+        name: limit
+        in: query
+      fromRestDefinition:
+        actions:
+        - findby

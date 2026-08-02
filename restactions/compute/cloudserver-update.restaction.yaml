@@ -1,0 +1,122 @@
+# CloudServer UPDATE (day-2) — delegated from the CloudServer RestDefinition via
+# `updateApiRef`. This is the part that genuinely cannot be a single CRUD verb:
+# power state and the set of associated subnets / security groups / elastic IPs /
+# data volumes are each mutated through dedicated POST *action* endpoints.
+#
+# The controller invokes this when native Observe reports drift, passing the whole
+# desired spec. The RESTAction:
+#   1. finds the server by name -> its id + current associations;
+#   2. ensures it is powered on;
+#   3. reconciles each association type in ONE associate/disassociate call,
+#      computing (desired - current) to associate and (current - desired) to
+#      disassociate — idempotent by construction (both lists empty => no-op body).
+#
+# Each mutation uses continueOnError so a benign "already in desired state"
+# response never fails the whole reconcile. Validate payloads against the live API.
+apiVersion: templates.krateo.io/v1
+kind: RESTAction
+metadata:
+  name: arubacloud-compute-cloudserver-update
+  namespace: krateo-system
+  annotations:
+    krateo.io/verbose: "true"
+spec:
+  api:
+    # 1. Resolve the server by name -> id and current state.
+    - name: server
+      endpointRef:
+        name: arubacloud-endpoint
+        namespace: krateo-system
+      verb: GET
+      path: ${ "/projects/" + .spec.projectId + "/providers/Aruba.Compute/cloudServers?api-version=1.0" }
+      headers:
+        - "Accept: application/json"
+      filter: >-
+        .spec.metadata.name as $n
+        | { self: ((.values // []) | map(select(.metadata.name == $n)) | .[0]) }
+
+    # 2. Ensure powered on (skipped when already running).
+    - name: powerOn
+      endpointRef:
+        name: arubacloud-endpoint
+        namespace: krateo-system
+      dependsOn:
+        name: server
+        iterator: >-
+          (.server.self // {}) as $s
+          | if ($s.id != null and $s.status.state != "Active")
+            then [ $s.id ] else [] end
+      verb: POST
+      continueOnError: true
+      # `.` is the server id string here.
+      path: ${ "/projects/" + $.spec.projectId + "/providers/Aruba.Compute/cloudServers/" + . + "/poweron?api-version=1.0" }
+
+    # 3. Reconcile associated subnets in a single call (associate the missing,
+    #    disassociate the extra). Runs only when there is a delta.
+    - name: reconcileSubnets
+      endpointRef:
+        name: arubacloud-endpoint
+        namespace: krateo-system
+      dependsOn:
+        name: server
+        iterator: >-
+          (.server.self // {}) as $s
+          | ((.spec.properties.subnets // []) | map(.uri // .)) as $desired
+          | (($s.properties.subnets // []) | map(.uri // .)) as $current
+          | ($desired - $current) as $add
+          | ($current - $desired) as $del
+          | if $s.id != null and (($add | length) > 0 or ($del | length) > 0)
+            then [ { id: $s.id, add: $add, del: $del } ] else [] end
+      verb: POST
+      continueOnError: true
+      path: ${ "/projects/" + $.spec.projectId + "/providers/Aruba.Compute/cloudServers/" + .id + "/associateDisassociateSubnets?api-version=1.0" }
+      headers:
+        - "Content-Type: application/json"
+      payload: |
+        ${ { subnetsToAssociate: .add, subnetsToDisassociate: .del } }
+
+    # 4. Reconcile security groups.
+    - name: reconcileSecurityGroups
+      endpointRef:
+        name: arubacloud-endpoint
+        namespace: krateo-system
+      dependsOn:
+        name: server
+        iterator: >-
+          (.server.self // {}) as $s
+          | ((.spec.properties.securityGroups // []) | map(.uri // .)) as $desired
+          | (($s.properties.securityGroups // []) | map(.uri // .)) as $current
+          | ($desired - $current) as $add
+          | ($current - $desired) as $del
+          | if $s.id != null and (($add | length) > 0 or ($del | length) > 0)
+            then [ { id: $s.id, add: $add, del: $del } ] else [] end
+      verb: POST
+      continueOnError: true
+      path: ${ "/projects/" + $.spec.projectId + "/providers/Aruba.Compute/cloudServers/" + .id + "/associateDisassociateSecurityGroups?api-version=1.0" }
+      headers:
+        - "Content-Type: application/json"
+      payload: |
+        ${ { securityGroupsToAssociate: .add, securityGroupsToDisassociate: .del } }
+
+    # 5. Reconcile data volumes (attach missing, detach extra).
+    - name: reconcileVolumes
+      endpointRef:
+        name: arubacloud-endpoint
+        namespace: krateo-system
+      dependsOn:
+        name: server
+        iterator: >-
+          (.server.self // {}) as $s
+          | ((.spec.properties.dataVolumes // []) | map(.uri // .)) as $desired
+          | (($s.properties.dataVolumes // []) | map(.uri // .)) as $current
+          | ($desired - $current) as $attach
+          | ($current - $desired) as $detach
+          | if $s.id != null and (($attach | length) > 0 or ($detach | length) > 0)
+            then [ { id: $s.id, attach: $attach, detach: $detach } ] else [] end
+      verb: POST
+      continueOnError: true
+      path: ${ "/projects/" + $.spec.projectId + "/providers/Aruba.Compute/cloudServers/" + .id + "/attachDetachDataVolumes?api-version=1.0" }
+      headers:
+        - "Content-Type: application/json"
+      payload: |
+        ${ { volumesToAttach: .attach, volumesToDetach: .detach } }

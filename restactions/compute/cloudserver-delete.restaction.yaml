@@ -1,0 +1,69 @@
+# CloudServer DELETE (teardown) — delegated from the CloudServer RestDefinition
+# via `deleteApiRef`. The controller holds the finalizer until the server is
+# verifiably gone, and re-invokes this on every reconcile, so it MUST be
+# idempotent and tolerate an already-gone server.
+#
+# CONTEXT CONTRACT: rest-dynamic-controller >= 0.18.0 forwards the CR spec on
+# EVERY *ApiRef direction (buildExtras), so this reads `.spec.*` exactly like its
+# create/update siblings. Also available: `name`/`namespace`/`uid` and each
+# identifier dot-keyed (`.["metadata.name"]`).
+#
+# On RDC < 0.18.0 delete received NO spec: `.spec.projectId` would be null, every
+# guard below would skip, snowplow would report success, and the finalizer would
+# never release (a silent delete deadlock). See rest-dynamic-controller#41 — this
+# manifest therefore requires RDC 0.18.0 or newer.
+apiVersion: templates.krateo.io/v1
+kind: RESTAction
+metadata:
+  name: arubacloud-compute-cloudserver-delete
+  namespace: krateo-system
+  annotations:
+    krateo.io/verbose: "true"
+spec:
+  api:
+    - name: server
+      endpointRef:
+        name: arubacloud-endpoint
+        namespace: krateo-system
+      verb: GET
+      path: ${ "/projects/" + .spec.projectId + "/providers/Aruba.Compute/cloudServers?api-version=1.0" }
+      headers:
+        - "Accept: application/json"
+      continueOnError: true
+      filter: >-
+        .spec.metadata.name as $n
+        | { self: ((.values // []) | map(select(.metadata.name == $n)) | .[0]) }
+
+    # Detach any attached data volumes first (skipped when there are none).
+    - name: detachVolumes
+      endpointRef:
+        name: arubacloud-endpoint
+        namespace: krateo-system
+      dependsOn:
+        name: server
+        iterator: >-
+          (.server.self // {}) as $s
+          | (($s.properties.dataVolumes // []) | map(.uri // .)) as $vols
+          | if $s.id != null and ($vols | length) > 0
+            then [ { id: $s.id, detach: $vols } ] else [] end
+      verb: POST
+      continueOnError: true
+      path: ${ "/projects/" + $.spec.projectId + "/providers/Aruba.Compute/cloudServers/" + .id + "/attachDetachDataVolumes?api-version=1.0" }
+      headers:
+        - "Content-Type: application/json"
+      payload: |
+        ${ { volumesToAttach: [], volumesToDetach: .detach } }
+
+    # Delete the server (skipped when already absent).
+    - name: delete
+      endpointRef:
+        name: arubacloud-endpoint
+        namespace: krateo-system
+      dependsOn:
+        name: server
+        iterator: >-
+          (.server.self // {}) as $s
+          | if $s.id != null then [ $s.id ] else [] end
+      verb: DELETE
+      continueOnError: true
+      path: ${ "/projects/" + $.spec.projectId + "/providers/Aruba.Compute/cloudServers/" + . + "?api-version=1.0" }

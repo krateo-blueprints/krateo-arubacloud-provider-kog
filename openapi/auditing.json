@@ -1,0 +1,1577 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "Aruba.Audit.Api",
+    "description": "Aruba.Audit.Api HTTP API\n\nDownload the <a href=\"/openapi/auditing.json\" target=\"_blank\"> OpenAPI file</a>",
+    "version": "1.0"
+  },
+  "servers": [
+    {
+      "url": "https://api.arubacloud.com"
+    }
+  ],
+  "paths": {
+    "/projects/{projectId}/providers/Aruba.Audit/events": {
+      "get": {
+        "tags": [
+          "Events"
+        ],
+        "summary": "List Audit Events",
+        "parameters": [
+          {
+            "name": "filter",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "projection",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "projectId",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": "*"
+            }
+          },
+          {
+            "name": "api-version",
+            "in": "query",
+            "description": "The requested API version",
+            "schema": {
+              "type": "string",
+              "default": "1.0"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "APIDOC": true
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AddonDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "productName": {
+            "type": "string"
+          },
+          "attributes": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "price": {
+            "type": "number",
+            "format": "double"
+          },
+          "plans": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PricingPlanDto"
+            }
+          },
+          "extraInfo": {
+            "$ref": "#/components/schemas/ProductExtraInfoDto"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AuditLogExportDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "location": {
+            "$ref": "#/components/schemas/LocationDto"
+          },
+          "project": {
+            "$ref": "#/components/schemas/ProjectDto"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "identity": {
+            "$ref": "#/components/schemas/IdentityDto"
+          },
+          "category": {
+            "$ref": "#/components/schemas/AuditLogExportExtraInfoCategoryDto"
+          },
+          "properties": {
+            "$ref": "#/components/schemas/AuditLogExportPropertiesDto"
+          },
+          "scope": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AuditLogExportExtraInfo": {
+        "type": "object",
+        "additionalProperties": false
+      },
+      "AuditLogExportExtraInfoCategoryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "typology": {
+            "$ref": "#/components/schemas/AuditLogExportExtraInfoTypologyDto"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AuditLogExportExtraInfoTypologyDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "controllerName": {
+            "type": "string"
+          },
+          "limitResourceAvailableForLocation": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "extraInfo": {
+            "$ref": "#/components/schemas/AuditLogExportExtraInfo"
+          },
+          "parents": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ParentTypologyDto"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "AuditLogExportPropertiesDto": {
+        "type": "object",
+        "properties": {
+          "linkedResources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LinkedResourceDto"
+            }
+          },
+          "jobModel": {
+            "$ref": "#/components/schemas/JobsModelDto"
+          },
+          "jobId": {
+            "type": "string"
+          },
+          "operationType": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AuditLogExportPropertiesResponseDto": {
+        "type": "object",
+        "properties": {
+          "linkedResources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LinkedResourceResponseDto"
+            }
+          },
+          "jobModel": {},
+          "jobId": {
+            "type": "string"
+          },
+          "operationType": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AuditLogExportResponseDto": {
+        "type": "object",
+        "properties": {
+          "metadata": {
+            "$ref": "#/components/schemas/MetadataResponseDto"
+          },
+          "status": {
+            "$ref": "#/components/schemas/StatusResponseDto"
+          },
+          "properties": {
+            "$ref": "#/components/schemas/AuditLogExportPropertiesResponseDto"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AuditResponse": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "self": {
+            "type": "string"
+          },
+          "prev": {
+            "type": "string"
+          },
+          "next": {
+            "type": "string"
+          },
+          "first": {
+            "type": "string"
+          },
+          "last": {
+            "type": "string"
+          },
+          "values": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EventsResponse"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "AuditResponseFilter": {
+        "type": "object",
+        "properties": {
+          "self": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "pageOf": {
+            "type": "string"
+          },
+          "next": {
+            "type": "string"
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "values": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EventsResponse"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "AuditTypologiesDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "typologyCMP": {
+            "type": "string"
+          },
+          "typology": {
+            "type": "string"
+          },
+          "typologyCMPId": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "categoryId": {
+            "type": "string"
+          },
+          "project": {
+            "type": "string"
+          },
+          "services": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TypologiesServices"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "BillingPlanDto": {
+        "type": "object",
+        "properties": {
+          "billingPeriod": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "BillingPlanResponseDto": {
+        "type": "object",
+        "properties": {
+          "billingPeriod": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Caller": {
+        "required": [
+          "subject"
+        ],
+        "type": "object",
+        "properties": {
+          "subject": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          },
+          "company": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CategoryResponseDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "typology": {
+            "$ref": "#/components/schemas/TypologyResponseDto"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CategoryType": {
+        "required": [
+          "value"
+        ],
+        "type": "object",
+        "properties": {
+          "value": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Claims": {
+        "type": "object",
+        "properties": {
+          "aud": {
+            "type": "string"
+          },
+          "iss": {
+            "type": "string",
+            "format": "uri"
+          }
+        },
+        "additionalProperties": false
+      },
+      "DataCenterDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "allowedServices": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "DisableStatusInfoResponseDto": {
+        "type": "object",
+        "properties": {
+          "isDisabled": {
+            "type": "boolean"
+          },
+          "reasons": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "previousStatus": {
+            "$ref": "#/components/schemas/PreviousStatusResponseDto"
+          }
+        },
+        "additionalProperties": false
+      },
+      "EcommerceDto": {
+        "type": "object",
+        "properties": {
+          "subscriptionServices": {
+            "$ref": "#/components/schemas/SubscriptionServicesDto"
+          },
+          "productCatalog": {
+            "$ref": "#/components/schemas/ProductCatalogDto"
+          },
+          "project": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "EcommerceResponseDto": {
+        "type": "object",
+        "properties": {
+          "subscriptionServices": {
+            "$ref": "#/components/schemas/SubscriptionServicesResponseDto"
+          }
+        },
+        "additionalProperties": false
+      },
+      "EventType": {
+        "required": [
+          "id",
+          "type"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "value": {
+            "type": "string"
+          },
+          "type": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "EventsResponse": {
+        "required": [
+          "category",
+          "channel",
+          "event",
+          "identity",
+          "origin",
+          "severityLevel",
+          "status"
+        ],
+        "type": "object",
+        "properties": {
+          "logFormat": {
+            "$ref": "#/components/schemas/LogFormatType"
+          },
+          "@timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "operation": {
+            "$ref": "#/components/schemas/OperationType"
+          },
+          "event": {
+            "$ref": "#/components/schemas/EventType"
+          },
+          "category": {
+            "$ref": "#/components/schemas/CategoryType"
+          },
+          "region": {
+            "$ref": "#/components/schemas/RegionType"
+          },
+          "severityLevel": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "origin": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "channel": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/StatusType"
+          },
+          "subStatus": {
+            "$ref": "#/components/schemas/SubStatusType"
+          },
+          "identity": {
+            "$ref": "#/components/schemas/Identity"
+          },
+          "properties": {
+            "type": "object",
+            "additionalProperties": {}
+          },
+          "internal": {
+            "$ref": "#/components/schemas/Internal"
+          },
+          "actions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RowActionBff"
+            }
+          },
+          "categoryId": {
+            "type": "string"
+          },
+          "typologyId": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "impactedResources": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "FilterResponse": {
+        "type": "object",
+        "properties": {
+          "filterid": {
+            "type": "string"
+          },
+          "filtername": {
+            "type": "string"
+          },
+          "eventtype": {
+            "enum": [
+              "User",
+              "System"
+            ],
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Identity": {
+        "required": [
+          "caller"
+        ],
+        "type": "object",
+        "properties": {
+          "caller": {
+            "$ref": "#/components/schemas/Caller"
+          }
+        },
+        "additionalProperties": false
+      },
+      "IdentityDto": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          },
+          "account": {
+            "type": "string"
+          },
+          "tenant": {
+            "type": "string"
+          },
+          "company": {
+            "type": "string"
+          },
+          "groupMembership": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "Internal": {
+        "required": [
+          "identity",
+          "properties",
+          "trace"
+        ],
+        "type": "object",
+        "properties": {
+          "trace": {
+            "$ref": "#/components/schemas/Trace"
+          },
+          "identity": {
+            "$ref": "#/components/schemas/InternalIdentity"
+          },
+          "properties": {
+            "type": "object",
+            "additionalProperties": {}
+          }
+        },
+        "additionalProperties": false
+      },
+      "InternalIdentity": {
+        "type": "object",
+        "properties": {
+          "claims": {
+            "$ref": "#/components/schemas/Claims"
+          }
+        },
+        "additionalProperties": false
+      },
+      "JobResource": {
+        "type": "object",
+        "properties": {
+          "resourceId": {
+            "type": "string"
+          },
+          "resourceName": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "JobTypology": {
+        "type": "object",
+        "properties": {
+          "typologyId": {
+            "type": "string"
+          },
+          "resources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/JobResource"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "JobsEntity": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "storage": {
+            "$ref": "#/components/schemas/StorageModel"
+          },
+          "configDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "typologies": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Typology"
+            }
+          },
+          "state": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "exportLabel": {
+            "type": "string"
+          },
+          "vpcConfigs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VpcConfig"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "JobsModelDto": {
+        "type": "object",
+        "properties": {
+          "destination": {
+            "type": "string"
+          },
+          "exportLabel": {
+            "type": "string"
+          },
+          "typologies": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/JobTypology"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "LinkedResourceDto": {
+        "type": "object",
+        "properties": {
+          "uri": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "LinkedResourceResponseDto": {
+        "type": "object",
+        "properties": {
+          "uri": {
+            "type": "string"
+          },
+          "strictCorrelation": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "LocationDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "country": {
+            "type": "string"
+          },
+          "city": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string",
+            "description": "For more information, check the <a href=\"/api/docs/metadata/#location-and-data-center\" target=\"_blank\">documentation</a>."
+          },
+          "dataCenters": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DataCenterDto"
+            }
+          },
+          "unavailable": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "LocationResponseDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "country": {
+            "type": "string"
+          },
+          "city": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "LogFormatType": {
+        "required": [
+          "version"
+        ],
+        "type": "object",
+        "properties": {
+          "version": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "MetadataResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "uri": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "location": {
+            "$ref": "#/components/schemas/LocationResponseDto"
+          },
+          "project": {
+            "$ref": "#/components/schemas/ProjectResponseDto"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "category": {
+            "$ref": "#/components/schemas/CategoryResponseDto"
+          },
+          "creationDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "createdBy": {
+            "type": "string"
+          },
+          "updateDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedBy": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "OperationType": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "value": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ParentTypologyDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PreviousStatusResponseDto": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string"
+          },
+          "creationDate": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PricingPlanDto": {
+        "type": "object",
+        "properties": {
+          "productPlan": {
+            "$ref": "#/components/schemas/ProductPlanDto"
+          },
+          "productPlanPhases": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProductPlanPhasesDto"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "ProblemDetails": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "instance": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": {}
+      },
+      "ProductAttributeDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ProductCatalogDto": {
+        "type": "object",
+        "properties": {
+          "products": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProductDto"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "ProductDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "variantId": {
+            "type": "string"
+          },
+          "variantName": {
+            "type": "string"
+          },
+          "categoryName": {
+            "type": "string"
+          },
+          "attributes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProductAttributeDto"
+            }
+          },
+          "plans": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PricingPlanDto"
+            }
+          },
+          "addons": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AddonDto"
+            }
+          },
+          "extraInfo": {
+            "$ref": "#/components/schemas/ProductExtraInfoDto"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ProductExtraInfoDto": {
+        "type": "object",
+        "properties": {
+          "provisioningProductId": {
+            "type": "string"
+          },
+          "provisioningProductName": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ProductPlanDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "productVariantId": {
+            "type": "string"
+          },
+          "displayOrder": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ProductPlanPhasesDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "fixedPrice": {
+            "$ref": "#/components/schemas/ProductPriceDto"
+          },
+          "billingPeriod": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ProductPriceDto": {
+        "type": "object",
+        "properties": {
+          "price": {
+            "type": "number",
+            "format": "double"
+          },
+          "currency": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ProjectDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ProjectResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "RegionType": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "availabilityZone": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "RowActionBff": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "disabled": {
+            "type": "boolean"
+          },
+          "executable": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ServiceDto": {
+        "type": "object",
+        "properties": {
+          "initialOrder": {
+            "type": "boolean"
+          },
+          "orderItemId": {
+            "type": "string"
+          },
+          "productVariantId": {
+            "type": "string"
+          },
+          "productPlanId": {
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "Base",
+              "Addon"
+            ],
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "serviceId": {
+            "type": "string"
+          },
+          "serviceGroupId": {
+            "type": "string"
+          },
+          "creationDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "quantity": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "resource": {
+            "$ref": "#/components/schemas/ServiceResourceDto"
+          },
+          "extraInfo": {
+            "$ref": "#/components/schemas/SubscriptionExtraInfoDto"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ServiceResourceDto": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ServiceResponseDto": {
+        "type": "object",
+        "properties": {
+          "initialOrder": {
+            "type": "boolean"
+          },
+          "orderItemId": {
+            "type": "string"
+          },
+          "productVariantId": {
+            "type": "string"
+          },
+          "productPlanId": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "serviceId": {
+            "type": "string"
+          },
+          "serviceGroupId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "creationDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "quantity": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "StatusResponseDto": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string"
+          },
+          "creationDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "disableStatusInfo": {
+            "$ref": "#/components/schemas/DisableStatusInfoResponseDto"
+          }
+        },
+        "additionalProperties": false
+      },
+      "StatusType": {
+        "required": [
+          "value"
+        ],
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "code": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "properties": {}
+        },
+        "additionalProperties": false
+      },
+      "StorageModel": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "region": {
+            "type": "string"
+          },
+          "plan": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "SubStatusType": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "properties": {}
+        },
+        "additionalProperties": false
+      },
+      "SubscriptionExtraInfoDto": {
+        "type": "object",
+        "properties": {
+          "provisioningProductId": {
+            "type": "string"
+          },
+          "provisioningProductName": {
+            "type": "string"
+          },
+          "dataCenter": {
+            "type": "string",
+            "description": "For more information, check the <a href=\"/api/docs/metadata/#location-and-data-center\" target=\"_blank\">documentation</a>."
+          }
+        },
+        "additionalProperties": false
+      },
+      "SubscriptionServicesDto": {
+        "type": "object",
+        "properties": {
+          "serviceBasketId": {
+            "type": "string"
+          },
+          "subscriptionId": {
+            "type": "string"
+          },
+          "billingContainerId": {
+            "type": "string"
+          },
+          "serviceGroupId": {
+            "type": "string"
+          },
+          "orderId": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "totalPrice": {
+            "type": "number",
+            "format": "double"
+          },
+          "plan": {
+            "$ref": "#/components/schemas/BillingPlanDto"
+          },
+          "services": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ServiceDto"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "SubscriptionServicesResponseDto": {
+        "type": "object",
+        "properties": {
+          "serviceBasketId": {
+            "type": "string"
+          },
+          "subscriptionId": {
+            "type": "string"
+          },
+          "billingContainerId": {
+            "type": "string"
+          },
+          "serviceGroupId": {
+            "type": "string"
+          },
+          "orderId": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "totalPrice": {
+            "type": "number",
+            "format": "double"
+          },
+          "plan": {
+            "$ref": "#/components/schemas/BillingPlanResponseDto"
+          },
+          "services": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ServiceResponseDto"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "Trace": {
+        "type": "object",
+        "properties": {
+          "conversationId": {
+            "type": "string"
+          },
+          "correlationId": {
+            "type": "string"
+          },
+          "traceparent": {
+            "type": "string"
+          },
+          "tracestate": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "TypologiesServices": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Typology": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "resourceId": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "resourceName": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "TypologyResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "VpcConfig": {
+        "type": "object",
+        "properties": {
+          "jobId": {
+            "type": "string"
+          },
+          "tenant": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "securitySchemes": {
+      "accessToken": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  },
+  "security": [
+    {
+      "accessToken": []
+    }
+  ]
+}

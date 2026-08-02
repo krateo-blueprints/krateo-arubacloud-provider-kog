@@ -1,0 +1,18 @@
+apiVersion: arubacloud.ogen.krateo.io/v1alpha1
+kind: Registry
+metadata:
+  name: example-registry
+  namespace: default
+  annotations:
+    krateo.io/connector-verbose: 'true'
+spec:
+  configurationRef:
+    name: registry-config
+    namespace: default
+  projectId: REPLACE
+  metadata:
+    name: example-registry
+    location: {}
+    tags: []
+  properties:
+    # fill from openapi/container.json
