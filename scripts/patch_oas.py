@@ -19,21 +19,26 @@ Transformations
    the Aruba specs declare the token as a raw ``apiKey`` header, which would
    never be treated as an auth credential.
 2. strip ``nullable: true`` (unsupported; OAS 3.0 construct removed in 3.1).
-3. ``additionalProperties: {<schema>}``  ->  ``additionalProperties: true``
-   (only the boolean form is supported).
-4. strip ``readOnly`` / ``writeOnly`` (unsupported).
-5. merge the ``compute-provider_v1.1.json`` ``POST /cloudServers`` (create) into
+3. strip ``readOnly`` / ``writeOnly`` (unsupported).
+4. merge the ``compute-provider_v1.1.json`` ``POST /cloudServers`` (create) into
    ``compute-provider.json`` so the CloudServer resource has a create verb in a
    single document (oasgen references one OAS document per RestDefinition).
    (Verified safe: the two documents share 67 schema names with ZERO differing
    definitions, so first-wins merging is lossless.)
-6. rename the baremetal async-monitor path parameter ``{id}`` -> ``{operationId}``.
-   rest-dynamic-controller's async poller looks the poll path up in the OAS by
-   EXACT string (``restclient.go: PathItems.Get(path)``) and binds the extracted
-   operation handle to a path parameter literally named ``operationId``
-   (``async_handler.go: params["operationId"]``). The OAS document itself must
-   therefore declare the monitor path as ``.../monitor/{operationId}`` or every
-   poll call fails with "path not found".
+
+Retired transformations (the upstream gap was fixed; requires oasgen >= 0.18.0)
+-------------------------------------------------------------------------------
+* ``additionalProperties: {<schema>}`` -> ``additionalProperties: true``.
+  Dropped: oasgen 0.18.0 carries the object form through to crdgen as a typed
+  map (``libopenapi_adapter.go`` recurses the value schema; ``helpers.go``
+  emits it), so Aruba's 42 typed maps — ``metadata.annotations``,
+  ``metadata.labels``, ``AlertModel.labels``, ``AlertAction.parameters``,
+  ``CloudServerNetworkInterfaceDto.properties`` — keep their value type and
+  validation instead of degrading to untyped objects. (oasgen-provider#45)
+* rename the baremetal async-monitor path parameter ``{id}`` -> ``{operationId}``.
+  Dropped: ``async.poll.handleParam`` (oasgen 0.18.0 + RDC 0.18.0) declares
+  WHICH path parameter receives the operation handle, so Aruba's
+  ``.../monitor/{id}`` is used exactly as published. (oasgen-provider#46)
 
 Constructs left untouched on purpose (documented, not silently "fixed"):
 * ``format`` (int32/int64/double/date-time/uuid/uri) - appended to the field
@@ -60,10 +65,9 @@ def strip_constructs(node):
         for k in ("readOnly", "writeOnly"):
             if node.pop(k, None) is not None:
                 stats[k] += 1
-        ap = node.get("additionalProperties")
-        if isinstance(ap, dict):
-            node["additionalProperties"] = True
-            stats["additionalProperties-object"] += 1
+        # NOTE: object-form `additionalProperties` is deliberately left alone —
+        # oasgen >= 0.18.0 turns it into a typed map in the CRD (see the module
+        # docstring's "Retired transformations").
         for v in node.values():
             strip_constructs(v)
     elif isinstance(node, list):
@@ -103,34 +107,6 @@ def merge_compute_v11(compute, v11):
     stats["compute-v1.1-create-merged"] += 1
 
 
-# (spec file, old path, new path, old param, new param): async poll endpoints whose
-# path parameter must be literally named ``operationId`` for RDC's async poller.
-ASYNC_PARAM_RENAMES = [(
-    "baremetal-provider.json",
-    "/projects/{projectId}/providers/Aruba.Baremetal/hpcs/monitor/{id}",
-    "/projects/{projectId}/providers/Aruba.Baremetal/hpcs/monitor/{operationId}",
-    "id", "operationId",
-)]
-
-
-def rename_async_params(fn, spec):
-    for f, old, new, oldp, newp in ASYNC_PARAM_RENAMES:
-        if f != fn or old not in spec.get("paths", {}):
-            continue
-        item = spec["paths"].pop(old)
-        # rename the parameter declaration(s) on the path item and its operations
-        def fix(params):
-            for p in params or []:
-                if isinstance(p, dict) and p.get("name") == oldp and p.get("in") == "path":
-                    p["name"] = newp
-        fix(item.get("parameters"))
-        for op in item.values():
-            if isinstance(op, dict):
-                fix(op.get("parameters"))
-        spec["paths"][new] = item
-        stats["async-poll-param-rename"] += 1
-
-
 def main():
     os.makedirs(OUT, exist_ok=True)
     compute = None
@@ -150,7 +126,6 @@ def main():
     for fn, spec in specs.items():
         fix_security(spec)
         strip_constructs(spec)
-        rename_async_params(fn, spec)
         out = fn.replace("-provider", "").replace("_v1.1", "")
         with open(os.path.join(OUT, out), "w") as f:
             json.dump(spec, f, indent=2)

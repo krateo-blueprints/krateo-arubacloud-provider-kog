@@ -17,12 +17,24 @@ Representative totals across the 11 source specs:
 
 | Transformation | Count | oasgen gap |
 |----------------|------:|------------|
-| strip `nullable: true` | ~4117 | §A1 |
-| coerce `additionalProperties: {schema}` → `true` | ~42 | §A2 |
+| strip `nullable: true` | ~4119 | §A1 |
 | strip `readOnly` / `writeOnly` | ~25 | §A3 |
 | security scheme `apiKey`-header → `http`/`bearer` | 8 | §A7 |
 | merge compute `v1.1` create into base doc | 1 | §D1 |
-| rename baremetal monitor param `{id}` → `{operationId}` | 1 | §C2 addendum |
+
+## Retired patches (upstream shipped the fix)
+
+Two transformations were **removed** once oasgen/RDC 0.18.0 landed — the specs
+are now consumed closer to as-published:
+
+| Retired transformation | Was | Now |
+|------------------------|-----|-----|
+| coerce `additionalProperties: {schema}` → `true` (42×) | typed maps degraded to untyped objects in the CRD | oasgen 0.18.0 emits a **typed map** ([#45](https://github.com/braghettos/krateo-oasgen-provider/issues/45)) |
+| rename baremetal monitor param `{id}` → `{operationId}` (1×) | the vendor document had to be edited to satisfy a hardcoded parameter name | `async.poll.handleParam: id` uses Aruba's path **unmodified** ([#46](https://github.com/braghettos/krateo-oasgen-provider/issues/46)) |
+
+The `nullable` count moved 4117 → 4119 purely as a side effect: value schemas
+inside object-form `additionalProperties` are now traversed instead of being
+replaced wholesale by `true`, so two more `nullable` keys are reached.
 
 ## Each transformation
 
@@ -55,13 +67,6 @@ Safe for CRD generation, but it means a field the API may return as `null` becom
 non-nullable in the CRD — a contract change worth knowing when debugging strict
 response validation.
 
-### Coerce `additionalProperties` objects
-
-Only the boolean form is supported, so typed free-form maps (e.g.
-`metadata.annotations`, `metadata.labels`, alert `labels`/`parameters`, cloud
-server network-interface `properties`) become `additionalProperties: true` — an
-**untyped** map in the CRD. The value type is lost.
-
 ### Strip `readOnly` / `writeOnly`
 
 Dropped. Server-managed fields (e.g. `AlertRule.lastReception/lastActivation/
@@ -74,15 +79,6 @@ writable rather than status-only.
 (`compute-provider_v1.1.json`) from its other verbs. A RestDefinition references a
 single `oasPath`, so the v1.1 `POST /cloudServers` is spliced into the base compute
 document before generation.
-
-### Rename the async monitor path parameter
-
-`GET …/hpcs/monitor/{id}` becomes `GET …/hpcs/monitor/{operationId}`. This is a
-hard runtime contract of rest-dynamic-controller's async poller, not a style
-choice: the poll path is resolved by **exact string** lookup in the OAS and the
-extracted operation handle binds to a path parameter literally named
-`operationId`. With the original `{id}` name, every poll call fails with "path
-not found". See [adversarial-review](adversarial-review.md) finding #1.
 
 ## Left untouched on purpose (documented, not silently "fixed")
 

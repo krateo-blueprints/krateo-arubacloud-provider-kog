@@ -1,5 +1,5 @@
 # Aruba Cloud Hpc (baremetal provider) - generated, no proxy.
-# HPC provisioning is asynchronous. create returns 201 {monitorUri}; the controller polls GET .../hpcs/monitor/{id} (status Succeeded|Failed) via the async block in requeue mode, then re-runs findby to populate status. HPC has no delete verb in the API.
+# HPC provisioning is asynchronous. create returns 201 {monitorUri}; the controller polls GET .../hpcs/monitor/{id} (status Succeeded|Failed) via the async block in requeue mode, then re-runs findby to populate status. handleParam: id binds the handle to Aruba's own parameter name, so the published OAS is used unmodified. HPC has no delete verb in the API.
 apiVersion: ogen.krateo.io/v1alpha1
 kind: RestDefinition
 metadata:
@@ -37,7 +37,8 @@ spec:
             inline: . | split("/") | last
         poll:
           method: GET
-          path: /projects/{projectId}/providers/Aruba.Baremetal/hpcs/monitor/{operationId}
+          path: /projects/{projectId}/providers/Aruba.Baremetal/hpcs/monitor/{id}
+          handleParam: id
           statusPath: status
           successValues:
           - Succeeded

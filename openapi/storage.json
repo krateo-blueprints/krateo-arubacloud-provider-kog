@@ -2342,7 +2342,9 @@
           },
           "attributes": {
             "type": "object",
-            "additionalProperties": true
+            "additionalProperties": {
+              "type": "string"
+            }
           },
           "price": {
             "type": "number",
@@ -3422,7 +3424,7 @@
           },
           "annotations": {
             "type": "object",
-            "additionalProperties": true
+            "additionalProperties": {}
           }
         },
         "additionalProperties": false
@@ -3573,7 +3575,7 @@
             "type": "string"
           }
         },
-        "additionalProperties": true
+        "additionalProperties": {}
       },
       "ProductAttributeDto": {
         "type": "object",
@@ -3678,7 +3680,7 @@
           },
           "attributes": {
             "type": "object",
-            "additionalProperties": true
+            "additionalProperties": {}
           }
         },
         "additionalProperties": false

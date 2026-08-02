@@ -48,20 +48,21 @@ def main():
             for rfm in v.get("requestFieldMapping", []):
                 if "inPath" in rfm and rfm["inPath"] not in pps:
                     errors.append(f"{f}: {v['action']} inPath '{rfm['inPath']}' not in {pps}")
-            # Async poll path contract (verified against rest-dynamic-controller):
-            # the client resolves the poll path by EXACT string lookup in the OAS
-            # (restclient.go PathItems.Get) and binds the operation handle to a
-            # path parameter literally named {operationId} (async_handler.go).
-            # So the poll path must (a) exist verbatim in the (patched) OAS and
-            # (b) carry the {operationId} token. A param-name-agnostic check here
-            # would mask a guaranteed runtime failure.
+            # Async poll path contract, mirroring oasgen >= 0.18.0's own admission
+            # check (restdefinition/helper.go validateAsyncPollPaths):
+            #   1. the poll path must be an EXACT key of the OAS paths object --
+            #      paths are resolved by exact string lookup (restclient.go);
+            #   2. it must contain the {handleParam} token, i.e. the parameter the
+            #      extracted operation handle binds to. handleParam defaults to
+            #      "operationId" when not declared.
             poll = v.get("async", {}).get("poll", {})
             if poll.get("path"):
+                handle = poll.get("handleParam") or "operationId"
                 if poll["path"] not in spec["paths"]:
-                    errors.append(f"{f}: async poll path not in OAS verbatim: {poll['path']} "
-                                  "(patch_oas.py must rename the OAS param to {operationId})")
-                if "{operationId}" not in poll["path"]:
-                    errors.append(f"{f}: async poll path lacks the literal {{operationId}} token")
+                    errors.append(f"{f}: async poll path not in OAS verbatim: {poll['path']}")
+                if "{" + handle + "}" not in poll["path"]:
+                    errors.append(f"{f}: async poll path lacks the {{{handle}}} token "
+                                  f"(handleParam={poll.get('handleParam', '<default>')})")
                 if not poll.get("statusPath") or not poll.get("successValues"):
                     errors.append(f"{f}: async poll missing statusPath/successValues")
 

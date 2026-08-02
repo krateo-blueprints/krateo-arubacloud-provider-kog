@@ -91,11 +91,31 @@ whole-environment provisioning. See
 
 ## Prerequisites
 
-- A Kubernetes cluster with the **braghettos** oasgen-provider installed
-  (`ghcr.io/braghettos/krateo-oasgen-provider`) and its rest-dynamic-controller
-  (`ghcr.io/braghettos/krateo-rest-dynamic-controller` ≥ 0.16.1). A stock
-  (non-braghettos) oasgen-provider does **not** have the features this repo
-  relies on (nested identifiers, `fieldMapping`, `requestTransform`, `async`).
+A Kubernetes cluster with the **braghettos** oasgen-provider and its
+rest-dynamic-controller. A stock (non-braghettos) oasgen-provider does **not**
+have the features this repo relies on (nested identifiers, `fieldMapping`,
+`async`, `*ApiRef`).
+
+| Component | Minimum | Why |
+|-----------|---------|-----|
+| `ghcr.io/braghettos/krateo-oasgen-provider` | **0.18.0** | typed-map `additionalProperties`; `async.poll.handleParam` + poll-path validation |
+| `ghcr.io/braghettos/krateo-rest-dynamic-controller` | **0.18.0** | honours `handleParam`; forwards the CR spec on every `*ApiRef` direction |
+| `krateo-oasgen-provider-chart` | 0.9.18 | ships oasgen 0.18.0 |
+
+> [!IMPORTANT]
+> **Check the RDC version the chart actually deploys.** The chart pins
+> `rdc.image.tag` by hand and it does *not* auto-track RDC releases — chart
+> 0.9.18 still ships **RDC 0.16.1**. On that version these manifests are
+> accepted and then fail **silently**: `handleParam` is ignored (HPC async never
+> polls) and delegated deletes receive no spec (the CloudServer finalizer never
+> releases). Override it at install time:
+>
+> ```sh
+> helm upgrade --install oasgen-provider ... --set rdc.image.tag=0.18.0
+> ```
+>
+> Verify with `kubectl get deploy -n krateo-system -o jsonpath=...` — see
+> [troubleshooting](docs/troubleshooting.md).
 
 ## Install
 

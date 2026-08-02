@@ -945,7 +945,9 @@
           },
           "attributes": {
             "type": "object",
-            "additionalProperties": true
+            "additionalProperties": {
+              "type": "string"
+            }
           },
           "price": {
             "type": "number",
@@ -971,7 +973,9 @@
           },
           "parameters": {
             "type": "object",
-            "additionalProperties": true
+            "additionalProperties": {
+              "type": "string"
+            }
           }
         },
         "additionalProperties": false
@@ -1132,11 +1136,15 @@
         "properties": {
           "labels": {
             "type": "object",
-            "additionalProperties": true
+            "additionalProperties": {
+              "type": "string"
+            }
           },
           "annotations": {
             "type": "object",
-            "additionalProperties": true
+            "additionalProperties": {
+              "type": "string"
+            }
           },
           "startsAt": {
             "type": "string"
@@ -1164,11 +1172,15 @@
         "properties": {
           "labels": {
             "type": "object",
-            "additionalProperties": true
+            "additionalProperties": {
+              "type": "string"
+            }
           },
           "annotations": {
             "type": "object",
-            "additionalProperties": true
+            "additionalProperties": {
+              "type": "string"
+            }
           },
           "startsAt": {
             "type": "string"
@@ -1760,7 +1772,7 @@
             "type": "string"
           }
         },
-        "additionalProperties": true
+        "additionalProperties": {}
       },
       "ProductAttributeDto": {
         "type": "object",

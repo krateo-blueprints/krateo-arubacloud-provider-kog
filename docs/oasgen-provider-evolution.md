@@ -26,7 +26,7 @@ Scope analysed: 11 specs, ~108 operations, **34 manageable resources** across th
 | # | Issue | Status | Resources affected | Evolution needed |
 |---|-------|--------|--------------------|------------------|
 | A1 | `nullable: true` unsupported | 🟥 | all (4117 keys stripped) | Accept OAS 3.0 `nullable`; auto-convert to 3.1 null-union |
-| A2 | `additionalProperties: {schema}` unsupported | 🟥 | container, metering, compute, storage, audit (42) | Support typed free-form maps (`map[string]T`) |
+| A2 | `additionalProperties: {schema}` unsupported | 🟩 | container, metering, compute, storage, audit (42) | **Shipped** in oasgen 0.18.0 — typed maps reach the CRD ([#45](https://github.com/braghettos/krateo-oasgen-provider/issues/45)) |
 | A3 | `readOnly` / `writeOnly` ignored | 🟧 | metering, network, container, compute, storage (25) | Honour `readOnly` → status-only; `writeOnly` → create-only |
 | A4 | `number` / `format: double` coerced to integer | 🟧 | all billing/`price` fields (18) | Native `number` (float) type in CRD generation |
 | A5 | `format` only appended to description | 🟧 | all (int32/int64/date-time/uuid/uri) | Map `format` to CRD `format`/validation |
@@ -37,8 +37,8 @@ Scope analysed: 11 specs, ~108 operations, **34 manageable resources** across th
 | B3 | `findby` list envelope (`{total, values[]}`) | 🟧 | all list endpoints | Explicit `findby.itemsPath` / response-collection selector |
 | B4 | Secret-bearing spec fields (password, keys) | 🟧 | `database/DatabaseUser`, `compute/KeyPair`, `container/Registry` | `secretRef` resolver + OAS-declarable `*SecretRef` field |
 | C1 | Lifecycle expressed as POST action sub-endpoints | 🟥 | compute, container, database, project, baremetal | First-class "action verbs" or `createApiRef`/`updateApiRef` delegation |
-| C2 | Async readiness | 🟩 | all create/update | Solved by `async` (requeue); wired on `Hpc`. Residuals: open-string state enums; `{operationId}` poll-path contract unvalidated at admission |
-| C6 | Delete-direction `*ApiRef` extras lack the spec | 🟧 | `compute/CloudServer` (any delegated delete) | Forward spec (or declared spec projections) on delete invocations |
+| C2 | Async readiness | 🟩 | all create/update | Solved by `async` (requeue); wired on `Hpc`. Poll-path validation + `handleParam` **shipped** in 0.18.0 ([#46](https://github.com/braghettos/krateo-oasgen-provider/issues/46)). Residual: open-string state enums |
+| C6 | Delete-direction `*ApiRef` extras lack the spec | 🟩 | `compute/CloudServer` (any delegated delete) | **Shipped** in RDC 0.18.0 — spec forwarded on every direction ([rdc#41](https://github.com/braghettos/krateo-rest-dynamic-controller/issues/41)) |
 | C3 | Create requires multiple chained calls | 🟥 | `compute/CloudServer` | Multi-call composition (`createApiRef` / Snowplow) |
 | C4 | Resource has no delete verb | 🟧 | `baremetal/Hpc` | Allow lifecycle without delete; skip finalizer teardown |
 | C5 | Update only via sub-endpoint (no `PUT {id}`) | 🟧 | `compute/CloudServer` | `updateApiRef` delegation / action verbs |
@@ -65,9 +65,18 @@ validation in the controller).
 OAS 3.1 `type: [<t>, "null"]` union during ingestion, instead of requiring the
 author to hand-edit thousands of nodes.
 
-### A2 — `additionalProperties` as an object (🟥 blocks, 42 occurrences)
-Only the boolean form is supported. The Aruba APIs use typed free-form maps for
-genuinely useful, resource-facing fields, not just catalog noise:
+### A2 — `additionalProperties` as an object (🟩 SHIPPED in oasgen 0.18.0)
+> **Resolved.** oasgen 0.18.0 carries the object form through to crdgen as a
+> typed map: the adapter recurses the value schema through the same
+> guard/visited/depth machinery as `items`, and the serializer emits it. The
+> workaround below (coercing to `additionalProperties: true`) has been **removed
+> from `scripts/patch_oas.py`**, so all 42 maps now keep their value type and
+> validation in the generated CRDs. Requires oasgen >= 0.18.0.
+> ([oasgen-provider#45](https://github.com/braghettos/krateo-oasgen-provider/issues/45))
+
+Historical context — only the boolean form used to be supported. The Aruba APIs
+use typed free-form maps for genuinely useful, resource-facing fields, not just
+catalog noise:
 
 - `metadata.annotations` / `metadata.labels` on `container/Kaas`,
   `container/KaasBackup`, `container/Registry`, `storage/*`.
@@ -75,14 +84,10 @@ genuinely useful, resource-facing fields, not just catalog noise:
   `metering/AlertRule`.
 - `CloudServerNetworkInterfaceDto.properties` on `compute/CloudServer`.
 
-`patch_oas.py` coerces these to `additionalProperties: true`, which **loses the
-value type** (they become untyped maps in the CRD).
-
-**Evolution:** support `additionalProperties: {type: ...}` → a typed
-`map[string]T` in the generated CRD. Annotations/labels are first-class
-Kubernetes concepts; degrading them to untyped is a real ergonomic loss.
-
-> Filed upstream: [braghettos/krateo-oasgen-provider#45](https://github.com/braghettos/krateo-oasgen-provider/issues/45).
+`patch_oas.py` used to coerce these to `additionalProperties: true`, which
+**lost the value type** (they became untyped maps in the CRD). Annotations and
+labels are first-class Kubernetes concepts, so degrading them to untyped was a
+real ergonomic loss — which is why this was the first gap filed and fixed.
 
 ### A3 — `readOnly` / `writeOnly` (🟧 ignored, 25 occurrences)
 Dropped by the patch. Concrete server-managed fields that should be
@@ -255,8 +260,8 @@ it is a non-blocking, level-based wait with terminal-failure detection. Both Aru
 shapes are expressible:
 
 - **operation handle** — `baremetal/Hpc` is wired end to end (create returns
-  `monitorUri`; poll `…/hpcs/monitor/{operationId}` for `Succeeded`/`Failed`). See
-  [async-readiness](async-readiness.md).
+  `monitorUri`; poll Aruba's own `…/hpcs/monitor/{id}` with `handleParam: id` for
+  `Succeeded`/`Failed`). See [async-readiness](async-readiness.md).
 - **status field** — point `async.poll` at the resource's own GET with
   `statusPath: status.state`, `successValues: [Active]`. Expressible today.
 
@@ -274,15 +279,21 @@ convenience would be a "poll-own-get until `status.state`" shorthand so the
 status-field pattern needs no hand-entered value set. This no longer blocks
 readiness — it is wired for HPC and enable-per-resource elsewhere.
 
-**Addendum (adversarial review):** two hardening asks emerged from reading the
-executor source. (a) The poll path is resolved by **exact string** lookup in the
-OAS and the handle binds to a param literally named `{operationId}` — so the OAS
-itself must be patched to use that name (`patch_oas.py` now does), and oasgen
-performs **no admission validation** of `async.poll.path`, so a mistake fails
-only at runtime. (b) See §C6 for the delete-extras gap. Full evidence:
-[adversarial-review](adversarial-review.md) findings #1/#6.
+**Addendum (adversarial review) — 🟩 SHIPPED in 0.18.0.** Two hardening asks came
+out of reading the executor source, and both were fixed:
 
-> Filed upstream: [braghettos/krateo-oasgen-provider#46](https://github.com/braghettos/krateo-oasgen-provider/issues/46).
+- **`async.poll.handleParam`** (oasgen 0.18.0 + RDC 0.18.0) declares *which* path
+  parameter receives the operation handle, instead of hardcoding `operationId`.
+  Aruba's published `.../hpcs/monitor/{id}` is now used **unmodified** with
+  `handleParam: id`, and `patch_oas.py`'s OAS-renaming workaround has been
+  removed.
+- **Admission-time validation** of `async.poll.path` (oasgen
+  `restdefinition/helper.go: validateAsyncPollPaths`) now checks both halves of
+  the contract — exact OAS key *and* the `{handleParam}` token — when the
+  RestDefinition is processed, instead of failing on the first poll.
+
+Full evidence: [adversarial-review](adversarial-review.md) findings #1/#6.
+([oasgen-provider#46](https://github.com/braghettos/krateo-oasgen-provider/issues/46))
 
 ### C3 — multi-call create composition (🟥) — `compute/CloudServer`
 A usable CloudServer is created by chaining calls: create the server (OAS
@@ -312,24 +323,27 @@ update verb, drift on spec fields cannot be reconciled.
 
 ---
 
-### C6 — delete-direction `*ApiRef` invocations do not receive the spec (🟧)
+### C6 — delete-direction `*ApiRef` invocations do not receive the spec (🟩 SHIPPED in RDC 0.18.0)
+> **Resolved.** RDC 0.18.0's `buildExtras` forwards the CR spec on **every**
+> `*ApiRef` direction (`writesDesiredState` now governs only whether the
+> RESTAction's *result* is projected into status, not what it *receives*). The
+> CloudServer delete RESTAction reads `.spec.projectId` like its create/update
+> siblings, and the static `deleteApiRef.extras.projectId` workaround — which
+> pinned one RestDefinition to one project — has been removed.
+> ([rdc#41](https://github.com/braghettos/krateo-rest-dynamic-controller/issues/41))
+
 **Found by the adversarial review** (RDC `observe_restaction.go: buildExtras`):
-create/update delegation forwards the whole CR spec to the RESTAction, but a
-**delete** invocation forwards only static extras, `name`/`namespace`/`uid`, and
+create/update delegation forwarded the whole CR spec to the RESTAction, but a
+**delete** invocation forwarded only static extras, `name`/`namespace`/`uid`, and
 identifier values keyed by their path string (`.["metadata.name"]`). A teardown
-sequence that needs any other spec field — for Aruba, the `projectId` that scopes
-every URL — cannot obtain it dynamically. The workaround is static per-
-RestDefinition extras (`deleteApiRef.extras.projectId`), which breaks down the
-moment one RestDefinition serves CRs across multiple projects.
+sequence needing any other spec field — for Aruba, the `projectId` that scopes
+every URL — could not obtain it dynamically.
 
-**Evolution:** forward the spec on delete invocations too (the CR still exists —
-the finalizer guarantees it), or add a declarative projection
-(`deleteApiRef.fromSpec: [projectId]`). Failure mode without it is nasty: the
-RESTAction's guards see nulls, skip every step, snowplow returns success, RDC's
-existence check finds the resource alive, and the finalizer never releases —
-a silent delete deadlock.
-
-> Filed upstream: [braghettos/krateo-rest-dynamic-controller#41](https://github.com/braghettos/krateo-rest-dynamic-controller/issues/41).
+The failure mode was nasty enough to be worth remembering: the RESTAction's
+guards saw nulls, skipped every step, snowplow returned success, RDC's existence
+check found the resource alive, and the finalizer never released — a silent
+delete deadlock. **This is exactly what happens if you run these manifests
+against RDC < 0.18.0** (see [troubleshooting](troubleshooting.md)).
 
 ## Category D — cross-cutting
 

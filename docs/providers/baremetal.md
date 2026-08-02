@@ -13,7 +13,7 @@
 
 ## Hpc
 
-> HPC provisioning is asynchronous. create returns 201 {monitorUri}; the controller polls GET .../hpcs/monitor/{id} (status Succeeded|Failed) via the async block in requeue mode, then re-runs findby to populate status. HPC has no delete verb in the API.
+> HPC provisioning is asynchronous. create returns 201 {monitorUri}; the controller polls GET .../hpcs/monitor/{id} (status Succeeded|Failed) via the async block in requeue mode, then re-runs findby to populate status. handleParam: id binds the handle to Aruba's own parameter name, so the published OAS is used unmodified. HPC has no delete verb in the API.
 
 | Verb | Method | Path |
 |------|--------|------|
@@ -33,7 +33,7 @@ Action-only, list-only or delegated endpoints (see [lifecycle-beyond-crud](../li
 
 | Method | Path | Summary |
 |--------|------|---------|
-| GET | `/projects/{projectId}/providers/Aruba.Baremetal/hpcs/monitor/{operationId}` | Check HPC creation status |
+| GET | `/projects/{projectId}/providers/Aruba.Baremetal/hpcs/monitor/{id}` | Check HPC creation status |
 | PUT | `/projects/{projectId}/providers/Aruba.Baremetal/hpcs/{id}/automaticrenew` | Set HPC automatic renew |
 | PUT | `/projects/{projectId}/providers/Aruba.Baremetal/hpcs/{id}/name` | Rename HPC |
 | GET | `/projects/{projectId}/providers/Aruba.Baremetal/hpcs/{id}/services` | Get HPC services |

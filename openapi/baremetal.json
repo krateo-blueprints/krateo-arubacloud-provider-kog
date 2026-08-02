@@ -214,6 +214,90 @@
         "APIDOC": true
       }
     },
+    "/projects/{projectId}/providers/Aruba.Baremetal/hpcs/monitor/{id}": {
+      "get": {
+        "tags": [
+          "HPCs"
+        ],
+        "summary": "Check HPC creation status",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "api-version",
+            "in": "query",
+            "description": "The requested API version",
+            "schema": {
+              "type": "string",
+              "default": "1"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Aruba.CmpService.BaremetalProvider.Abstractions.Dtos.AsyncExecStatusDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Aruba.CmpService.BaremetalProvider.Abstractions.Dtos.AsyncExecStatusDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Aruba.CmpService.BaremetalProvider.Abstractions.Dtos.AsyncExecStatusDto"
+                }
+              }
+            }
+          },
+          "303": {
+            "description": "See Other"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "APIDOC": true
+      }
+    },
     "/projects/{projectId}/providers/Aruba.Baremetal/hpcs/{id}": {
       "get": {
         "tags": [
@@ -562,90 +646,6 @@
           },
           "400": {
             "description": "Bad Request",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error"
-          }
-        },
-        "APIDOC": true
-      }
-    },
-    "/projects/{projectId}/providers/Aruba.Baremetal/hpcs/monitor/{operationId}": {
-      "get": {
-        "tags": [
-          "HPCs"
-        ],
-        "summary": "Check HPC creation status",
-        "parameters": [
-          {
-            "name": "projectId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "operationId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "api-version",
-            "in": "query",
-            "description": "The requested API version",
-            "schema": {
-              "type": "string",
-              "default": "1"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/Aruba.CmpService.BaremetalProvider.Abstractions.Dtos.AsyncExecStatusDto"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Aruba.CmpService.BaremetalProvider.Abstractions.Dtos.AsyncExecStatusDto"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Aruba.CmpService.BaremetalProvider.Abstractions.Dtos.AsyncExecStatusDto"
-                }
-              }
-            }
-          },
-          "303": {
-            "description": "See Other"
-          },
-          "404": {
-            "description": "Not Found",
             "content": {
               "text/plain": {
                 "schema": {
@@ -1831,7 +1831,9 @@
         "properties": {
           "frameworkAiGuides": {
             "type": "object",
-            "additionalProperties": true
+            "additionalProperties": {
+              "type": "string"
+            }
           }
         },
         "additionalProperties": false
@@ -2258,7 +2260,9 @@
         "properties": {
           "smartStorageAiGuides": {
             "type": "object",
-            "additionalProperties": true
+            "additionalProperties": {
+              "type": "string"
+            }
           }
         },
         "additionalProperties": false
@@ -3675,7 +3679,7 @@
             "type": "string"
           }
         },
-        "additionalProperties": true
+        "additionalProperties": {}
       },
       "System.DayOfWeek": {
         "enum": [

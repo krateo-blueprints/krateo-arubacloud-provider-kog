@@ -72,13 +72,31 @@ the RDC deployment's environment. Verified against RDC `main.go` and the chart's
 
 ## A delegated delete hangs forever (finalizer never released)
 
-Classic symptom of the delete-extras contract (review finding #2): delete
-RESTAction invocations do **not** receive the CR spec — only static extras,
-name/namespace/uid, and identifiers as dot-keyed extras (`.["metadata.name"]`).
-If the RESTAction reads `.spec.*`, every guard sees null and skips, snowplow
-reports success, RDC's existence check finds the resource still alive, and the
-finalizer is never released. Fix the jq to use the identifier extras and put
-parent-scoping values (e.g. `projectId`) in `deleteApiRef.extras`.
+**First check the RDC version — this is almost always version skew.** These
+manifests require **RDC >= 0.18.0**, which forwards the CR spec on every
+`*ApiRef` direction. On an older RDC, delete invocations receive no spec, so the
+RESTAction's `.spec.projectId` is null, every guard skips, snowplow reports
+success, RDC's existence check finds the resource still alive, and the finalizer
+is never released. Nothing in the logs points at the version.
+
+```sh
+kubectl get deploy -n krateo-system -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.spec.template.spec.containers[0].image}{"\n"}{end}' | grep rest-dynamic-controller
+```
+
+If it is below 0.18.0, bump `rdc.image.tag` in the oasgen-provider chart values
+(see [prerequisites](../README.md#prerequisites)). Otherwise, check the
+RESTAction's jq against the contract in
+[lifecycle-beyond-crud](lifecycle-beyond-crud.md#runtime-contracts-verified-against-rdc-source).
+
+## Async polling never completes (or the RestDefinition is rejected)
+
+- **Rejected at admission** with a poll-path message: oasgen >= 0.18.0 validates
+  that `async.poll.path` is an exact key of the OAS **and** contains the
+  `{handleParam}` token. Fix the path or declare the right `handleParam`.
+- **Accepted but never polls**: the deployed RDC is older than 0.18.0, so
+  `handleParam` is ignored and the handle binds to `operationId` — which the
+  Aruba monitor path (`…/monitor/{id}`) does not contain. Same version check as
+  above.
 
 ## CloudServer never converges
 

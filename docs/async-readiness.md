@@ -31,10 +31,11 @@ the textbook case, and it is wired in `restdefinitions/baremetal/hpc.yaml`:
     operationRef:
       in: body
       path: monitorUri
-      jq: {inline: '. | split("/") | last'}   # {operationId} ← trailing id of the URI
+      jq: {inline: '. | split("/") | last'}   # handle = trailing id of the URI
     poll:
       method: GET
-      path: /projects/{projectId}/providers/Aruba.Baremetal/hpcs/monitor/{operationId}
+      path: /projects/{projectId}/providers/Aruba.Baremetal/hpcs/monitor/{id}
+      handleParam: id                 # Aruba names it {id}; no OAS patching needed
       statusPath: status
       successValues: [Succeeded]
       failureValues: [Failed]
@@ -48,15 +49,22 @@ returns; each subsequent reconcile polls once and requeues until terminal — it
 never pins a worker, and it adds terminal-**failure** detection (`Failed`) that a
 blind "wait until it appears" loop lacks.
 
-> **Token contract (verified against RDC source):** the client resolves the poll
-> path by **exact string** lookup in the OAS (`restclient.go: PathItems.Get`) and
-> binds the handle to a param literally named `operationId`
-> (`async_handler.go: params["operationId"]`). The OAS document itself must
-> therefore declare the monitor path as `…/monitor/{operationId}` —
-> `scripts/patch_oas.py` renames Aruba's `{id}` accordingly, and
-> `scripts/validate.py` enforces the verbatim match. A param-name-agnostic
-> reading of this contract produces a poller that can never find its path; see
-> [adversarial-review](adversarial-review.md) finding #1.
+> **Path contract (oasgen/RDC >= 0.18.0).** Two things must hold together, and
+> oasgen now checks both at admission
+> (`restdefinition/helper.go: validateAsyncPollPaths`) instead of letting them
+> fail on the first poll:
+>
+> 1. the poll path must be an **exact key** of the OAS `paths` object — paths are
+>    resolved by exact string lookup (`restclient.go: PathItems.Get`);
+> 2. it must contain the `{handleParam}` token — the path parameter the extracted
+>    handle binds to.
+>
+> **`handleParam` is why Aruba's spec is used unmodified.** It names that
+> parameter (default `operationId`), so `path: …/monitor/{id}` +
+> `handleParam: id` works against the published document. Before 0.18.0 the name
+> was hardcoded, so the OAS itself had to be patched — a workaround this repo has
+> now removed. `scripts/validate.py` mirrors the same two checks locally.
+> Background: [adversarial-review](adversarial-review.md) finding #1.
 
 ### 2. Status field on the resource (pattern for the rest)
 
@@ -74,7 +82,8 @@ expresses it — point the poll at the item endpoint and read `status.state`:
     operationRef: {in: body, path: metadata.id}      # the created resource id
     poll:
       method: GET
-      path: /projects/{projectId}/providers/Aruba.Network/vpcs/{vpcId}/subnets/{operationId}
+      path: /projects/{projectId}/providers/Aruba.Network/vpcs/{vpcId}/subnets/{id}
+      handleParam: id
       statusPath: status.state
       successValues: [Active]
       failureValues: [Error, Failed]

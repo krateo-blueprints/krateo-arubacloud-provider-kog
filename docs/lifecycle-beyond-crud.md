@@ -147,15 +147,18 @@ Two non-obvious contracts govern `*ApiRef` delegation — both found by the
    so a stock install fails delegation with *"no snowplow client is configured"*
    until you add `URL_SNOWPLOW` (and typically `URL_AUTHN`) to the generated
    RDC deployment's environment.
-2. **Delete invocations do not receive the spec.** RDC's `buildExtras` forwards
-   the CR spec only for create/update. A delete RESTAction gets: the
-   `deleteApiRef`'s static extras, the CR's `name`/`namespace`/`uid`, and each
-   identifier's value keyed by its path string (so the server name is
-   `.["metadata.name"]`, **not** `.spec.metadata.name`). Parent-scoping values
-   like `projectId` must therefore travel as static extras on `deleteApiRef`
-   (the generated CloudServer RD carries `projectId: REPLACE_PROJECT_ID` there —
-   set it before installing). Reading `.spec.*` in a delete RESTAction yields
-   null, every guard skips, and the finalizer never releases.
+2. **The spec is forwarded on every direction — from RDC 0.18.0 only.**
+   `buildExtras` passes the whole CR spec to create, update **and** delete
+   invocations (`writesDesiredState` now governs only whether the RESTAction's
+   *result* is projected into status). So all three CloudServer RESTActions read
+   `.spec.*` uniformly. Also available: `name`/`namespace`/`uid` and each
+   identifier dot-keyed (`.["metadata.name"]`).
+
+   **On RDC < 0.18.0 this silently breaks**: delete received no spec, so
+   `.spec.projectId` is null, every guard skips, snowplow reports success, and
+   the finalizer never releases. That older behaviour is why this repo used to
+   carry a static `deleteApiRef.extras.projectId` — now removed
+   ([rdc#41](https://github.com/braghettos/krateo-rest-dynamic-controller/issues/41)).
 
 ## Caveats
 

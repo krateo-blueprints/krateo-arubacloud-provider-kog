@@ -7,12 +7,17 @@ This walks through installing the provider and managing your first resource (a
 
 - A Kubernetes cluster (v1.20+).
 - The **braghettos** oasgen-provider installed, with its rest-dynamic-controller:
-  - `ghcr.io/braghettos/krateo-oasgen-provider`
-  - `ghcr.io/braghettos/krateo-rest-dynamic-controller` (≥ 0.16.1)
+  - `ghcr.io/braghettos/krateo-oasgen-provider` **≥ 0.18.0**
+  - `ghcr.io/braghettos/krateo-rest-dynamic-controller` **≥ 0.18.0**
 
   > A stock (non-braghettos) oasgen-provider does **not** have the features
   > these RestDefinitions rely on (nested identifiers, `fieldMapping`,
-  > `requestTransform`, `async`, `*ApiRef`). Install the braghettos fork.
+  > `async`, `*ApiRef`). Install the braghettos fork.
+  >
+  > **RDC 0.18.0 is not optional.** The chart pins `rdc.image.tag` by hand
+  > (0.9.18 still ships 0.16.1), and on an older RDC these manifests fail
+  > *silently* — see [prerequisites](../README.md#prerequisites). Install with
+  > `--set rdc.image.tag=0.18.0`.
 - An Aruba Cloud Bearer token — see [authentication](authentication.md) and
   <https://api.arubacloud.com/docs/authentication/>.
 - `kubectl`, and (optional, for the Composition) `helm`.

@@ -5720,7 +5720,9 @@
           },
           "attributes": {
             "type": "object",
-            "additionalProperties": true
+            "additionalProperties": {
+              "type": "string"
+            }
           },
           "price": {
             "type": "number",
@@ -7781,7 +7783,7 @@
             "type": "string"
           }
         },
-        "additionalProperties": true
+        "additionalProperties": {}
       },
       "ProductAttributeDto": {
         "type": "object",
@@ -7886,7 +7888,7 @@
           },
           "attributes": {
             "type": "object",
-            "additionalProperties": true
+            "additionalProperties": {}
           }
         },
         "additionalProperties": false

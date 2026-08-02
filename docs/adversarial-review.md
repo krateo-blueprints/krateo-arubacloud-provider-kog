@@ -11,12 +11,20 @@ RDC 0.17.0.
 Every claim below cites the file that proves it. Confirmed breaks were **fixed
 in the same change** that added this document.
 
+> **Update (oasgen/RDC 0.18.0).** Findings **#1** and **#2** were filed upstream
+> and have since **shipped as first-class features** — `async.poll.handleParam`
+> + admission-time poll-path validation ([oasgen#46](https://github.com/braghettos/krateo-oasgen-provider/issues/46)),
+> and spec forwarding on every `*ApiRef` direction ([rdc#41](https://github.com/braghettos/krateo-rest-dynamic-controller/issues/41)).
+> The local workarounds they forced have been **removed** from this repo; the
+> rows below keep the original evidence and record what replaced them.
+> Finding #3 (snowplow wiring) is unchanged and remains an install prerequisite.
+
 ## Verdict table
 
 | # | Suspected failure | Verdict | Evidence | Action taken |
 |---|-------------------|---------|----------|--------------|
-| 1 | Async poll path `{operationId}` vs OAS `{id}` | 🟥 **CONFIRMED — HPC async could never poll** | RDC `restclient.go:53` resolves the poll path by **exact string** lookup (`PathItems.Get(path)`); `async_handler.go:120` binds `params["operationId"]` literally | `patch_oas.py` now renames the baremetal monitor param `{id}`→`{operationId}` in the OAS itself; `validate.py` enforces verbatim path + token |
-| 2 | Delete RESTAction reads `.spec.*` | 🟥 **CONFIRMED — delete deadlock** | RDC `observe_restaction.go:108` `buildExtras`: spec is forwarded **only** for create/update; delete gets static extras + name/namespace/uid + identifiers keyed by path string (`.["metadata.name"]`) | Delete RESTAction rewritten to use `.["metadata.name"]` + static `projectId` extra; generator emits per-verb `deleteApiRef.extras`; new evolution item §C6 |
+| 1 | Async poll path `{operationId}` vs OAS `{id}` | 🟥 **CONFIRMED — HPC async could never poll** | RDC `restclient.go:53` resolves the poll path by **exact string** lookup (`PathItems.Get(path)`); `async_handler.go:120` binds `params["operationId"]` literally | ~~`patch_oas.py` renames the OAS param~~ → **superseded**: oasgen 0.18.0 added `poll.handleParam`, so the RD declares `path: …/monitor/{id}` + `handleParam: id` and Aruba's document is used **unmodified**; oasgen validates both halves at admission. The rename patch is deleted |
+| 2 | Delete RESTAction reads `.spec.*` | 🟥 **CONFIRMED — delete deadlock** | RDC `observe_restaction.go:108` `buildExtras`: spec is forwarded **only** for create/update; delete gets static extras + name/namespace/uid + identifiers keyed by path string (`.["metadata.name"]`) | ~~Rewritten to `.["metadata.name"]` + static `projectId` extra~~ → **superseded**: RDC 0.18.0 forwards the spec on every direction, so the delete RESTAction reads `.spec.projectId` like its siblings and the static extra (which pinned one RD to one project) is deleted. Evolution item §C6 closed |
 | 3 | `*ApiRef` unusable on a stock chart install | 🟧 **CONFIRMED — config gap** | RDC `main.go`: `-snowplow-url` defaults to `URL_SNOWPLOW` env, **empty = disabled** → `mutate_restaction.go` hard-errors; the chart's RDC deployment/configmap templates set **neither** `URL_SNOWPLOW` nor `URL_AUTHN` | Documented as an install prerequisite in [lifecycle-beyond-crud](lifecycle-beyond-crud.md) and [troubleshooting](troubleshooting.md) |
 | 4 | Own validator masks break #1 | 🟥 **CONFIRMED — false-negative by design** | `validate.py` normalised `{param}` names away, "passing" a path RDC would never find | Check rewritten to the verbatim contract |
 | 5 | "Fork is at v0.9.0" claim | 🟥 **CONFIRMED — wrong** | `git ls-remote --tags \| tail` sorts **lexically**; version-sorted, both forks are at **0.17.0** | README/docs corrected |
@@ -41,28 +49,34 @@ in the same change** that added this document.
 The nested-`metadata` problem — the reason the original subnet proxy existed — is
 genuinely solved (#8). What remains, ranked by how fundamental it is:
 
-1. **Implicit runtime contracts that nothing validates.** The async poll path
-   must exist *verbatim* in the OAS with a param literally named `{operationId}`
-   (#1), and delete-direction `*ApiRef` extras silently lack the spec (#2). Both
-   are accepted by oasgen at admission (#6) and fail only at runtime — the same
-   failure class as the historical `requestTransform` trap. **Evolution ask:**
-   admission-time validation of `async.poll.path` against the OAS
-   (filed: [oasgen-provider#46](https://github.com/braghettos/krateo-oasgen-provider/issues/46)),
-   and either spec-forwarding on delete or a declarative way to project spec
-   fields into delete extras (§C6; filed:
-   [rest-dynamic-controller#41](https://github.com/braghettos/krateo-rest-dynamic-controller/issues/41)).
-2. **The API's shape itself resists contract-driven generation.** `status.state`
+1. ~~**Implicit runtime contracts that nothing validates.**~~ **Largely closed by
+   0.18.0.** The two contracts this review found — the poll path's exact-key +
+   parameter-name pairing (#1) and the delete-direction spec gap (#2) — are now
+   respectively *validated at admission with a declarative `handleParam` escape
+   hatch*, and *eliminated by forwarding the spec on every direction*. What the
+   episode leaves behind is a **class** of risk rather than these two instances:
+   config that is schema-accepted but semantically unexecutable still generally
+   fails at runtime, and the remaining `verbsDescription[].path` values get no
+   admission check.
+2. **Version skew is now the sharpest edge.** Because the fixes are split across
+   two components, a RestDefinition written for 0.18.0 is *accepted* by an older
+   RDC that then silently misbehaves — `handleParam` is ignored (poll binds to
+   `operationId` and never resolves) and delete receives no spec (finalizer
+   deadlock). The chart pins RDC independently of oasgen, so this is reachable by
+   default; see [Version prerequisites](../README.md#prerequisites).
+3. **The API's shape itself resists contract-driven generation.** `status.state`
    is an open string by upstream design ([async-readiness](async-readiness.md)),
    so readiness values are hand-supplied; lifecycle is spread across POST action
    endpoints (§C1); the list envelope is only handled by a first-array heuristic
    (#7). Each needs either an oasgen evolution (§B3 `itemsPath`, §C1 action
    verbs) or per-resource domain knowledge that no generator can derive.
-3. **Deployment wiring.** Delegation requires a snowplow deployment plus
+4. **Deployment wiring.** Delegation requires a snowplow deployment plus
    `URL_SNOWPLOW`/`URL_AUTHN` on every generated RDC (#3) — currently manual.
-4. **Spec fidelity gaps** (§A1–A7) still force pre-patching the OAS: 4117
-   `nullable` strips, 42 typed-map coercions, security-scheme rewrites, and now
-   one async param rename. The patch script *is* the measure of the remaining
-   distance between "the published Aruba contract" and "what KOG can consume".
+5. **Spec fidelity gaps** (§A1, §A3–A7) still force pre-patching the OAS: ~4119
+   `nullable` strips, security-scheme rewrites, and the compute v1.1 merge —
+   though the typed-map coercion and the async param rename are **gone**. The
+   patch script *is* the measure of the remaining distance between "the published
+   Aruba contract" and "what KOG can consume", and that distance just shrank.
 
 ## Method note
 

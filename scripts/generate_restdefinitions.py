@@ -99,11 +99,11 @@ OVERRIDES = {
             create="arubacloud-compute-cloudserver-create",
             update="arubacloud-compute-cloudserver-update",
             delete="arubacloud-compute-cloudserver-delete",
-            # delete-direction invocations do NOT receive the CR spec (verified:
-            # RDC buildExtras forwards spec only for create/update), so parent
-            # path params like projectId must travel as STATIC extras on
-            # deleteApiRef. Set the real project id before installing.
-            delete_extras={"api-version": "1.0", "projectId": "REPLACE_PROJECT_ID"},
+            # RDC >= 0.18.0 forwards the CR spec on EVERY *ApiRef direction, so the
+            # delete RESTAction reads spec.projectId like its create/update siblings.
+            # Before that fix, delete received no spec and projectId had to be a
+            # hardcoded static extra here (which pinned one RestDefinition to one
+            # project). See rest-dynamic-controller#41.
         ),
         note=(
             "CloudServer has NO single create/update endpoint; its lifecycle (power "
@@ -118,16 +118,21 @@ OVERRIDES = {
         # operation-handle async case the fork's `async` block handles natively —
         # in requeue mode it is the idiomatic, non-blocking, level-based controller
         # wait (superior to a one-shot CLI wait). See docs/async-readiness.md.
+        #
+        # handleParam (oasgen >= 0.18.0, RDC >= 0.18.0) names the path parameter the
+        # extracted handle binds to, so Aruba's published `.../monitor/{id}` is used
+        # UNMODIFIED. Previously the OAS had to be patched to rename it operationId.
         async_=dict(
             action="create",
             mode="requeue",
             operationRef=dict(
                 In="body", path="monitorUri",
-                # monitorUri is a path; bind {operationId} to its trailing id
+                # monitorUri is a path; bind the handle to its trailing id
                 jq=dict(inline='. | split("/") | last')),
             poll=dict(
                 method="GET",
-                path="/projects/{projectId}/providers/Aruba.Baremetal/hpcs/monitor/{operationId}",
+                path="/projects/{projectId}/providers/Aruba.Baremetal/hpcs/monitor/{id}",
+                handleParam="id",
                 statusPath="status",
                 successValues=["Succeeded"],
                 failureValues=["Failed"],
@@ -137,7 +142,8 @@ OVERRIDES = {
             "HPC provisioning is asynchronous. create returns 201 {monitorUri}; the "
             "controller polls GET .../hpcs/monitor/{id} (status Succeeded|Failed) via "
             "the async block in requeue mode, then re-runs findby to populate status. "
-            "HPC has no delete verb in the API.")),
+            "handleParam: id binds the handle to Aruba's own parameter name, so the "
+            "published OAS is used unmodified. HPC has no delete verb in the API.")),
     "project/folders": dict(
         metaWrap=False, idField="name", statusId="status.id",
         note="Folder create body is flat {name, default}; id is a top-level response field."),

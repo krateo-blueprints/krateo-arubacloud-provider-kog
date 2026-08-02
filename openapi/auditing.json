@@ -177,7 +177,9 @@
           },
           "attributes": {
             "type": "object",
-            "additionalProperties": true
+            "additionalProperties": {
+              "type": "string"
+            }
           },
           "price": {
             "type": "number",
@@ -648,7 +650,7 @@
           },
           "properties": {
             "type": "object",
-            "additionalProperties": true
+            "additionalProperties": {}
           },
           "internal": {
             "$ref": "#/components/schemas/Internal"
@@ -748,7 +750,7 @@
           },
           "properties": {
             "type": "object",
-            "additionalProperties": true
+            "additionalProperties": {}
           }
         },
         "additionalProperties": false
@@ -1050,7 +1052,7 @@
             "type": "string"
           }
         },
-        "additionalProperties": true
+        "additionalProperties": {}
       },
       "ProductAttributeDto": {
         "type": "object",
