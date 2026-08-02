@@ -4,7 +4,7 @@ kind: RestDefinition
 metadata:
   name: arubacloud-schedule-backuppolicyassignment
 spec:
-  oasPath: configmap://krateo-system/arubacloud-schedule-openapi/schedule.json
+  oasPath: configmap://krateo-system/arubacloud-schedule-openapi/schedule-provider.json
   resourceGroup: arubacloud.ogen.krateo.io
   resource:
     kind: BackupPolicyAssignment

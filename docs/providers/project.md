@@ -1,7 +1,7 @@
 # Aruba Cloud Project provider
 
 - **OpenAPI**: `Aruba.CmpService.Project.Api` v1.0.0 (`openapi/_source/project.json` → patched `openapi/project.json`)
-- **Security scheme (patched)**: `accessToken` (HTTP Bearer)
+- **Security scheme (patched)**: `Bearer` (HTTP Bearer)
 - **ConfigMap**: `arubacloud-project-openapi` in `krateo-system`
 - **Resources**: 2
 

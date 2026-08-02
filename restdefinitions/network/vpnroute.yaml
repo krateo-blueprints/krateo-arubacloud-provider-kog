@@ -4,7 +4,7 @@ kind: RestDefinition
 metadata:
   name: arubacloud-network-vpnroute
 spec:
-  oasPath: configmap://krateo-system/arubacloud-network-openapi/network.json
+  oasPath: configmap://krateo-system/arubacloud-network-openapi/network-provider.json
   resourceGroup: arubacloud.ogen.krateo.io
   resource:
     kind: VpnRoute

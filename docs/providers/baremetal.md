@@ -1,7 +1,7 @@
 # Aruba Cloud Bare Metal provider
 
-- **OpenAPI**: `Aruba.BaremetalProvider.Api` v1.0.0 (`openapi/_source/baremetal.json` → patched `openapi/baremetal.json`)
-- **Security scheme (patched)**: `accessToken` (HTTP Bearer)
+- **OpenAPI**: `Aruba.BaremetalProvider.Api` v1.0.0 (`openapi/_source/baremetal-provider.json` → patched `openapi/baremetal-provider.json`)
+- **Security scheme (patched)**: `Bearer` (HTTP Bearer)
 - **ConfigMap**: `arubacloud-baremetal-openapi` in `krateo-system`
 - **Resources**: 1
 

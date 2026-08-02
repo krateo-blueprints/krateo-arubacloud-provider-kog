@@ -1,7 +1,7 @@
 # Aruba Cloud Container (Kubernetes) provider
 
-- **OpenAPI**: `Aruba.Container.Api` v1.0.0 (`openapi/_source/container.json` → patched `openapi/container.json`)
-- **Security scheme (patched)**: `accessToken` (HTTP Bearer)
+- **OpenAPI**: `Aruba.Container.Api` v1.0.0 (`openapi/_source/container-provider.json` → patched `openapi/container-provider.json`)
+- **Security scheme (patched)**: `Bearer` (HTTP Bearer)
 - **ConfigMap**: `arubacloud-container-openapi` in `krateo-system`
 - **Resources**: 3
 

@@ -11,7 +11,7 @@ Kubernetes Custom Resources — generated directly from the official
 The predecessor blueprint managed a single resource (`Subnet`) and needed a Go
 proxy (`subnet-plugin`) just to reshape Aruba's `metadata` object. The
 **braghettos forks** of oasgen-provider and rest-dynamic-controller (both at
-**0.17.0**; every feature this repo uses is present since RDC 0.15.0 — see the
+**0.18.0**; every feature this repo uses is present since RDC 0.15.0 — see the
 [verified version matrix](docs/adversarial-review.md))
 remove that need through nested identifiers, `requestFieldMapping`,
 `fieldMapping`, `secretRef`, `async` and Snowplow `*ApiRef` delegation. This repo
@@ -24,21 +24,21 @@ plugins**, and every load-bearing claim has been
 Full docs live in [`docs/`](docs/index.md):
 
 - [Getting started](docs/getting-started.md) · [Architecture](docs/architecture.md) · [Authentication](docs/authentication.md)
-- [Provider reference](docs/providers/README.md) (per-provider pages) · [Coverage matrix](docs/coverage.md) · [OAS patches](docs/oas-patches.md) · [Terraform parity](docs/terraform-parity.md)
+- [Provider reference](docs/providers/README.md) (per-provider pages) · [Coverage matrix](docs/coverage.md) · [OAS policy](docs/oas-patches.md) · [Terraform parity](docs/terraform-parity.md)
 - [Adding a resource](docs/adding-a-resource.md) · [Lifecycle beyond CRUD](docs/lifecycle-beyond-crud.md) · [oasgen-provider evolution](docs/oasgen-provider-evolution.md) · [Troubleshooting](docs/troubleshooting.md)
 
 ## What's here
 
 | Path | Contents |
 |------|----------|
-| `openapi/_source/` | The official Aruba OpenAPI specs, vendored verbatim |
-| `openapi/` | The same specs **patched** to be oasgen-consumable (`scripts/patch_oas.py`) |
-| `configmaps/` | One ConfigMap per provider embedding its patched spec (the `oasPath` source) |
+| `openapi/` | The official Aruba OpenAPI specs, vendored **byte-for-byte unmodified** (+ `CHECKSUMS.txt`) |
+| `configmaps/` | One ConfigMap per provider embedding its spec verbatim (the `oasPath` source) |
 | `restdefinitions/<provider>/` | One `RestDefinition` per manageable resource — **no proxies** |
 | `restactions/compute/` | Snowplow RESTActions that drive `CloudServer`'s multi-call lifecycle (delegated via `*ApiRef`) |
 | `compositions/` | A Krateo `CompositionDefinition` + Helm chart provisioning a whole environment |
 | `samples/<provider>/` | A `<Kind>Configuration` + a `<Kind>` CR skeleton per resource, plus the shared auth `Secret` |
-| `scripts/` | Reproducible generators (`patch_oas.py`, `generate_restdefinitions.py`, `gen_configmaps.py`, `gen_samples_and_coverage.py`, `validate.py`) |
+| `scripts/` | Reproducible generators (`generate_restdefinitions.py`, `gen_configmaps.py`, `gen_samples_and_coverage.py`, `validate.py`) |
+| `docs/oas-patches.md` | The **no-modification policy** for the vendored specs, how it is enforced, and what it costs |
 | `docs/oasgen-provider-evolution.md` | **Every issue that requires an oasgen-provider evolution** (the analytical deliverable) |
 | `docs/lifecycle-beyond-crud.md` | **Proxy-free solution** for lifecycle beyond the 5 CRUD verbs (RESTAction delegation + Composition) |
 | `docs/coverage.md` | Full resource/verb coverage matrix |
@@ -155,15 +155,15 @@ Everything under `openapi/`, `configmaps/`, `restdefinitions/`, `samples/` and
 `docs/coverage.md` is generated. To refresh from updated Aruba specs:
 
 ```sh
-# refresh openapi/_source/*.json from https://api.arubacloud.com/openapi/, then:
-python3 scripts/patch_oas.py                 # -> openapi/  (+ logs every OAS gap)
+# refresh openapi/*.json from https://api.arubacloud.com/openapi/ (then regenerate
+# openapi/CHECKSUMS.txt), and run:
 python3 scripts/generate_restdefinitions.py  # -> restdefinitions/
 python3 scripts/gen_configmaps.py            # -> configmaps/
 python3 scripts/gen_samples_and_coverage.py  # -> samples/ + docs/coverage.md
 ```
 
-`patch_oas.py` prints a count of every transformation it applies; each count is a
-concrete oasgen-provider gap and is analysed in the evolution report.
+The specs themselves are never rewritten — `scripts/validate.py` fails if any byte
+changes. See [OAS policy](docs/oas-patches.md).
 
 ## Caveats & assumptions
 
@@ -177,6 +177,8 @@ concrete oasgen-provider gap and is analysed in the evolution report.
   replicated across resources.
 - `findby` assumes the controller extracts items from Aruba's
   `{total, values[]}` list envelope (evolution report §B3).
-- The OAS patches (strip `nullable`/`readOnly`, coerce `additionalProperties`)
-  change the contract to fit the tool; each is tracked in the evolution report as
-  something oasgen-provider should ideally handle natively.
+- The specs are consumed **unmodified**. The one cost today is authentication:
+  oasgen ignores `apiKey`-in-header security schemes, so the 7 providers that
+  declare one cannot authenticate until
+  [oasgen-provider#49](https://github.com/braghettos/krateo-oasgen-provider/issues/49)
+  lands. See [OAS policy](docs/oas-patches.md).

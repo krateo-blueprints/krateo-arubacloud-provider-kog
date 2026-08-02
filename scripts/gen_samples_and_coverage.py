@@ -21,6 +21,17 @@ RD = os.path.join(ROOT, "restdefinitions")
 SAMPLES = os.path.join(ROOT, "samples")
 DOCS = os.path.join(ROOT, "docs")
 GROUP = "arubacloud.ogen.krateo.io"
+# short provider name -> published filename (consumed UNMODIFIED)
+FILES = {'network': 'network-provider.json',
+         'compute': 'compute-provider.json',
+         'container': 'container-provider.json',
+         'database': 'database-provider.json',
+         'storage': 'storage-provider.json',
+         'security': 'security-provider.json',
+         'schedule': 'schedule-provider.json',
+         'baremetal': 'baremetal-provider.json',
+         'project': 'project.json',
+         'metering': 'metering.json'}
 APIVER = f"{GROUP}/v1alpha1"
 
 
@@ -175,9 +186,7 @@ def main():
         f.write("# The token is short-lived; rotate it as needed.\n")
         yaml.safe_dump(secret, f, sort_keys=False)
 
-    specs = {p: json.load(open(os.path.join(OAS, f"{p}.json")))
-             for p in ["network", "compute", "container", "database", "storage",
-                       "security", "schedule", "baremetal", "project", "metering"]}
+    specs = {p: json.load(open(os.path.join(OAS, fn))) for p, fn in FILES.items()}
 
     rows = []
     for prov, doc in load_rds():

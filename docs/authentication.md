@@ -74,11 +74,18 @@ spec:
 
 ## How the token reaches the API
 
-The security scheme in every patched OAS is HTTP Bearer (`accessToken`), so the
-RDC attaches `Authorization: Bearer <token>` to each request. In the raw Aruba
-specs the scheme was declared as an `apiKey` header, which oasgen-provider would
-not treat as a credential — `scripts/patch_oas.py` rewrites it (see
-[oas-patches](oas-patches.md) §A7).
+Where the spec declares `type: http, scheme: bearer` (compute, database,
+schedule), oasgen generates the `authentication.bearer` block above and RDC
+attaches `Authorization: Bearer <token>` to each request.
+
+> [!WARNING]
+> The other seven providers declare the token as `type: apiKey, in: header`.
+> oasgen does **not** support that form — it skips the scheme silently, so the
+> generated `<Kind>Configuration` has **no `authentication` block** and those
+> resources cannot authenticate. This repo does not rewrite the spec to work
+> around it; the gap is filed as
+> [oasgen-provider#49](https://github.com/braghettos/krateo-oasgen-provider/issues/49).
+> See [OAS policy](oas-patches.md).
 
 ## RESTAction credentials
 

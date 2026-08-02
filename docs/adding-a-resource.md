@@ -71,7 +71,7 @@ The generator then keeps only `findby`/`get` verbs and adds
 
 ## Adding a brand-new resource
 
-1. Make sure the endpoint pair exists in `openapi/_source/<provider>.json` (add
+1. Make sure the endpoint pair exists in `openapi/<provider>.json` (add
    the provider spec if it is new, and register it in `PROVIDERS`).
 2. If it follows the metadata or flat pattern, just regenerate — it appears
    automatically. If it is irregular, add an `OVERRIDES` entry.

@@ -18,7 +18,7 @@ official OpenAPI specifications.
 |-----|----------------|
 | [Provider reference](providers/README.md) | Per-provider pages: every resource, its verbs, endpoints, config and samples |
 | [Coverage matrix](coverage.md) | The full resource/verb table + what is intentionally not generated |
-| [OAS patches](oas-patches.md) | Every transformation applied to the raw specs, and why |
+| [OAS policy](oas-patches.md) | Why the specs are never modified, how that is enforced, and what it costs |
 | [Terraform parity](terraform-parity.md) | Resource cross-map vs the official Aruba Cloud Terraform provider |
 
 ## Design & extension
@@ -35,9 +35,8 @@ official OpenAPI specifications.
 ## Repository layout
 
 ```
-openapi/_source/   raw Aruba specs (vendored verbatim)
-openapi/           patched specs (scripts/patch_oas.py)
-configmaps/        per-provider ConfigMaps embedding the patched specs (oasPath source)
+openapi/           Aruba specs, vendored byte-for-byte unmodified (+ CHECKSUMS.txt)
+configmaps/        per-provider ConfigMaps embedding those specs (oasPath source)
 restdefinitions/   one RestDefinition per resource (no proxies)
 restactions/       Snowplow RESTActions for CloudServer's delegated lifecycle
 compositions/      Krateo CompositionDefinition + Helm chart (whole-environment provisioning)
@@ -49,7 +48,6 @@ docs/              this documentation set
 ## Regenerating everything
 
 ```sh
-python3 scripts/patch_oas.py                 # openapi/  (+ logs every OAS gap)
 python3 scripts/generate_restdefinitions.py  # restdefinitions/
 python3 scripts/gen_configmaps.py            # configmaps/
 python3 scripts/gen_samples_and_coverage.py  # samples/ + docs/coverage.md

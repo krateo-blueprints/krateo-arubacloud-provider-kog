@@ -15,13 +15,15 @@ Common causes:
   oasgen-provider will reject or mis-handle them. Check the deployment image is
   `ghcr.io/braghettos/krateo-oasgen-provider`.
 - **ConfigMap missing or in the wrong namespace.** `oasPath` is
-  `configmap://krateo-system/arubacloud-<provider>-openapi/<provider>.json`; apply
+  `configmap://krateo-system/arubacloud-<provider>-openapi/<published-filename>.json`; apply
   `configmaps/` into the **same namespace** oasgen-provider reads
   (`krateo-system` here).
-- **OAS parse error.** If you referenced a raw `openapi/_source/` spec instead of
-  the patched `openapi/` one, unsupported constructs (`nullable`, object
-  `additionalProperties`) can break generation. Always reference the patched spec
-  (that is what the ConfigMaps embed).
+- **No `authentication` block in the generated `<Kind>Configuration`.** Expected
+  on the 7 providers whose spec declares an `apiKey` security scheme — oasgen
+  supports only `http`/`bearer` and skips the scheme silently, so those resources
+  cannot authenticate. Not a misconfiguration on your side; tracked as
+  [oasgen-provider#49](https://github.com/braghettos/krateo-oasgen-provider/issues/49)
+  and [OAS policy](oas-patches.md). compute, database and schedule are unaffected.
 
 ## A resource CR gets `401 Unauthorized`
 
@@ -46,14 +48,14 @@ duplicates:
 
 ## The resource updates on every reconcile (false drift)
 
-- **`readOnly` fields leaked into spec.** `patch_oas.py` strips `readOnly`, so
+- **`readOnly` fields leaked into spec.** oasgen ignores `readOnly`, so
   server-managed fields (timestamps, counters) are writable and can be compared as
   drift. Move them out of your spec, or set `compareScope: identifiersAndStatus` on
   the RestDefinition to compare only identifiers + status.
 - **`number`/`double` coercion.** Monetary/float fields are coerced to integer
   (evolution report §A4); avoid putting them in the desired spec.
-- **Untyped maps.** `additionalProperties` objects became untyped maps
-  (annotations/labels); shape differences can read as drift.
+- **Nullability.** oasgen ignores `nullable`, so a field the API returns as
+  `null` is declared non-nullable in the CRD (§A1).
 
 ## Editing a RestDefinition fails with an immutability error
 
