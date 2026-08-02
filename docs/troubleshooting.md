@@ -83,8 +83,9 @@ is never released. Nothing in the logs points at the version.
 kubectl get deploy -n krateo-system -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.spec.template.spec.containers[0].image}{"\n"}{end}' | grep rest-dynamic-controller
 ```
 
-If it is below 0.18.0, bump `rdc.image.tag` in the oasgen-provider chart values
-(see [prerequisites](../README.md#prerequisites)). Otherwise, check the
+If it is below 0.18.0, upgrade to chart **0.9.19+** (the first release pairing
+oasgen 0.18.0 with RDC 0.18.0), or override `rdc.image.tag` if you are pinned to
+an older chart — see [prerequisites](../README.md#prerequisites). Otherwise, check the
 RESTAction's jq against the contract in
 [lifecycle-beyond-crud](lifecycle-beyond-crud.md#runtime-contracts-verified-against-rdc-source).
 

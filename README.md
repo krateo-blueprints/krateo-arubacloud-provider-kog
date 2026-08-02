@@ -100,22 +100,22 @@ have the features this repo relies on (nested identifiers, `fieldMapping`,
 |-----------|---------|-----|
 | `ghcr.io/braghettos/krateo-oasgen-provider` | **0.18.0** | typed-map `additionalProperties`; `async.poll.handleParam` + poll-path validation |
 | `ghcr.io/braghettos/krateo-rest-dynamic-controller` | **0.18.0** | honours `handleParam`; forwards the CR spec on every `*ApiRef` direction |
-| `krateo-oasgen-provider-chart` | 0.9.18 | ships oasgen 0.18.0 |
+| `krateo-oasgen-provider-chart` | **0.9.19** | first release pairing oasgen 0.18.0 **with** RDC 0.18.0 |
+
+```sh
+helm install oasgen-provider oci://ghcr.io/braghettos/krateo/krateo-oasgen-provider \
+  --version 0.9.19 --namespace krateo-system --create-namespace
+```
 
 > [!IMPORTANT]
-> **Check the RDC version the chart actually deploys.** The chart pins
-> `rdc.image.tag` by hand and it does *not* auto-track RDC releases — chart
-> 0.9.18 still ships **RDC 0.16.1**. On that version these manifests are
-> accepted and then fail **silently**: `handleParam` is ignored (HPC async never
-> polls) and delegated deletes receive no spec (the CloudServer finalizer never
-> releases). Override it at install time:
->
-> ```sh
-> helm upgrade --install oasgen-provider ... --set rdc.image.tag=0.18.0
-> ```
->
-> Verify with `kubectl get deploy -n krateo-system -o jsonpath=...` — see
-> [troubleshooting](docs/troubleshooting.md).
+> **Do not install chart ≤ 0.9.18 with these manifests.** The chart pins
+> `rdc.image.tag` by hand and it does *not* auto-track RDC releases, so 0.9.18
+> shipped oasgen 0.18.0 against **RDC 0.16.1**. On that pairing these manifests
+> are accepted and then fail **silently**: `handleParam` is ignored (HPC async
+> never polls) and delegated deletes receive no spec (the CloudServer finalizer
+> never releases). 0.9.19 fixes the pairing; if you are pinned to an older
+> chart, override with `--set rdc.image.tag=0.18.0` and verify the running image
+> — see [troubleshooting](docs/troubleshooting.md).
 
 ## Install
 

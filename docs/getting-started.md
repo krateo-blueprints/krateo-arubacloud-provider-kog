@@ -14,10 +14,16 @@ This walks through installing the provider and managing your first resource (a
   > these RestDefinitions rely on (nested identifiers, `fieldMapping`,
   > `async`, `*ApiRef`). Install the braghettos fork.
   >
-  > **RDC 0.18.0 is not optional.** The chart pins `rdc.image.tag` by hand
-  > (0.9.18 still ships 0.16.1), and on an older RDC these manifests fail
-  > *silently* — see [prerequisites](../README.md#prerequisites). Install with
-  > `--set rdc.image.tag=0.18.0`.
+  > **Install chart 0.9.19 or newer** — it is the first release that pairs
+  > oasgen 0.18.0 with RDC 0.18.0:
+  >
+  > ```sh
+  > helm install oasgen-provider oci://ghcr.io/braghettos/krateo/krateo-oasgen-provider \
+  >   --version 0.9.19 --namespace krateo-system --create-namespace
+  > ```
+  >
+  > On chart ≤ 0.9.18 (which ships RDC 0.16.1) these manifests fail *silently* —
+  > see [prerequisites](../README.md#prerequisites).
 - An Aruba Cloud Bearer token — see [authentication](authentication.md) and
   <https://api.arubacloud.com/docs/authentication/>.
 - `kubectl`, and (optional, for the Composition) `helm`.
