@@ -15,20 +15,26 @@ Common causes:
   oasgen-provider will reject or mis-handle them. Check the deployment image is
   `ghcr.io/braghettos/krateo-oasgen-provider`.
 - **ConfigMap missing or in the wrong namespace.** `oasPath` is
-  `configmap://krateo-system/arubacloud-<provider>-openapi/<provider>.json`; apply
+  `configmap://krateo-system/arubacloud-<provider>-openapi/<published-filename>.json`; apply
   `configmaps/` into the **same namespace** oasgen-provider reads
   (`krateo-system` here).
-- **OAS parse error.** If you referenced a raw `openapi/_source/` spec instead of
-  the patched `openapi/` one, unsupported constructs (`nullable`, object
-  `additionalProperties`) can break generation. Always reference the patched spec
-  (that is what the ConfigMaps embed).
+- **No `authentication` block in the generated `<Kind>Configuration`.** On the 7
+  providers whose spec declares an `apiKey` scheme this means oasgen is older than
+  **0.19.0** — earlier versions skipped that scheme silently. Upgrade the provider
+  (chart ≥ 0.9.20). See [authentication](authentication.md).
 
 ## A resource CR gets `401 Unauthorized`
 
 - The token Secret is missing/expired, or `configurationRef` points at the wrong
   `<Kind>Configuration`. See [authentication](authentication.md).
 - Aruba tokens are short-lived (~1h). Update `stringData.token` in the Secret.
-- Ensure the token has **no** `Bearer ` prefix and no surrounding quotes.
+- Ensure the Secret holds the **raw** token — no `Bearer ` prefix, no quotes. The
+  framing is applied by the Configuration, not stored in the Secret.
+- **On an `apiKey` provider, check `valuePrefix`.** network/container/security/
+  storage/baremetal/project/metering need
+  `authentication.apiKey.valuePrefix: 'Bearer '` — *with the trailing space*.
+  Empty sends the bare token; missing the space sends `Bearerxyz`. Both 401
+  exactly like a wrong credential. See [authentication](authentication.md).
 
 ## A resource is repeatedly re-created (findby never matches)
 
@@ -46,14 +52,14 @@ duplicates:
 
 ## The resource updates on every reconcile (false drift)
 
-- **`readOnly` fields leaked into spec.** `patch_oas.py` strips `readOnly`, so
+- **`readOnly` fields leaked into spec.** oasgen ignores `readOnly`, so
   server-managed fields (timestamps, counters) are writable and can be compared as
   drift. Move them out of your spec, or set `compareScope: identifiersAndStatus` on
   the RestDefinition to compare only identifiers + status.
 - **`number`/`double` coercion.** Monetary/float fields are coerced to integer
   (evolution report §A4); avoid putting them in the desired spec.
-- **Untyped maps.** `additionalProperties` objects became untyped maps
-  (annotations/labels); shape differences can read as drift.
+- **Nullability.** oasgen ignores `nullable`, so a field the API returns as
+  `null` is declared non-nullable in the CRD (§A1).
 
 ## Editing a RestDefinition fails with an immutability error
 

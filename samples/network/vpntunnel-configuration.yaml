@@ -5,11 +5,13 @@ metadata:
   namespace: default
 spec:
   authentication:
-    bearer:
+    apiKey:
       tokenRef:
         name: arubacloud-token
         namespace: default
         key: token
+      header: Authorization
+      valuePrefix: 'Bearer '
   configuration:
     query:
       findby:

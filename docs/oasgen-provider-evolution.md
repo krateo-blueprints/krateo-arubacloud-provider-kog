@@ -3,14 +3,19 @@
 This document enumerates every issue found while generating RestDefinitions for
 **all** Aruba Cloud APIs directly from the official OpenAPI specifications
 (`https://api.arubacloud.com/openapi/<provider>.json`, vendored under
-`openapi/_source/`) with the **braghettos** fork of
+`openapi/`, byte-for-byte unmodified) with the **braghettos** fork of
 [`oasgen-provider`](https://github.com/braghettos/krateo-oasgen-provider) and
 **no wrapper/proxy web service**.
 
 It is written to be actionable: each issue states what the API does, why the
-current oasgen-provider cannot handle it natively, the workaround applied in this
-repository (if any), and the concrete provider evolution that would remove the
-workaround.
+current oasgen-provider cannot handle it natively, and the concrete provider
+evolution that would close the gap.
+
+**This repository applies no workarounds to the specifications themselves.** They
+are vendored byte-for-byte as Aruba publishes them (see
+[OAS policy](oas-patches.md)); every gap below is therefore either harmless in
+practice, handled inside the RestDefinition, or a live limitation tracked
+upstream.
 
 Scope analysed: 11 specs, ~108 operations, **34 manageable resources** across the
 `network`, `compute`, `container`, `database`, `storage`, `security`, `schedule`,
@@ -25,13 +30,13 @@ Scope analysed: 11 specs, ~108 operations, **34 manageable resources** across th
 
 | # | Issue | Status | Resources affected | Evolution needed |
 |---|-------|--------|--------------------|------------------|
-| A1 | `nullable: true` unsupported | 🟥 | all (4117 keys stripped) | Accept OAS 3.0 `nullable`; auto-convert to 3.1 null-union |
+| A1 | `nullable: true` ignored | 🟧 | all (~4119 keys) | Accept OAS 3.0 `nullable`; auto-convert to 3.1 null-union. **Not** a blocker — the strip it forced was a no-op and has been removed |
 | A2 | `additionalProperties: {schema}` unsupported | 🟩 | container, metering, compute, storage, audit (42) | **Shipped** in oasgen 0.18.0 — typed maps reach the CRD ([#45](https://github.com/braghettos/krateo-oasgen-provider/issues/45)) |
-| A3 | `readOnly` / `writeOnly` ignored | 🟧 | metering, network, container, compute, storage (25) | Honour `readOnly` → status-only; `writeOnly` → create-only |
+| A3 | `readOnly` / `writeOnly` ignored | 🟧 | metering, network, container, compute, storage (25) | Honour `readOnly` → status-only; `writeOnly` → create-only. Keywords now preserved in the specs |
 | A4 | `number` / `format: double` coerced to integer | 🟧 | all billing/`price` fields (18) | Native `number` (float) type in CRD generation |
 | A5 | `format` only appended to description | 🟧 | all (int32/int64/date-time/uuid/uri) | Map `format` to CRD `format`/validation |
 | A6 | numeric/length/pattern constraints dropped | 🟧 | scattered (`minLength`, …) | Emit CRD validation from OAS constraints |
-| A7 | Bearer declared as `apiKey`-in-header, not `http` | 🟥 | 8 specs | Treat `apiKey` header schemes as usable Bearer credentials |
+| A7 | `apiKey` security schemes unsupported | 🟩 | 8 specs (24 of 34 resources) | **Shipped** in oasgen 0.19.0 + RDC 0.19.0 — `authentication.apiKey` with `header`/`valuePrefix`, and skipped schemes now surfaced ([#49](https://github.com/braghettos/krateo-oasgen-provider/issues/49)) |
 | B1 | `metadata`-wrapped name/id (nested identifier) | 🟩 | ~28 resources | Solved (nested identifiers + `requestFieldMapping`) — was the reason for the old subnet proxy |
 | B2 | Different path-param name per verb | 🟩/🟧 | `database/Database`, `schedule/BackupPolicy` | Solved per-verb; a spec-level alias would be cleaner |
 | B3 | `findby` list envelope (`{total, values[]}`) | 🟧 | all list endpoints | Explicit `findby.itemsPath` / response-collection selector |
@@ -49,28 +54,39 @@ Scope analysed: 11 specs, ~108 operations, **34 manageable resources** across th
 
 ## Category A — OAS constructs oasgen-provider cannot consume
 
-These force a **pre-processing patch** of the specification (`scripts/patch_oas.py`).
-Every patch is a place where the spec had to be altered to fit the tool rather
-than the tool fitting the spec, so each one is a candidate for native support.
+These are constructs the toolchain does not consume natively. **None of them is
+patched any more** — this repo ships Aruba's documents byte-for-byte unmodified
+(see [OAS policy](oas-patches.md)), so each entry below is either harmless in
+practice or a live limitation tracked upstream. §A7 is the one that currently
+costs functionality.
 
-### A1 — `nullable: true` (🟥 blocks, 4117 occurrences)
+### A1 — `nullable: true` (🟧 ignored, ~4119 occurrences — but NOT a blocker)
 The Aruba specs are OAS **3.0.1**, which expresses "may be null" with
-`nullable: true`. oasgen-provider does not support it (per the fork README), so
-`patch_oas.py` strips it from **4117** schema nodes. Stripping is safe for CRD
-generation but silently changes the contract (a field the API may return as
-`null` becomes non-nullable in the CRD, which can trip strict response
-validation in the controller).
+`nullable: true`. oasgen-provider does not read the keyword at all — there is no
+`Nullable` field on its domain schema and zero references in
+`internal/tools/oas2jsonschema/` — so it is silently dropped during conversion
+and the generated CRD declares the field non-nullable.
 
-**Evolution:** accept `nullable` and translate OAS 3.0 `nullable: true` into the
-OAS 3.1 `type: [<t>, "null"]` union during ingestion, instead of requiring the
-author to hand-edit thousands of nodes.
+**Correction (this repo used to overstate it).** An earlier revision graded this
+🟥 "blocks" and had a patch script strip all ~4119 nodes. That was wrong on both
+counts: the strip was a **no-op** (regenerating every RestDefinition without it
+produces byte-identical output), and it could never have "tripped strict response
+validation in the controller" because RDC does not validate response bodies at
+all — `ValidateRequest` covers parameters/query/headers/cookies, and body
+validation is commented out pending a stable libopenapi-validator. The strip has
+been removed; the specs now carry `nullable` exactly as published.
+
+**Evolution:** translate OAS 3.0 `nullable: true` into the OAS 3.1
+`type: [<t>, "null"]` union during ingestion, so the CRD permits the nulls the
+API actually returns. Real, but a fidelity gap rather than a blocker — and one
+that only becomes user-visible if/when body validation is enabled.
 
 ### A2 — `additionalProperties` as an object (🟩 SHIPPED in oasgen 0.18.0)
 > **Resolved.** oasgen 0.18.0 carries the object form through to crdgen as a
 > typed map: the adapter recurses the value schema through the same
 > guard/visited/depth machinery as `items`, and the serializer emits it. The
-> workaround below (coercing to `additionalProperties: true`) has been **removed
-> from `scripts/patch_oas.py`**, so all 42 maps now keep their value type and
+> workaround below (coercing to `additionalProperties: true`) has been **removed**,
+> so all 42 maps now keep their value type and
 > validation in the generated CRDs. Requires oasgen >= 0.18.0.
 > ([oasgen-provider#45](https://github.com/braghettos/krateo-oasgen-provider/issues/45))
 
@@ -84,13 +100,16 @@ catalog noise:
   `metering/AlertRule`.
 - `CloudServerNetworkInterfaceDto.properties` on `compute/CloudServer`.
 
-`patch_oas.py` used to coerce these to `additionalProperties: true`, which
+The repo used to coerce these to `additionalProperties: true`, which
 **lost the value type** (they became untyped maps in the CRD). Annotations and
 labels are first-class Kubernetes concepts, so degrading them to untyped was a
 real ergonomic loss — which is why this was the first gap filed and fixed.
 
 ### A3 — `readOnly` / `writeOnly` (🟧 ignored, 25 occurrences)
-Dropped by the patch. Concrete server-managed fields that should be
+Ignored by oasgen (zero references in `oas2jsonschema`), so these land in the CRD
+spec as writable. This repo used to strip them too; that was likewise a **no-op**
+and has been removed — the keywords are now preserved in the shipped specs, ready
+for the day oasgen honours them. Concrete server-managed fields that should be
 **status-only** but currently land in the spec as writable:
 
 - `metering/AlertRule`: `lastReception`, `lastActivation`, `lastEdit`.
@@ -127,16 +146,44 @@ be caught at admission).
 **Evolution:** emit CRD `x-kubernetes-validations` / OpenAPI validation from OAS
 constraints.
 
-### A7 — security scheme shape (🟥 blocks auth, 8 specs)
-Seven of eleven specs declare the Bearer token as
-`type: apiKey, in: header, name: Authorization`. oasgen-provider only wires
-`http`/`bearer` (or `basic`) schemes, so as-published the token would never be
-treated as a credential. `patch_oas.py` rewrites it to
-`{type: http, scheme: bearer}` (the exact fix the original blueprint documented
-in `oas_changes_references.md`).
+### A7 — `apiKey` security schemes (🟩 SHIPPED in oasgen 0.19.0 + RDC 0.19.0)
+> **Resolved.** oasgen 0.19.0 generates an `authentication.apiKey` block
+> (`tokenRef` + `header` + optional `valuePrefix`), defaulting `header` from the
+> scheme's declared name when the document has exactly one apiKey scheme; RDC
+> 0.19.0 sends `Header.Set(header, valuePrefix+token)`. A scheme it still cannot
+> support is no longer skipped in silence. **All 34 resources can now authenticate
+> against Aruba's unmodified specs.**
+>
+> One Aruba-specific detail: the generated Configurations must set
+> `valuePrefix: 'Bearer '` (trailing space included) because Aruba declares
+> `apiKey` but expects bearer framing — oasgen rightly does not default a prefix.
+> The generated samples derive this from each document's own scheme; see
+> [authentication](authentication.md).
+> ([oasgen-provider#49](https://github.com/braghettos/krateo-oasgen-provider/issues/49))
 
-**Evolution:** recognise an `apiKey`-in-`Authorization`-header scheme as a Bearer
-credential, or document a mapping, so the spec need not be edited.
+Historical context follows.
+Eight of eleven specs declare the token as
+`type: apiKey, in: header, name: Authorization`. oasgen wires only `http`
+(`bearer`/`basic`) schemes: `createSchemaForSecurityScheme` returns an error for
+anything else and `buildAuthMethodsSchemaMap` swallows it with a bare `continue`.
+The generated `<Kind>Configuration` therefore has **no `authentication` block at
+all** — there is no field through which to supply a credential, and nothing warns.
+
+| Aruba spec | Scheme | Status |
+|---|---|---|
+| compute, database, schedule | `http` / `bearer` | ✅ authenticates |
+| network, container, security, storage, baremetal, project, metering | `apiKey` in header | ❌ **24 of 34 resources cannot authenticate** |
+
+This repo previously rewrote the scheme to `{type: http, scheme: bearer}`. That
+patch is **gone**: the specs are now shipped unmodified
+([OAS policy](oas-patches.md)), so the gap is visible instead of papered over.
+
+**Evolution:** support `apiKey`-in-header (sending the header the document
+declares), and — independently — never skip a security scheme silently; a
+document whose only scheme is unsupported should raise a warning or condition
+rather than yield a Configuration with no way to authenticate.
+
+> Filed upstream: [braghettos/krateo-oasgen-provider#49](https://github.com/braghettos/krateo-oasgen-provider/issues/49).
 
 ---
 
@@ -285,8 +332,7 @@ out of reading the executor source, and both were fixed:
 - **`async.poll.handleParam`** (oasgen 0.18.0 + RDC 0.18.0) declares *which* path
   parameter receives the operation handle, instead of hardcoding `operationId`.
   Aruba's published `.../hpcs/monitor/{id}` is now used **unmodified** with
-  `handleParam: id`, and `patch_oas.py`'s OAS-renaming workaround has been
-  removed.
+  `handleParam: id`, and the OAS-renaming workaround has been removed.
 - **Admission-time validation** of `async.poll.path` (oasgen
   `restdefinition/helper.go: validateAsyncPollPaths`) now checks both halves of
   the contract — exact OAS key *and* the `{handleParam}` token — when the
@@ -350,12 +396,16 @@ against RDC < 0.18.0** (see [troubleshooting](troubleshooting.md)).
 ### D1 — one OAS document per RestDefinition (🟧)
 `compute/CloudServer`'s create lives in a **separate** document
 (`compute-provider_v1.1.json`) from its get/list/delete
-(`compute-provider.json`). A RestDefinition references a single `oasPath`, so
-`patch_oas.py` had to **merge** the v1.1 `POST /cloudServers` into the base
-document before generation.
+(`compute-provider.json`). A RestDefinition references a single `oasPath`, so a
+resource needing verbs from both documents cannot express them.
+
+This repo used to merge the v1.1 `POST` into the base document; that merge is
+**gone**, and nothing was lost — CloudServer delegates create via `createApiRef`,
+so no verb ever referenced the v1.1 path. The constraint is still real for any
+future resource that needs a *native* verb from a second document.
 
 **Evolution:** allow a RestDefinition to reference multiple OAS documents (or an
-overlay), so version-split APIs need not be manually spliced.
+overlay), so version-split APIs need not be spliced.
 
 ### D2 — immutability of structural fields (🟩 operational)
 `resourceGroup`, `resource.kind`, `identifiers`, `additionalStatusFields`,

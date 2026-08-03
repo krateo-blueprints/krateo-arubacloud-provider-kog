@@ -1,7 +1,7 @@
 # Aruba Cloud Metering (Insight) provider
 
 - **OpenAPI**: `Aruba.Insight.API` v1.0 (`openapi/_source/metering.json` → patched `openapi/metering.json`)
-- **Security scheme (patched)**: `accessToken` (HTTP Bearer)
+- **Security scheme (patched)**: `Bearer` (HTTP Bearer)
 - **ConfigMap**: `arubacloud-metering-openapi` in `krateo-system`
 - **Resources**: 1
 

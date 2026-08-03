@@ -65,15 +65,18 @@ KIND_MAP = {
 # Which spec file each provider resource set comes from and the resource kind
 # prefix used to disambiguate collections that repeat a name (e.g. "backups"
 # exists in database, storage and container).
+# Aruba's published OAS documents, consumed UNMODIFIED. The key is the short
+# provider name used in ConfigMap/RestDefinition names; the value is the exact
+# filename as published at https://api.arubacloud.com/openapi/.
 PROVIDERS = {
-    "network": "network.json",
-    "compute": "compute.json",
-    "container": "container.json",
-    "database": "database.json",
-    "storage": "storage.json",
-    "security": "security.json",
-    "schedule": "schedule.json",
-    "baremetal": "baremetal.json",
+    "network": "network-provider.json",
+    "compute": "compute-provider.json",
+    "container": "container-provider.json",
+    "database": "database-provider.json",
+    "storage": "storage-provider.json",
+    "security": "security-provider.json",
+    "schedule": "schedule-provider.json",
+    "baremetal": "baremetal-provider.json",
     "project": "project.json",
     "metering": "metering.json",
 }
@@ -423,7 +426,7 @@ def render(r):
         "kind": "RestDefinition",
         "metadata": {"name": f"arubacloud-{r['provider']}-{r['kind'].lower()}"},
         "spec": {
-            "oasPath": f"configmap://{CM_NS}/arubacloud-{r['provider']}-openapi/{r['provider']}.json",
+            "oasPath": f"configmap://{CM_NS}/arubacloud-{r['provider']}-openapi/{PROVIDERS[r['provider']]}",
             "resourceGroup": GROUP,
             "resource": resource,
         },

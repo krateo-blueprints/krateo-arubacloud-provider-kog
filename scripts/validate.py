@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Static validation of the generated artifacts (no cluster needed):
-  * every RestDefinition verb path+method exists in its referenced patched OAS;
+  * the vendored Aruba OAS documents are UNMODIFIED (sha256 vs openapi/CHECKSUMS.txt);
+  * every RestDefinition verb path+method exists in its referenced OAS;
   * every requestFieldMapping.inPath is a real path parameter of that verb's path;
   * every oasPath configmap:// reference resolves to a generated ConfigMap;
   * all RestDefinition / ConfigMap / sample / restaction YAML is parseable;
@@ -9,6 +10,7 @@
 Exits non-zero if anything fails.
 """
 import glob
+import hashlib
 import json
 import os
 import re
@@ -19,14 +21,21 @@ import sys
 import yaml
 
 ROOT = os.path.join(os.path.dirname(__file__), "..")
-PROVIDERS = ["network", "compute", "container", "database", "storage",
-             "security", "schedule", "baremetal", "project", "metering"]
+# short provider name -> published filename (consumed UNMODIFIED)
+PROVIDERS = {
+    "network": "network-provider.json", "compute": "compute-provider.json",
+    "container": "container-provider.json", "database": "database-provider.json",
+    "storage": "storage-provider.json", "security": "security-provider.json",
+    "schedule": "schedule-provider.json", "baremetal": "baremetal-provider.json",
+    "project": "project.json", "metering": "metering.json",
+}
 
 
 def main():
     os.chdir(ROOT)
     errors = []
-    specs = {p: json.load(open(f"openapi/{p}.json")) for p in PROVIDERS}
+    verify_oas_unmodified(errors)
+    specs = {p: json.load(open(f"openapi/{fn}")) for p, fn in PROVIDERS.items()}
     cm_names = {yaml.safe_load(open(f))["metadata"]["name"]
                 for f in glob.glob("configmaps/*.yaml")}
 
@@ -83,6 +92,31 @@ def main():
             print("  -", e)
         sys.exit(1)
     print("OK: verb paths/methods exist in their OAS; oasPaths resolve; YAML valid; charts render.")
+
+
+def verify_oas_unmodified(errors):
+    """The vendored specs are Aruba's published documents, byte-for-byte. This repo
+    deliberately performs NO OAS rewriting -- KOG adapts to the published contract,
+    not the other way round -- so any drift here is a bug, not a patch."""
+    manifest = os.path.join("openapi", "CHECKSUMS.txt")
+    if not os.path.isfile(manifest):
+        errors.append("openapi/CHECKSUMS.txt missing: cannot prove the specs are unmodified")
+        return
+    expected = {}
+    for line in open(manifest):
+        digest, _, name = line.strip().partition("  ")
+        if name:
+            expected[name] = digest
+    for fn in sorted(glob.glob("openapi/*.json")):
+        name = os.path.basename(fn)
+        actual = hashlib.sha256(open(fn, "rb").read()).hexdigest()
+        if name not in expected:
+            errors.append(f"openapi/{name}: not listed in CHECKSUMS.txt")
+        elif actual != expected[name]:
+            errors.append(f"openapi/{name}: MODIFIED (sha256 differs from CHECKSUMS.txt)")
+    for name in expected:
+        if not os.path.isfile(os.path.join("openapi", name)):
+            errors.append(f"openapi/{name}: listed in CHECKSUMS.txt but missing")
 
 
 def find_helm():

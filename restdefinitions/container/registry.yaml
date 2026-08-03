@@ -4,7 +4,7 @@ kind: RestDefinition
 metadata:
   name: arubacloud-container-registry
 spec:
-  oasPath: configmap://krateo-system/arubacloud-container-openapi/container.json
+  oasPath: configmap://krateo-system/arubacloud-container-openapi/container-provider.json
   resourceGroup: arubacloud.ogen.krateo.io
   resource:
     kind: Registry

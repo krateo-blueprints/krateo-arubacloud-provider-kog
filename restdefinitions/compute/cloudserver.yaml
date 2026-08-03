@@ -5,14 +5,12 @@ kind: RestDefinition
 metadata:
   name: arubacloud-compute-cloudserver
 spec:
-  oasPath: configmap://krateo-system/arubacloud-compute-openapi/compute.json
+  oasPath: configmap://krateo-system/arubacloud-compute-openapi/compute-provider.json
   resourceGroup: arubacloud.ogen.krateo.io
   resource:
     kind: CloudServer
     identifiers:
     - metadata.name
-    additionalStatusFields:
-    - metadata.id
     excludedSpecFields:
     - cloudServerId
     createApiRef:

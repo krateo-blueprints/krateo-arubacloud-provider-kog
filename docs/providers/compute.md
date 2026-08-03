@@ -1,7 +1,7 @@
 # Aruba Cloud Compute provider
 
-- **OpenAPI**: `Aruba.CmpService.Computing.Api` v1.0.0 (`openapi/_source/compute.json` → patched `openapi/compute.json`)
-- **Security scheme (patched)**: `accessToken` (HTTP Bearer)
+- **OpenAPI**: `Aruba.CmpService.Computing.Api` v1.0.0 (`openapi/_source/compute-provider.json` → patched `openapi/compute-provider.json`)
+- **Security scheme (patched)**: `Bearer` (HTTP Bearer)
 - **ConfigMap**: `arubacloud-compute-openapi` in `krateo-system`
 - **Resources**: 2
 
@@ -24,7 +24,7 @@
 | update | *(delegated)* | RESTAction `arubacloud-compute-cloudserver-update` |
 | delete | *(delegated)* | RESTAction `arubacloud-compute-cloudserver-delete` |
 
-status fields: `metadata.id` · excluded from spec: `cloudServerId`
+excluded from spec: `cloudServerId`
 
 Configuration query params: `api-version, filter, limit, offset, projection, sort`
 

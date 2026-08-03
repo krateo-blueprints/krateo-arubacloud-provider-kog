@@ -21,6 +21,17 @@ RD = os.path.join(ROOT, "restdefinitions")
 SAMPLES = os.path.join(ROOT, "samples")
 DOCS = os.path.join(ROOT, "docs")
 GROUP = "arubacloud.ogen.krateo.io"
+# short provider name -> published filename (consumed UNMODIFIED)
+FILES = {'network': 'network-provider.json',
+         'compute': 'compute-provider.json',
+         'container': 'container-provider.json',
+         'database': 'database-provider.json',
+         'storage': 'storage-provider.json',
+         'security': 'security-provider.json',
+         'schedule': 'schedule-provider.json',
+         'baremetal': 'baremetal-provider.json',
+         'project': 'project.json',
+         'metering': 'metering.json'}
 APIVER = f"{GROUP}/v1alpha1"
 
 
@@ -96,7 +107,37 @@ def create_body_props(spec, create_path):
     return {}, []
 
 
-def make_configuration(kind, verbs):
+def auth_block(spec):
+    """Build the `authentication` block the generated <Kind>Configuration expects,
+    derived from the document's OWN security scheme (oasgen >= 0.19.0):
+
+      type: http, scheme: bearer  -> authentication.bearer
+      type: apiKey, in: header    -> authentication.apiKey {tokenRef, header, valuePrefix}
+
+    The apiKey shape carries the header name (oasgen defaults it from the scheme
+    when the document declares exactly one) and a valuePrefix that RDC prepends to
+    the credential: `req.Header.Set(header, valuePrefix+token)`.
+
+    Aruba declares `apiKey` in an `Authorization` header but expects BEARER framing,
+    so valuePrefix must be "Bearer " -- with the trailing space. oasgen deliberately
+    does not default it (a Secret already holding "Bearer x" would become
+    "Bearer Bearer x"), so it is set explicitly here. Leaving it empty sends the raw
+    token and every call 401s.
+    """
+    ref = {"name": "arubacloud-token", "namespace": "default", "key": "token"}
+    for sch in (spec.get("components", {}).get("securitySchemes") or {}).values():
+        if sch.get("type") == "http" and sch.get("scheme") == "bearer":
+            return {"bearer": {"tokenRef": ref}}
+        if sch.get("type") == "apiKey" and sch.get("in") == "header":
+            return {"apiKey": {
+                "tokenRef": ref,
+                "header": sch.get("name", "Authorization"),
+                "valuePrefix": "Bearer ",
+            }}
+    return {"bearer": {"tokenRef": ref}}
+
+
+def make_configuration(kind, verbs, auth):
     q = {}
     for v in verbs:
         entry = {"api-version": "1.0"}
@@ -108,8 +149,7 @@ def make_configuration(kind, verbs):
         "kind": f"{kind}Configuration",
         "metadata": {"name": f"{kind.lower()}-config", "namespace": "default"},
         "spec": {
-            "authentication": {"bearer": {"tokenRef": {
-                "name": "arubacloud-token", "namespace": "default", "key": "token"}}},
+            "authentication": auth,
             "configuration": {"query": q},
         },
     }
@@ -175,9 +215,7 @@ def main():
         f.write("# The token is short-lived; rotate it as needed.\n")
         yaml.safe_dump(secret, f, sort_keys=False)
 
-    specs = {p: json.load(open(os.path.join(OAS, f"{p}.json")))
-             for p in ["network", "compute", "container", "database", "storage",
-                       "security", "schedule", "baremetal", "project", "metering"]}
+    specs = {p: json.load(open(os.path.join(OAS, fn))) for p, fn in FILES.items()}
 
     rows = []
     for prov, doc in load_rds():
@@ -186,7 +224,7 @@ def main():
         verbs = [v["action"] for v in res["verbsDescription"]]
         d = os.path.join(SAMPLES, prov)
         os.makedirs(d, exist_ok=True)
-        dump_yaml(make_configuration(kind, verbs),
+        dump_yaml(make_configuration(kind, verbs, auth_block(specs[prov])),
                   os.path.join(d, f"{kind.lower()}-configuration.yaml"))
         dump_yaml(make_cr(specs[prov], prov, doc), os.path.join(d, f"{kind.lower()}.yaml"))
         ids = ",".join(res.get("identifiers", []))

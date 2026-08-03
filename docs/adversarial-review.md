@@ -23,15 +23,15 @@ in the same change** that added this document.
 
 | # | Suspected failure | Verdict | Evidence | Action taken |
 |---|-------------------|---------|----------|--------------|
-| 1 | Async poll path `{operationId}` vs OAS `{id}` | 🟥 **CONFIRMED — HPC async could never poll** | RDC `restclient.go:53` resolves the poll path by **exact string** lookup (`PathItems.Get(path)`); `async_handler.go:120` binds `params["operationId"]` literally | ~~`patch_oas.py` renames the OAS param~~ → **superseded**: oasgen 0.18.0 added `poll.handleParam`, so the RD declares `path: …/monitor/{id}` + `handleParam: id` and Aruba's document is used **unmodified**; oasgen validates both halves at admission. The rename patch is deleted |
+| 1 | Async poll path `{operationId}` vs OAS `{id}` | 🟥 **CONFIRMED — HPC async could never poll** | RDC `restclient.go:53` resolves the poll path by **exact string** lookup (`PathItems.Get(path)`); `async_handler.go:120` binds `params["operationId"]` literally | ~~the OAS param was renamed by a patch script~~ → **superseded**: oasgen 0.18.0 added `poll.handleParam`, so the RD declares `path: …/monitor/{id}` + `handleParam: id` and Aruba's document is used **unmodified**; oasgen validates both halves at admission. The rename patch is deleted |
 | 2 | Delete RESTAction reads `.spec.*` | 🟥 **CONFIRMED — delete deadlock** | RDC `observe_restaction.go:108` `buildExtras`: spec is forwarded **only** for create/update; delete gets static extras + name/namespace/uid + identifiers keyed by path string (`.["metadata.name"]`) | ~~Rewritten to `.["metadata.name"]` + static `projectId` extra~~ → **superseded**: RDC 0.18.0 forwards the spec on every direction, so the delete RESTAction reads `.spec.projectId` like its siblings and the static extra (which pinned one RD to one project) is deleted. Evolution item §C6 closed |
 | 3 | `*ApiRef` unusable on a stock chart install | 🟧 **CONFIRMED — config gap** | RDC `main.go`: `-snowplow-url` defaults to `URL_SNOWPLOW` env, **empty = disabled** → `mutate_restaction.go` hard-errors; the chart's RDC deployment/configmap templates set **neither** `URL_SNOWPLOW` nor `URL_AUTHN` | Documented as an install prerequisite in [lifecycle-beyond-crud](lifecycle-beyond-crud.md) and [troubleshooting](troubleshooting.md) |
 | 4 | Own validator masks break #1 | 🟥 **CONFIRMED — false-negative by design** | `validate.py` normalised `{param}` names away, "passing" a path RDC would never find | Check rewritten to the verbatim contract |
-| 5 | "Fork is at v0.9.0" claim | 🟥 **CONFIRMED — wrong** | `git ls-remote --tags \| tail` sorts **lexically**; version-sorted, both forks are at **0.17.0** | README/docs corrected |
+| 5 | "Fork is at v0.9.0" claim | 🟥 **CONFIRMED — wrong** | `git ls-remote --tags \| tail` sorts **lexically**; version-sorted, both forks were at **0.17.0** (now 0.19.0) | README/docs corrected |
 | 6 | oasgen rejects the async RD at admission | 🟩 Acquitted (worse: it doesn't) | No poll-path validation exists in the oasgen restdefinition controller — a broken poll path is **accepted** and fails only at runtime | Noted in §C2 as a missing-guardrail evolution item |
 | 7 | findby list envelope `{total, values[]}` unhandled | 🟩 **Acquitted — works, by heuristic** | RDC `restclient.go:537` `ExtractItemsFromResponse`: returns the **first array-valued key** of the object. Aruba's envelope has exactly one array (`values`), so it works; a second array field would make it nondeterministic (Go map order) | §B3 reframed from "assumption" to "verified heuristic"; explicit `itemsPath` still the right evolution |
 | 8 | Nested identifiers (`metadata.name`) unsupported in matching | 🟩 **Acquitted — fully supported** | RDC `restclient.go:572` `isItemMatch` → `pathparsing.ParsePath` → `NestedFieldNoCopy(item, "metadata","name")`, compared via `isInResource` (spec, then status) | None needed — the core no-proxy design is sound |
-| 9 | compute v1.0/v1.1 schema merge corrupts create shapes | 🟩 **Acquitted — provably lossless** | 67 shared schema names between the two documents, **0 differing definitions** | Noted in `patch_oas.py` header |
+| 9 | compute v1.0/v1.1 schema merge corrupts create shapes | 🟩 **Acquitted — provably lossless** | 67 shared schema names between the two documents, **0 differing definitions** | Moot: the merge is gone — CloudServer delegates create via `createApiRef`, so the v1.1 `POST` was never referenced |
 | 10 | `Grant` identifier `user` absent from responses → recreate loop | 🟩 **Acquitted** | `GET .../grants/{username}` 200 props: `[user, database, role, creationDate, createdBy]` | None |
 | 11 | async/`*ApiRef` not implemented in shipped RDC versions | 🟩 **Acquitted** | `async_handler.go` + `mutate_restaction.go` present since tag **0.15.0**; only `requestTransform` execution is 0.17.0-only (`ApplyRequestTransform` hits: 0.16.1→0, 0.17.0→3). Chart ships RDC 0.16.1 → everything this repo uses works; `requestTransform` (unused here) would not | Version matrix added below |
 
@@ -72,11 +72,17 @@ genuinely solved (#8). What remains, ranked by how fundamental it is:
    verbs) or per-resource domain knowledge that no generator can derive.
 4. **Deployment wiring.** Delegation requires a snowplow deployment plus
    `URL_SNOWPLOW`/`URL_AUTHN` on every generated RDC (#3) — currently manual.
-5. **Spec fidelity gaps** (§A1, §A3–A7) still force pre-patching the OAS: ~4119
-   `nullable` strips, security-scheme rewrites, and the compute v1.1 merge —
-   though the typed-map coercion and the async param rename are **gone**. The
-   patch script *is* the measure of the remaining distance between "the published
-   Aruba contract" and "what KOG can consume", and that distance just shrank.
+5. ~~**Spec fidelity gaps.**~~ **Closed.** The repo no longer patches the OAS at
+   all — the specs are vendored byte-for-byte and a sha256 manifest enforces it.
+   Re-examined, most of what the patch script did was never load-bearing: the
+   `nullable` and `readOnly` strips were **no-ops** (no consumer reads either
+   keyword) and the compute v1.1 merge was dead weight; the typed-map coercion and
+   the async param rename had already been superseded by 0.18.0. The last real one
+   — §A7, `apiKey` security schemes — shipped in oasgen/RDC **0.19.0**
+   ([#49](https://github.com/braghettos/krateo-oasgen-provider/issues/49)), so
+   **Aruba's published documents are now consumed with zero modifications and all
+   34 resources can authenticate**. The distance between "the published Aruba
+   contract" and "what KOG can consume" is, for this API surface, gone.
 
 ## Method note
 
