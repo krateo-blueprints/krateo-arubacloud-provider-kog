@@ -21,6 +21,7 @@ against the live Aruba Cloud API with an OAuth2 client-credentials token
 | `<Kind>Configuration` samples apply | **34 / 34** |
 | Sample CRs apply | **34 / 34** |
 | Reconcile against the **real API, real credential** | **`Synced=True` / `Ready=True`** — see below |
+| Full **create → observe → drift → delete** lifecycle | **passed**, account left exactly as found |
 
 ### Authenticated end-to-end run
 
@@ -144,6 +145,53 @@ run, so nothing looks broken — the feature just degrades to resync-only.
 **Fixed upstream**: [chart#31](https://github.com/braghettos/krateo-oasgen-provider-chart/pull/31).
 Verified by patching the live ClusterRole and restarting: **88 errors → 0**.
 
+## Full lifecycle against the live API
+
+A real subnet was created, observed, drift-tested and deleted in project
+`cloudburst`. The account finished in exactly the state it started.
+
+| Phase | Result |
+|---|---|
+| **create** | `status.metadata.id = 6a7061ac45076d045a41643e`, identical to the API's own id. Async provisioning: `Ready=True` after ~150s (`InCreation` → `Active`) |
+| **observe** | matched by nested identifier `metadata.name`; a second CR pointed at a pre-existing subnet reported *"External resource is up to date"* |
+| **drift** (`compareScope: fullSpec`) | detected, `PUT` issued — **and it can never succeed**, see below |
+| **delete** | finalizer released in <15s; subnet went `Deleting` → gone. Back to 1 subnet |
+
+### Finding: an unfixable drift loop (upstream)
+
+I asked for `192.168.99.0/24` and got `192.168.0.0/24`. That is **not** a KOG bug —
+the OAS says so explicitly: with `type: Basic`, *"every configuration settings of
+the subnet will be automatically handled by the CMP"*. Use `Advanced` to choose
+your own CIDR.
+
+The real problem is what happens next. Aruba's two schemas are asymmetric:
+
+| Schema | Fields |
+|---|---|
+| create — `SubnetPropertiesDto` | `type`, `default`, `network`, `dhcp` |
+| update — `SubnetUpdatePropertiesDto` | **`default` only** |
+
+So under `fullSpec` the controller sees `network.address` differ, issues an
+update — and the update body **cannot carry `network` at all**. Nothing changes,
+and drift is detected again on the next reconcile, forever.
+
+Drift detection is otherwise accurate: the CR whose spec genuinely matched
+reality reported "up to date" in the very same log. This is specifically the
+*create-only field* case. Filed as
+[oasgen-provider#51](https://github.com/braghettos/krateo-oasgen-provider/issues/51):
+drift comparison should exclude fields the update verb's request body cannot
+express — the OAS already carries that information.
+
+`compareScope: identifiersAndStatus` avoids the loop (and is what made this test
+safe), but it is blunt — it stops comparing everything except identifiers and
+status, so genuinely fixable drift stops being corrected too.
+
+### Minor: delete does not wait for terminal state
+
+The finalizer was released while the remote resource was still `Deleting` (it
+completed ~20s later). Harmless here, but recreating the same name immediately
+after a delete could collide.
+
 ## Credential rotation works without a restart (ESO is viable)
 
 Because the intended credential lifecycle here is **External Secrets Operator**
@@ -184,17 +232,16 @@ CRD. Both are now in the README install steps.
 
 ## Not covered
 
-Authentication and the observe path are now proven against the live API. What
-remains unexercised is everything that **mutates**:
+Auth, observe, create, drift and delete are all now proven against the live API.
+What remains unexercised:
 
-- **create / update / delete round-trips.** The run was scoped to observation on
-  purpose; no resource has ever been created by this repo.
-- **Drift detection** end to end (the guard `compareScope: identifiersAndStatus`
-  was deliberately in place to prevent an update firing).
-- **The HPC async poll loop** reaching `Succeeded`, and the **CloudServer
-  RESTAction** sequences — both need billable resources.
-
-These need an explicit decision to spend money, not just a credential.
+- **The HPC async poll loop** reaching `Succeeded` (`baremetal/Hpc` — bare metal,
+  expensive) and the **CloudServer RESTAction** sequences (`createApiRef`/
+  `updateApiRef`/`deleteApiRef` via Snowplow, which also needs snowplow deployed
+  and `URL_SNOWPLOW` set).
+- **ESO** end to end — the premise (rotation without restart) is verified, the
+  manifests in [authentication](authentication.md) are not.
+- The other 30 resource kinds: only `Subnet` was driven through a full lifecycle.
 
 ## Reproducing
 
