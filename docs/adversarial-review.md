@@ -27,7 +27,7 @@ in the same change** that added this document.
 | 2 | Delete RESTAction reads `.spec.*` | 🟥 **CONFIRMED — delete deadlock** | RDC `observe_restaction.go:108` `buildExtras`: spec is forwarded **only** for create/update; delete gets static extras + name/namespace/uid + identifiers keyed by path string (`.["metadata.name"]`) | ~~Rewritten to `.["metadata.name"]` + static `projectId` extra~~ → **superseded**: RDC 0.18.0 forwards the spec on every direction, so the delete RESTAction reads `.spec.projectId` like its siblings and the static extra (which pinned one RD to one project) is deleted. Evolution item §C6 closed |
 | 3 | `*ApiRef` unusable on a stock chart install | 🟧 **CONFIRMED — config gap** | RDC `main.go`: `-snowplow-url` defaults to `URL_SNOWPLOW` env, **empty = disabled** → `mutate_restaction.go` hard-errors; the chart's RDC deployment/configmap templates set **neither** `URL_SNOWPLOW` nor `URL_AUTHN` | Documented as an install prerequisite in [lifecycle-beyond-crud](lifecycle-beyond-crud.md) and [troubleshooting](troubleshooting.md) |
 | 4 | Own validator masks break #1 | 🟥 **CONFIRMED — false-negative by design** | `validate.py` normalised `{param}` names away, "passing" a path RDC would never find | Check rewritten to the verbatim contract |
-| 5 | "Fork is at v0.9.0" claim | 🟥 **CONFIRMED — wrong** | `git ls-remote --tags \| tail` sorts **lexically**; version-sorted, both forks were at **0.17.0** (now 0.18.0) | README/docs corrected |
+| 5 | "Fork is at v0.9.0" claim | 🟥 **CONFIRMED — wrong** | `git ls-remote --tags \| tail` sorts **lexically**; version-sorted, both forks were at **0.17.0** (now 0.19.0) | README/docs corrected |
 | 6 | oasgen rejects the async RD at admission | 🟩 Acquitted (worse: it doesn't) | No poll-path validation exists in the oasgen restdefinition controller — a broken poll path is **accepted** and fails only at runtime | Noted in §C2 as a missing-guardrail evolution item |
 | 7 | findby list envelope `{total, values[]}` unhandled | 🟩 **Acquitted — works, by heuristic** | RDC `restclient.go:537` `ExtractItemsFromResponse`: returns the **first array-valued key** of the object. Aruba's envelope has exactly one array (`values`), so it works; a second array field would make it nondeterministic (Go map order) | §B3 reframed from "assumption" to "verified heuristic"; explicit `itemsPath` still the right evolution |
 | 8 | Nested identifiers (`metadata.name`) unsupported in matching | 🟩 **Acquitted — fully supported** | RDC `restclient.go:572` `isItemMatch` → `pathparsing.ParsePath` → `NestedFieldNoCopy(item, "metadata","name")`, compared via `isInResource` (spec, then status) | None needed — the core no-proxy design is sound |
@@ -72,16 +72,17 @@ genuinely solved (#8). What remains, ranked by how fundamental it is:
    verbs) or per-resource domain knowledge that no generator can derive.
 4. **Deployment wiring.** Delegation requires a snowplow deployment plus
    `URL_SNOWPLOW`/`URL_AUTHN` on every generated RDC (#3) — currently manual.
-5. **Spec fidelity gaps** (§A1, §A3–A7). The repo no longer patches the OAS at
+5. ~~**Spec fidelity gaps.**~~ **Closed.** The repo no longer patches the OAS at
    all — the specs are vendored byte-for-byte and a sha256 manifest enforces it.
    Re-examined, most of what the patch script did was never load-bearing: the
    `nullable` and `readOnly` strips were **no-ops** (no consumer reads either
-   keyword), and the compute v1.1 merge was dead weight. The single real gap left
-   is §A7: `apiKey` security schemes are unsupported, so 24 of 34 resources cannot
-   authenticate ([#49](https://github.com/braghettos/krateo-oasgen-provider/issues/49)) —
-   though the typed-map coercion and the async param rename are **gone**. The
-   patch script *is* the measure of the remaining distance between "the published
-   Aruba contract" and "what KOG can consume", and that distance just shrank.
+   keyword) and the compute v1.1 merge was dead weight; the typed-map coercion and
+   the async param rename had already been superseded by 0.18.0. The last real one
+   — §A7, `apiKey` security schemes — shipped in oasgen/RDC **0.19.0**
+   ([#49](https://github.com/braghettos/krateo-oasgen-provider/issues/49)), so
+   **Aruba's published documents are now consumed with zero modifications and all
+   34 resources can authenticate**. The distance between "the published Aruba
+   contract" and "what KOG can consume" is, for this API surface, gone.
 
 ## Method note
 

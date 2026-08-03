@@ -33,26 +33,33 @@ curl -sO https://api.arubacloud.com/openapi/network-provider.json   # etc.
 (cd openapi && shasum -a 256 *.json | sort -k2 > CHECKSUMS.txt)
 ```
 
-## What this costs today: authentication on 7 of 10 providers
+## What it cost, and how that resolved
 
-Consuming the specs unmodified surfaces exactly one unresolved tooling gap.
-oasgen supports only `type: http` (`bearer`/`basic`) security schemes; an
-`apiKey` scheme is **silently skipped**, so the generated `<Kind>Configuration`
-CRD has no `authentication` block and there is no way to supply a token.
+Consuming the specs unmodified briefly surfaced one real gap: oasgen supported
+only `type: http` (`bearer`/`basic`) schemes and **silently skipped** anything
+else, so the 7 providers declaring `apiKey`-in-header generated a
+`<Kind>Configuration` with no `authentication` block — 24 of 34 resources could
+not authenticate.
 
-| Aruba spec | Declared scheme | Status |
+That is now **shipped** (oasgen 0.19.0 + RDC 0.19.0,
+[#49](https://github.com/braghettos/krateo-oasgen-provider/issues/49)): both
+scheme shapes generate a usable auth block, and an unsupported scheme is no
+longer skipped in silence.
+
+| Aruba spec | Declared scheme | Generated auth block |
 |---|---|---|
-| compute, database, schedule | `type: http, scheme: bearer` | ✅ authenticates |
-| network, container, security, storage, baremetal, project, metering | `type: apiKey, in: header, name: Authorization` | ❌ **24 of 34 resources cannot authenticate** |
+| compute, database, schedule | `type: http, scheme: bearer` | `authentication.bearer` |
+| network, container, security, storage, baremetal, project, metering | `type: apiKey, in: header, name: Authorization` | `authentication.apiKey` (`header` + `valuePrefix: 'Bearer '`) |
 
-Filed as [oasgen-provider#49](https://github.com/braghettos/krateo-oasgen-provider/issues/49);
-tracked here as §A7. Until it lands, only the three `http`/`bearer` providers are
-functional end to end. That is a deliberate trade: a temporary, *visible*
-limitation in the tool beats a permanent, invisible edit to the vendor contract.
+**Nothing in Aruba's documents had to change** — which was the point. The episode
+is the policy's best evidence: refusing to patch turned a hidden, permanent edit
+to a vendor contract into a visible, tracked, and ultimately *fixed* limitation in
+the tool. Aruba is also inconsistent with itself here (3 of 11 specs already use
+`http`/`bearer`), so it remains legitimate feedback to them — but a spec being
+imperfect is not licence for KOG to rewrite it.
 
-Note that Aruba is inconsistent with itself here — 3 of its 11 specs already use
-the correct `http`/`bearer` form — so this is also legitimate feedback to them.
-But a spec being imperfect is not licence for KOG to rewrite it.
+See [authentication](authentication.md) for the `valuePrefix` detail that Aruba
+specifically needs.
 
 ## History — every transformation that used to exist, and why it went
 
@@ -63,10 +70,10 @@ But a spec being imperfect is not licence for KOG to rewrite it.
 | strip `nullable: true` | ~4119 | **No-op.** Zero references in oasgen's `oas2jsonschema` or anywhere in RDC; removing the strip left all 34 RestDefinitions byte-identical |
 | strip `readOnly` / `writeOnly` | 25 | **No-op**, same evidence |
 | merge compute `v1.1` create into the base document | 1 | Dead weight: CloudServer delegates create via `createApiRef`, so the v1.1 `POST` was never referenced by any verb |
-| security scheme `apiKey` → `http`/`bearer` | 8 | **The one that was real** — now [#49](https://github.com/braghettos/krateo-oasgen-provider/issues/49) upstream instead of a local edit |
+| security scheme `apiKey` → `http`/`bearer` | 8 | **The one that was real** — filed as [#49](https://github.com/braghettos/krateo-oasgen-provider/issues/49) instead of patched, and **shipped** in oasgen/RDC 0.19.0 |
 
-Two of those six were fixed upstream, two were never load-bearing, one was
-unnecessary, and the last became an issue rather than a patch.
+Three of those six were fixed upstream, two were never load-bearing, and one was
+unnecessary. **None of them is a patch any more.**
 
 ## Constructs consumed as-is (documented, not "fixed")
 

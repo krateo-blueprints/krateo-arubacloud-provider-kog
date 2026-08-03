@@ -11,7 +11,7 @@ Kubernetes Custom Resources — generated directly from the official
 The predecessor blueprint managed a single resource (`Subnet`) and needed a Go
 proxy (`subnet-plugin`) just to reshape Aruba's `metadata` object. The
 **braghettos forks** of oasgen-provider and rest-dynamic-controller (both at
-**0.18.0**; every feature this repo uses is present since RDC 0.15.0 — see the
+**0.19.0**; every feature this repo uses is present since RDC 0.15.0 — see the
 [verified version matrix](docs/adversarial-review.md))
 remove that need through nested identifiers, `requestFieldMapping`,
 `fieldMapping`, `secretRef`, `async` and Snowplow `*ApiRef` delegation. This repo
@@ -98,24 +98,23 @@ have the features this repo relies on (nested identifiers, `fieldMapping`,
 
 | Component | Minimum | Why |
 |-----------|---------|-----|
-| `ghcr.io/braghettos/krateo-oasgen-provider` | **0.18.0** | typed-map `additionalProperties`; `async.poll.handleParam` + poll-path validation |
-| `ghcr.io/braghettos/krateo-rest-dynamic-controller` | **0.18.0** | honours `handleParam`; forwards the CR spec on every `*ApiRef` direction |
-| `krateo-oasgen-provider-chart` | **0.9.19** | first release pairing oasgen 0.18.0 **with** RDC 0.18.0 |
+| `ghcr.io/braghettos/krateo-oasgen-provider` | **0.19.0** | `apiKey`-in-header auth (required by 7 of 10 providers); typed-map `additionalProperties`; `async.poll.handleParam` + poll-path validation |
+| `ghcr.io/braghettos/krateo-rest-dynamic-controller` | **0.19.0** | sends the `apiKey` header + `valuePrefix`; honours `handleParam`; forwards the CR spec on every `*ApiRef` direction |
+| `krateo-oasgen-provider-chart` | **0.9.20** | ships oasgen 0.19.0 paired with RDC 0.19.0 |
 
 ```sh
 helm install oasgen-provider oci://ghcr.io/braghettos/krateo/krateo-oasgen-provider \
-  --version 0.9.19 --namespace krateo-system --create-namespace
+  --version 0.9.20 --namespace krateo-system --create-namespace
 ```
 
 > [!IMPORTANT]
-> **Do not install chart ≤ 0.9.18 with these manifests.** The chart pins
-> `rdc.image.tag` by hand and it does *not* auto-track RDC releases, so 0.9.18
-> shipped oasgen 0.18.0 against **RDC 0.16.1**. On that pairing these manifests
-> are accepted and then fail **silently**: `handleParam` is ignored (HPC async
-> never polls) and delegated deletes receive no spec (the CloudServer finalizer
-> never releases). 0.9.19 fixes the pairing; if you are pinned to an older
-> chart, override with `--set rdc.image.tag=0.18.0` and verify the running image
-> — see [troubleshooting](docs/troubleshooting.md).
+> **Use chart ≥ 0.9.20.** Older charts pair a newer oasgen with an older RDC, and
+> these manifests then fail **silently** rather than loudly — `handleParam`
+> ignored (HPC async never polls), delegated deletes receiving no spec (the
+> CloudServer finalizer never releases), and on ≤ 0.9.19 no `apiKey` auth at all.
+> The chart pins `rdc.image.tag` by hand, so if you are stuck on an older chart
+> override it (`--set rdc.image.tag=0.19.0`) and verify the running image — see
+> [troubleshooting](docs/troubleshooting.md).
 
 ## Install
 
@@ -177,8 +176,5 @@ changes. See [OAS policy](docs/oas-patches.md).
   replicated across resources.
 - `findby` assumes the controller extracts items from Aruba's
   `{total, values[]}` list envelope (evolution report §B3).
-- The specs are consumed **unmodified**. The one cost today is authentication:
-  oasgen ignores `apiKey`-in-header security schemes, so the 7 providers that
-  declare one cannot authenticate until
-  [oasgen-provider#49](https://github.com/braghettos/krateo-oasgen-provider/issues/49)
-  lands. See [OAS policy](docs/oas-patches.md).
+- The specs are consumed **unmodified** — no rewriting at all, enforced by a
+  sha256 manifest. See [OAS policy](docs/oas-patches.md).

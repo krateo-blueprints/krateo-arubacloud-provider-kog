@@ -107,7 +107,37 @@ def create_body_props(spec, create_path):
     return {}, []
 
 
-def make_configuration(kind, verbs):
+def auth_block(spec):
+    """Build the `authentication` block the generated <Kind>Configuration expects,
+    derived from the document's OWN security scheme (oasgen >= 0.19.0):
+
+      type: http, scheme: bearer  -> authentication.bearer
+      type: apiKey, in: header    -> authentication.apiKey {tokenRef, header, valuePrefix}
+
+    The apiKey shape carries the header name (oasgen defaults it from the scheme
+    when the document declares exactly one) and a valuePrefix that RDC prepends to
+    the credential: `req.Header.Set(header, valuePrefix+token)`.
+
+    Aruba declares `apiKey` in an `Authorization` header but expects BEARER framing,
+    so valuePrefix must be "Bearer " -- with the trailing space. oasgen deliberately
+    does not default it (a Secret already holding "Bearer x" would become
+    "Bearer Bearer x"), so it is set explicitly here. Leaving it empty sends the raw
+    token and every call 401s.
+    """
+    ref = {"name": "arubacloud-token", "namespace": "default", "key": "token"}
+    for sch in (spec.get("components", {}).get("securitySchemes") or {}).values():
+        if sch.get("type") == "http" and sch.get("scheme") == "bearer":
+            return {"bearer": {"tokenRef": ref}}
+        if sch.get("type") == "apiKey" and sch.get("in") == "header":
+            return {"apiKey": {
+                "tokenRef": ref,
+                "header": sch.get("name", "Authorization"),
+                "valuePrefix": "Bearer ",
+            }}
+    return {"bearer": {"tokenRef": ref}}
+
+
+def make_configuration(kind, verbs, auth):
     q = {}
     for v in verbs:
         entry = {"api-version": "1.0"}
@@ -119,8 +149,7 @@ def make_configuration(kind, verbs):
         "kind": f"{kind}Configuration",
         "metadata": {"name": f"{kind.lower()}-config", "namespace": "default"},
         "spec": {
-            "authentication": {"bearer": {"tokenRef": {
-                "name": "arubacloud-token", "namespace": "default", "key": "token"}}},
+            "authentication": auth,
             "configuration": {"query": q},
         },
     }
@@ -195,7 +224,7 @@ def main():
         verbs = [v["action"] for v in res["verbsDescription"]]
         d = os.path.join(SAMPLES, prov)
         os.makedirs(d, exist_ok=True)
-        dump_yaml(make_configuration(kind, verbs),
+        dump_yaml(make_configuration(kind, verbs, auth_block(specs[prov])),
                   os.path.join(d, f"{kind.lower()}-configuration.yaml"))
         dump_yaml(make_cr(specs[prov], prov, doc), os.path.join(d, f"{kind.lower()}.yaml"))
         ids = ",".join(res.get("identifiers", []))

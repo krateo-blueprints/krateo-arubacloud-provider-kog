@@ -74,18 +74,44 @@ spec:
 
 ## How the token reaches the API
 
-Where the spec declares `type: http, scheme: bearer` (compute, database,
-schedule), oasgen generates the `authentication.bearer` block above and RDC
-attaches `Authorization: Bearer <token>` to each request.
+Aruba's specs declare **two different** security schemes, and oasgen generates a
+different `authentication` block for each. The samples in `samples/` are derived
+from each document's own scheme, so they already carry the right one.
 
-> [!WARNING]
-> The other seven providers declare the token as `type: apiKey, in: header`.
-> oasgen does **not** support that form — it skips the scheme silently, so the
-> generated `<Kind>Configuration` has **no `authentication` block** and those
-> resources cannot authenticate. This repo does not rewrite the spec to work
-> around it; the gap is filed as
-> [oasgen-provider#49](https://github.com/braghettos/krateo-oasgen-provider/issues/49).
-> See [OAS policy](oas-patches.md).
+### `http`/`bearer` — compute, database, schedule
+
+```yaml
+authentication:
+  bearer:
+    tokenRef: {name: arubacloud-token, namespace: default, key: token}
+```
+
+RDC sends `Authorization: Bearer <token>`.
+
+### `apiKey` in header — network, container, security, storage, baremetal, project, metering
+
+```yaml
+authentication:
+  apiKey:
+    tokenRef: {name: arubacloud-token, namespace: default, key: token}
+    header: Authorization      # defaulted by oasgen from the scheme's declared name
+    valuePrefix: 'Bearer '     # NOTE the trailing space
+```
+
+RDC sends `Header.Set(header, valuePrefix + token)`.
+
+> [!IMPORTANT]
+> **`valuePrefix: 'Bearer '` — with the trailing space — is required.** OAS
+> `apiKey` means "send this value verbatim", so oasgen deliberately does *not*
+> default a prefix (a Secret already holding `Bearer x` would otherwise become
+> `Bearer Bearer x`). But Aruba declares `apiKey` while expecting bearer framing,
+> so without the prefix the header goes out as `Authorization: <token>` and every
+> call 401s. Without the trailing space it becomes `Bearerxyz`, which fails
+> identically to a wrong credential.
+
+Requires oasgen ≥ 0.19.0 and RDC ≥ 0.19.0
+([#49](https://github.com/braghettos/krateo-oasgen-provider/issues/49)); earlier
+versions skipped the `apiKey` scheme silently and generated no auth block at all.
 
 ## RESTAction credentials
 

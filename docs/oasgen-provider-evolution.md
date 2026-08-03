@@ -36,7 +36,7 @@ Scope analysed: 11 specs, ~108 operations, **34 manageable resources** across th
 | A4 | `number` / `format: double` coerced to integer | 🟧 | all billing/`price` fields (18) | Native `number` (float) type in CRD generation |
 | A5 | `format` only appended to description | 🟧 | all (int32/int64/date-time/uuid/uri) | Map `format` to CRD `format`/validation |
 | A6 | numeric/length/pattern constraints dropped | 🟧 | scattered (`minLength`, …) | Emit CRD validation from OAS constraints |
-| A7 | `apiKey` security schemes unsupported | 🟥 | 8 specs → **24 of 34 resources cannot authenticate** | Support `apiKey`-in-header; never skip a scheme silently ([#49](https://github.com/braghettos/krateo-oasgen-provider/issues/49)) |
+| A7 | `apiKey` security schemes unsupported | 🟩 | 8 specs (24 of 34 resources) | **Shipped** in oasgen 0.19.0 + RDC 0.19.0 — `authentication.apiKey` with `header`/`valuePrefix`, and skipped schemes now surfaced ([#49](https://github.com/braghettos/krateo-oasgen-provider/issues/49)) |
 | B1 | `metadata`-wrapped name/id (nested identifier) | 🟩 | ~28 resources | Solved (nested identifiers + `requestFieldMapping`) — was the reason for the old subnet proxy |
 | B2 | Different path-param name per verb | 🟩/🟧 | `database/Database`, `schedule/BackupPolicy` | Solved per-verb; a spec-level alias would be cleaner |
 | B3 | `findby` list envelope (`{total, values[]}`) | 🟧 | all list endpoints | Explicit `findby.itemsPath` / response-collection selector |
@@ -146,7 +146,22 @@ be caught at admission).
 **Evolution:** emit CRD `x-kubernetes-validations` / OpenAPI validation from OAS
 constraints.
 
-### A7 — `apiKey` security schemes unsupported (🟥 BLOCKS AUTH — the one live gap)
+### A7 — `apiKey` security schemes (🟩 SHIPPED in oasgen 0.19.0 + RDC 0.19.0)
+> **Resolved.** oasgen 0.19.0 generates an `authentication.apiKey` block
+> (`tokenRef` + `header` + optional `valuePrefix`), defaulting `header` from the
+> scheme's declared name when the document has exactly one apiKey scheme; RDC
+> 0.19.0 sends `Header.Set(header, valuePrefix+token)`. A scheme it still cannot
+> support is no longer skipped in silence. **All 34 resources can now authenticate
+> against Aruba's unmodified specs.**
+>
+> One Aruba-specific detail: the generated Configurations must set
+> `valuePrefix: 'Bearer '` (trailing space included) because Aruba declares
+> `apiKey` but expects bearer framing — oasgen rightly does not default a prefix.
+> The generated samples derive this from each document's own scheme; see
+> [authentication](authentication.md).
+> ([oasgen-provider#49](https://github.com/braghettos/krateo-oasgen-provider/issues/49))
+
+Historical context follows.
 Eight of eleven specs declare the token as
 `type: apiKey, in: header, name: Authorization`. oasgen wires only `http`
 (`bearer`/`basic`) schemes: `createSchemaForSecurityScheme` returns an error for

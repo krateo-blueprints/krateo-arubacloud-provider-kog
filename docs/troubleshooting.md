@@ -18,19 +18,23 @@ Common causes:
   `configmap://krateo-system/arubacloud-<provider>-openapi/<published-filename>.json`; apply
   `configmaps/` into the **same namespace** oasgen-provider reads
   (`krateo-system` here).
-- **No `authentication` block in the generated `<Kind>Configuration`.** Expected
-  on the 7 providers whose spec declares an `apiKey` security scheme — oasgen
-  supports only `http`/`bearer` and skips the scheme silently, so those resources
-  cannot authenticate. Not a misconfiguration on your side; tracked as
-  [oasgen-provider#49](https://github.com/braghettos/krateo-oasgen-provider/issues/49)
-  and [OAS policy](oas-patches.md). compute, database and schedule are unaffected.
+- **No `authentication` block in the generated `<Kind>Configuration`.** On the 7
+  providers whose spec declares an `apiKey` scheme this means oasgen is older than
+  **0.19.0** — earlier versions skipped that scheme silently. Upgrade the provider
+  (chart ≥ 0.9.20). See [authentication](authentication.md).
 
 ## A resource CR gets `401 Unauthorized`
 
 - The token Secret is missing/expired, or `configurationRef` points at the wrong
   `<Kind>Configuration`. See [authentication](authentication.md).
 - Aruba tokens are short-lived (~1h). Update `stringData.token` in the Secret.
-- Ensure the token has **no** `Bearer ` prefix and no surrounding quotes.
+- Ensure the Secret holds the **raw** token — no `Bearer ` prefix, no quotes. The
+  framing is applied by the Configuration, not stored in the Secret.
+- **On an `apiKey` provider, check `valuePrefix`.** network/container/security/
+  storage/baremetal/project/metering need
+  `authentication.apiKey.valuePrefix: 'Bearer '` — *with the trailing space*.
+  Empty sends the bare token; missing the space sends `Bearerxyz`. Both 401
+  exactly like a wrong credential. See [authentication](authentication.md).
 
 ## A resource is repeatedly re-created (findby never matches)
 
