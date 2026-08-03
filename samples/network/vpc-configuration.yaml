@@ -18,7 +18,6 @@ spec:
         api-version: '1.0'
       get:
         api-version: '1.0'
-        ignoreDeletedStatus: false
       create:
         api-version: '1.0'
       update:

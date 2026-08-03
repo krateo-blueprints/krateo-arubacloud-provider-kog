@@ -4,7 +4,7 @@ kind: RestDefinition
 metadata:
   name: arubacloud-security-kms
 spec:
-  oasPath: configmap://krateo-system/arubacloud-security-openapi/security-provider.json
+  oasPath: configmap://krateo-system/arubacloud-security-openapi/security.json
   resourceGroup: arubacloud.ogen.krateo.io
   resource:
     kind: Kms

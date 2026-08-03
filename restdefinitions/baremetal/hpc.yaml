@@ -5,7 +5,7 @@ kind: RestDefinition
 metadata:
   name: arubacloud-baremetal-hpc
 spec:
-  oasPath: configmap://krateo-system/arubacloud-baremetal-openapi/baremetal-provider.json
+  oasPath: configmap://krateo-system/arubacloud-baremetal-openapi/baremetal.json
   resourceGroup: arubacloud.ogen.krateo.io
   resource:
     kind: Hpc

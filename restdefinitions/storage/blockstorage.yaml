@@ -4,7 +4,7 @@ kind: RestDefinition
 metadata:
   name: arubacloud-storage-blockstorage
 spec:
-  oasPath: configmap://krateo-system/arubacloud-storage-openapi/storage-provider.json
+  oasPath: configmap://krateo-system/arubacloud-storage-openapi/storage.json
   resourceGroup: arubacloud.ogen.krateo.io
   resource:
     kind: BlockStorage

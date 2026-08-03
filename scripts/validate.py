@@ -31,6 +31,10 @@ PROVIDERS = {
 }
 
 
+# Verbatim from the RestDefinition CRD (ogen.krateo.io_restdefinitions.yaml).
+OASPATH_PATTERN = r"^(configmap:\/\/([a-z0-9-]+)\/([a-z0-9-]+)\/([a-zA-Z0-9.-_]+)|https?:\/\/\S+)$"
+
+
 def main():
     os.chdir(ROOT)
     errors = []
@@ -44,7 +48,14 @@ def main():
         doc = yaml.safe_load(open(f))
         prov = f.split(os.sep)[1]
         spec = specs[prov]
-        cm = doc["spec"]["oasPath"].split("/")[3]
+        oas_path = doc["spec"]["oasPath"]
+        # Mirror the RestDefinition CRD's own oasPath pattern. Note the key segment's
+        # class is [a-zA-Z0-9.-_] -- a RANGE '.'-'_' that excludes '-', so a ConfigMap
+        # key containing a hyphen is rejected by the API server. Checking it here turns
+        # an apply-time failure into a validation-time one.
+        if not re.match(OASPATH_PATTERN, oas_path):
+            errors.append(f"{f}: oasPath rejected by the CRD pattern: {oas_path}")
+        cm = oas_path.split("/")[3]
         if cm not in cm_names:
             errors.append(f"{f}: oasPath ConfigMap '{cm}' not found")
         for v in doc["spec"]["resource"]["verbsDescription"]:
@@ -83,6 +94,7 @@ def main():
         except Exception as e:
             errors.append(f"{f}: {e}")
 
+    verify_sample_versions(errors, specs)
     charts = validate_charts(errors)
 
     print(f"Checked {len(rds)} RestDefinitions, {len(cm_names)} ConfigMaps, {charts} chart(s).")
@@ -117,6 +129,27 @@ def verify_oas_unmodified(errors):
     for name in expected:
         if not os.path.isfile(os.path.join("openapi", name)):
             errors.append(f"openapi/{name}: listed in CHECKSUMS.txt but missing")
+
+
+def verify_sample_versions(errors, specs):
+    """Sample apiVersions must match what oasgen actually generates. Learned on a
+    live cluster: the RESOURCE CRD's version is derived from the OAS info.version
+    (crdgen.NormalizeVersionName: 1.0.0 -> v1-0-0), while the companion
+    <Kind>Configuration CRD is always v1alpha1. Samples that hardcoded v1alpha1 for
+    the resource were rejected with "no matches for kind ... in version"."""
+    group = "arubacloud.ogen.krateo.io"
+    for f in sorted(glob.glob("samples/*/*.yaml")):
+        prov = f.split(os.sep)[1]
+        if prov not in specs:
+            continue
+        doc = yaml.safe_load(open(f))
+        if not isinstance(doc, dict) or "apiVersion" not in doc:
+            continue
+        v = (specs[prov].get("info") or {}).get("version") or ""
+        want_res = f"{group}/v{v.replace('.', '-')}" if v else f"{group}/v1alpha1"
+        want = f"{group}/v1alpha1" if doc.get("kind", "").endswith("Configuration") else want_res
+        if doc["apiVersion"] != want:
+            errors.append(f"{f}: apiVersion {doc['apiVersion']} but the cluster serves {want}")
 
 
 def find_helm():

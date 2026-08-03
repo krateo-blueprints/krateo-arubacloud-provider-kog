@@ -4,7 +4,7 @@ kind: RestDefinition
 metadata:
   name: arubacloud-container-kaasbackup
 spec:
-  oasPath: configmap://krateo-system/arubacloud-container-openapi/container-provider.json
+  oasPath: configmap://krateo-system/arubacloud-container-openapi/container.json
   resourceGroup: arubacloud.ogen.krateo.io
   resource:
     kind: KaasBackup

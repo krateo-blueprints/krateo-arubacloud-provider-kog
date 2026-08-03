@@ -85,9 +85,16 @@ that only becomes user-visible if/when body validation is enabled.
 > **Resolved.** oasgen 0.18.0 carries the object form through to crdgen as a
 > typed map: the adapter recurses the value schema through the same
 > guard/visited/depth machinery as `items`, and the serializer emits it. The
-> workaround below (coercing to `additionalProperties: true`) has been **removed**,
-> so all 42 maps now keep their value type and
-> validation in the generated CRDs. Requires oasgen >= 0.18.0.
+> workaround below (coercing to `additionalProperties: true`) has been **removed**.
+>
+> **Scope correction (measured on a live cluster).** The fix is real and correct,
+> but for *this* API surface it changes nothing observable: all 42 of Aruba's typed
+> maps live in **response/catalog DTOs**, and zero appear in any create request
+> body — so none reaches a generated CRD spec (verified: 0 `additionalProperties`
+> across all 68 generated CRDs). The value of the fix here is latent — it applies
+> the moment a map appears in a request body. An earlier revision of this document
+> claimed the maps "keep their value type in the generated CRDs"; that was
+> overstated. Requires oasgen >= 0.18.0.
 > ([oasgen-provider#45](https://github.com/braghettos/krateo-oasgen-provider/issues/45))
 
 Historical context — only the boolean form used to be supported. The Aruba APIs

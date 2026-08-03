@@ -1,4 +1,4 @@
-apiVersion: arubacloud.ogen.krateo.io/v1alpha1
+apiVersion: arubacloud.ogen.krateo.io/v1-0-0
 kind: Kms
 metadata:
   name: example-kms

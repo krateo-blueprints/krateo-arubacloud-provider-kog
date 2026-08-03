@@ -4,7 +4,7 @@ kind: RestDefinition
 metadata:
   name: arubacloud-network-subnet
 spec:
-  oasPath: configmap://krateo-system/arubacloud-network-openapi/network-provider.json
+  oasPath: configmap://krateo-system/arubacloud-network-openapi/network.json
   resourceGroup: arubacloud.ogen.krateo.io
   resource:
     kind: Subnet

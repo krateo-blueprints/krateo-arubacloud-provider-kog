@@ -426,7 +426,7 @@ def render(r):
         "kind": "RestDefinition",
         "metadata": {"name": f"arubacloud-{r['provider']}-{r['kind'].lower()}"},
         "spec": {
-            "oasPath": f"configmap://{CM_NS}/arubacloud-{r['provider']}-openapi/{PROVIDERS[r['provider']]}",
+            "oasPath": f"configmap://{CM_NS}/arubacloud-{r['provider']}-openapi/{r['provider']}.json",
             "resourceGroup": GROUP,
             "resource": resource,
         },

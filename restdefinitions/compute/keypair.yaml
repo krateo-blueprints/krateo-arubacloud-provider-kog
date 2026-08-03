@@ -4,7 +4,7 @@ kind: RestDefinition
 metadata:
   name: arubacloud-compute-keypair
 spec:
-  oasPath: configmap://krateo-system/arubacloud-compute-openapi/compute-provider.json
+  oasPath: configmap://krateo-system/arubacloud-compute-openapi/compute.json
   resourceGroup: arubacloud.ogen.krateo.io
   resource:
     kind: KeyPair

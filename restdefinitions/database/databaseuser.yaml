@@ -5,7 +5,7 @@ kind: RestDefinition
 metadata:
   name: arubacloud-database-databaseuser
 spec:
-  oasPath: configmap://krateo-system/arubacloud-database-openapi/database-provider.json
+  oasPath: configmap://krateo-system/arubacloud-database-openapi/database.json
   resourceGroup: arubacloud.ogen.krateo.io
   resource:
     kind: DatabaseUser

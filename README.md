@@ -25,7 +25,7 @@ Full docs live in [`docs/`](docs/index.md):
 
 - [Getting started](docs/getting-started.md) · [Architecture](docs/architecture.md) · [Authentication](docs/authentication.md)
 - [Provider reference](docs/providers/README.md) (per-provider pages) · [Coverage matrix](docs/coverage.md) · [OAS policy](docs/oas-patches.md) · [Terraform parity](docs/terraform-parity.md)
-- [Adding a resource](docs/adding-a-resource.md) · [Lifecycle beyond CRUD](docs/lifecycle-beyond-crud.md) · [oasgen-provider evolution](docs/oasgen-provider-evolution.md) · [Troubleshooting](docs/troubleshooting.md)
+- [Adding a resource](docs/adding-a-resource.md) · [Lifecycle beyond CRUD](docs/lifecycle-beyond-crud.md) · [oasgen-provider evolution](docs/oasgen-provider-evolution.md) · [Live-cluster test](docs/live-cluster-test.md) · [Troubleshooting](docs/troubleshooting.md)
 
 ## What's here
 
@@ -119,6 +119,10 @@ helm install oasgen-provider oci://ghcr.io/braghettos/krateo/krateo-oasgen-provi
 ## Install
 
 ```sh
+# 0. The RestDefinition CRD ships as a SEPARATE chart from the provider
+helm install oasgen-provider-crd oci://ghcr.io/braghettos/krateo/krateo-oasgen-provider-crd \
+  --version 0.9.20 --namespace krateo-system
+
 # 1. Auth token (short-lived Aruba JWT)
 kubectl apply -f samples/arubacloud-token-secret.yaml
 
