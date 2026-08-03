@@ -118,3 +118,63 @@ versions skipped the `apiKey` scheme silently and generated no auth block at all
 The CloudServer RESTActions run under Snowplow's identity and therefore use their
 own **Endpoint** Secret (`restactions/compute/endpoint.yaml`) carrying the same
 `server-url` + `token`. Keep it in sync with the token Secret above.
+
+
+## Rotation: use External Secrets Operator
+
+Aruba tokens last ~1 hour, so a static Secret is a dead end. The intended answer
+is **ESO**, not a refresh loop inside oasgen/RDC — credential lifecycle is a
+platform concern, and the pieces already compose:
+
+- RDC re-reads the Secret **on every reconcile** (no cache), so a rotated value
+  takes effect on its own — [verified on a live cluster](live-cluster-test.md#credential-rotation-works-without-a-restart-eso-is-viable).
+- The Secret holds the **raw token only**. The `Bearer ` framing lives in the
+  Configuration's `valuePrefix`, precisely so a rotation path "writes the raw
+  credential and never has to know about HTTP framing" (oasgen's own words).
+
+Sketch — ESO's webhook provider performing the client-credentials exchange, with
+the api key/secret held in a separate Secret:
+
+```yaml
+apiVersion: external-secrets.io/v1beta1
+kind: SecretStore
+metadata: {name: aruba-oauth, namespace: default}
+spec:
+  provider:
+    webhook:
+      url: https://mylogin.aruba.it/auth/realms/cmp-new-apikey/protocol/openid-connect/token
+      method: POST
+      headers: {Content-Type: application/x-www-form-urlencoded}
+      body: "grant_type=client_credentials&client_id={{ .clientId }}&client_secret={{ .clientSecret }}"
+      result: {jsonPath: "$.access_token"}
+      secrets:
+        - name: clientId
+          secretRef: {name: aruba-api-key, key: client_id}
+        - name: clientSecret
+          secretRef: {name: aruba-api-key, key: client_secret}
+---
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata: {name: arubacloud-token, namespace: default}
+spec:
+  refreshInterval: 30m          # well under the ~1h TTL -- never let it lapse
+  secretStoreRef: {name: aruba-oauth, kind: SecretStore}
+  target: {name: arubacloud-token, creationPolicy: Owner}
+  data:
+    - secretKey: token
+      remoteRef: {key: access_token}
+```
+
+Two things to get right:
+
+- **`refreshInterval` comfortably below the TTL.** Recovery after an expired
+  token is delayed by the controller's exponential backoff (measured: 160s after
+  only a few failures). Refreshing early means that window is never entered.
+- **No trailing whitespace in the written value.** A newline in the Secret
+  produces `net/http: invalid header field value for "Authorization"` — see
+  [rdc#45](https://github.com/braghettos/krateo-rest-dynamic-controller/issues/45).
+  ESO's `jsonPath` extraction is clean; a hand-written `template` may not be.
+
+> The manifests above are a **sketch, not a tested artifact** — ESO was not
+> installed on the test cluster. What *is* verified is the premise they depend on:
+> rotation propagates without a restart.

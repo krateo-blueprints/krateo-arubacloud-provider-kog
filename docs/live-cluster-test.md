@@ -120,10 +120,11 @@ that refuses to write an unusable token). **Filed upstream** as
 credentials should be `TrimSpace`d, since leading/trailing whitespace is never
 meaningful in a bearer token or API key.
 
-*Operational note:* RDC caches the resolved credential — after correcting a
-Secret, restart the affected controller
-(`kubectl rollout restart deploy/<resource>-controller -n krateo-system`) or the
-old value keeps being used.
+*Correction:* an earlier revision of this page said RDC **caches** the resolved
+credential, because the fix only took effect after a controller restart. That was
+wrong — see "Credential rotation" below. The delay was controller-runtime's
+exponential backoff after consecutive failures, which the restart happened to
+reset.
 
 ### 5. Dynamic Configuration watch forbidden — upstream chart bug
 
@@ -142,6 +143,29 @@ run, so nothing looks broken — the feature just degrades to resync-only.
 
 **Fixed upstream**: [chart#31](https://github.com/braghettos/krateo-oasgen-provider-chart/pull/31).
 Verified by patching the live ClusterRole and restarting: **88 errors → 0**.
+
+## Credential rotation works without a restart (ESO is viable)
+
+Because the intended credential lifecycle here is **External Secrets Operator**
+rather than anything built into oasgen/RDC, the load-bearing question is whether a
+rotated Secret takes effect on its own. Tested directly on the live cluster, with
+no restart and no reload signal:
+
+| Step | Result |
+|---|---|
+| baseline | `Synced=True` |
+| Secret swapped to a bogus token | **fails after 20s** |
+| Secret restored to the valid token | **recovers after 160s** |
+
+So the credential is re-read on **every reconcile** (`GetSecret` sits inside
+`processConfigurationRef`, which `Get()` calls per reconcile — there is no cache),
+and an ESO-driven rotation propagates by itself.
+
+One practical consequence: recovery took 160s, not 20s, because consecutive
+failures back off exponentially. **Refresh well before expiry** — with Aruba's
+~1h token, an ESO `refreshInterval` of ~30m means the credential never actually
+lapses and no backoff window is ever entered. Letting it expire first is what
+turns a seamless rotation into a multi-minute outage.
 
 ## Scope correction: #45 (typed maps)
 
