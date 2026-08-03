@@ -1,11 +1,14 @@
 # Live-cluster test
 
 Everything in this repository had been validated statically until this run. This
-page records what a real cluster proved, and — more usefully — the **four defects
-static validation could not have caught**.
+page records what a real cluster proved against the **live Aruba Cloud API**,
+and — more usefully — the **five defects static validation could not have
+caught**.
 
 **Environment:** kind (Kubernetes v1.36.1) · chart 0.9.20 · oasgen-provider 0.19.0 ·
-rest-dynamic-controller 0.19.0 · all 34 RestDefinitions applied.
+rest-dynamic-controller 0.19.0 · all 34 RestDefinitions applied · authenticated
+against the live Aruba Cloud API with an OAuth2 client-credentials token
+(`scripts/get-aruba-token.sh`).
 
 ## Result
 
@@ -17,12 +20,31 @@ rest-dynamic-controller 0.19.0 · all 34 RestDefinitions applied.
 | RDC controllers running | **34 / 34** |
 | `<Kind>Configuration` samples apply | **34 / 34** |
 | Sample CRs apply | **34 / 34** |
-| Reconcile reaches `api.arubacloud.com` | **yes — HTTP 401** with a placeholder token |
+| Reconcile against the **real API, real credential** | **`Synced=True` / `Ready=True`** — see below |
 
-That 401 is the end-to-end proof: the controller resolved the Configuration and
-its Secret, built the request from the **unmodified** OAS, sent the credential in
-the header the document declares, and got a real HTTP response from Aruba. Only
-the credential *value* is untested — everything around it works.
+### Authenticated end-to-end run
+
+With a real OAuth2 token (client-credentials, per Aruba's docs) the `Subnet`
+controller matched a **pre-existing** subnet and populated status from the live
+response:
+
+```
+conditions:  Synced=True ReconcileSuccess   Ready=True Available
+status.metadata = {"id": "69a560ce2312085699426c28", "name": "automatic-subnet-01"}
+log: "External resource is up to date"
+```
+
+That single result exercises the whole chain against Aruba's **unmodified**
+specification: `apiKey` auth (#49) with `valuePrefix: 'Bearer '`, `findby` over
+the `{total, values[]}` envelope, **nested-identifier matching on
+`metadata.name`**, and `additionalStatusFields: [metadata.id]` populated with the
+real server id — verified identical to what the raw API returns.
+
+**Nothing was mutated.** The run was deliberately scoped to observation: the CR
+was pointed at an existing subnet, and the RestDefinition was patched to
+`compareScope: identifiersAndStatus` first so a field difference could not trigger
+a `PUT` on a real resource. Confirmed after the fact — subnet count unchanged (1),
+`updateDate` still months old.
 
 ### The three upstream fixes, verified in the cluster
 
@@ -77,7 +99,33 @@ admits *only* the parameters its own RestDefinition declared.
 `configurationFields`, and only `api-version` (required by every Aruba operation)
 is given a value.
 
-### 4. Dynamic Configuration watch forbidden — upstream chart bug
+### 4. A trailing newline in the token Secret breaks auth opaquely — upstream bug
+
+The first authenticated reconcile failed with:
+
+```
+net/http: invalid header field value for "Authorization"
+```
+
+The token had been produced the way Aruba's own docs lead you to —
+`curl ... | jq -r .access_token > file` — and `jq -r` appends a **newline**.
+`kubectl create secret --from-file` preserves it, RDC concatenates it into the
+header verbatim, and Go rejects the request. The Secret looks perfect under every
+normal inspection; the trailing `0a` is visible only under `xxd`. The error names
+the URL, not the credential, so the natural first suspicion is the endpoint.
+
+**Fixed here** in `scripts/get-aruba-token.sh` (`jq -j`, plus a whitespace assert
+that refuses to write an unusable token). **Filed upstream** as
+[rdc#45](https://github.com/braghettos/krateo-rest-dynamic-controller/issues/45):
+credentials should be `TrimSpace`d, since leading/trailing whitespace is never
+meaningful in a bearer token or API key.
+
+*Operational note:* RDC caches the resolved credential — after correcting a
+Secret, restart the affected controller
+(`kubectl rollout restart deploy/<resource>-controller -n krateo-system`) or the
+old value keeps being used.
+
+### 5. Dynamic Configuration watch forbidden — upstream chart bug
 
 ```
 subnetconfigurations.arubacloud.ogen.krateo.io is forbidden: User
@@ -112,12 +160,17 @@ CRD. Both are now in the README install steps.
 
 ## Not covered
 
-- **A real Aruba credential.** Every call 401s with the placeholder token, so no
-  request has been authenticated and **no resource has ever been created**.
-- Consequently: create/update/delete round-trips, drift detection, the HPC async
-  poll loop reaching `Succeeded`, and the CloudServer RESTAction sequences remain
-  unexercised. They need a real token and a project — and they create billable
-  resources.
+Authentication and the observe path are now proven against the live API. What
+remains unexercised is everything that **mutates**:
+
+- **create / update / delete round-trips.** The run was scoped to observation on
+  purpose; no resource has ever been created by this repo.
+- **Drift detection** end to end (the guard `compareScope: identifiersAndStatus`
+  was deliberately in place to prevent an update firing).
+- **The HPC async poll loop** reaching `Succeeded`, and the **CloudServer
+  RESTAction** sequences — both need billable resources.
+
+These need an explicit decision to spend money, not just a credential.
 
 ## Reproducing
 
