@@ -1,3 +1,12 @@
+---
+type: Architecture
+title: krateo-arubacloud-provider-kog — Aruba Cloud Compute provider
+description: Compute provider reference — every resource, its verbs, endpoints, config and samples.
+resource: oci://ghcr.io/krateo-blueprints/charts/aruba-cloudserver-environment
+tags: [providers, compute, reference]
+timestamp: 2026-08-11T00:00:00Z
+---
+
 # Aruba Cloud Compute provider
 
 - **OpenAPI**: `Aruba.CmpService.Computing.Api` v1.0.0 (`openapi/_source/compute.json` → patched `openapi/compute.json`)

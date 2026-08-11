@@ -1,3 +1,12 @@
+---
+type: Architecture
+title: krateo-arubacloud-provider-kog — Authentication
+description: The Aruba Bearer token Secret and the per-kind <Kind>Configuration, per-verb query config, and token rotation.
+resource: oci://ghcr.io/krateo-blueprints/charts/aruba-cloudserver-environment
+tags: [authentication, secret, bearer-token, configuration-cr]
+timestamp: 2026-08-11T00:00:00Z
+---
+
 # Authentication
 
 Every Aruba Cloud call is authenticated with a **Bearer token** (a short-lived

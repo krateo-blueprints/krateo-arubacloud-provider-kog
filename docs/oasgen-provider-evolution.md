@@ -1,3 +1,12 @@
+---
+type: Architecture
+title: krateo-arubacloud-provider-kog — Aruba Cloud KOG — issues that require an oasgen-provider evolution
+description: Every issue found generating RestDefinitions for all Aruba APIs that requires an oasgen-provider evolution — the analytical deliverable.
+resource: oci://ghcr.io/krateo-blueprints/charts/aruba-cloudserver-environment
+tags: [oasgen-provider, evolution, gaps, analysis]
+timestamp: 2026-08-11T00:00:00Z
+---
+
 # Aruba Cloud KOG — issues that require an oasgen-provider evolution
 
 This document enumerates every issue found while generating RestDefinitions for

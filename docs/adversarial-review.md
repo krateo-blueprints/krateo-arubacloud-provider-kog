@@ -1,3 +1,12 @@
+---
+type: Architecture
+title: krateo-arubacloud-provider-kog — Adversarial review — generated artifacts vs. the code that executes them
+description: Every load-bearing claim in this repo attacked against the fork's executor source — confirmed breaks (fixed) and acquittals, with a verified version matrix.
+resource: oci://ghcr.io/krateo-blueprints/charts/aruba-cloudserver-environment
+tags: [review, verification, executor, fork]
+timestamp: 2026-08-11T00:00:00Z
+---
+
 # Adversarial review — generated artifacts vs. the code that executes them
 
 This review deliberately attacked this repository's generated RestDefinitions,

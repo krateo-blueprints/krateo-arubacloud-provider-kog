@@ -1,3 +1,12 @@
+---
+type: Runbook
+title: krateo-arubacloud-provider-kog — Getting started
+description: Install the provider and manage your first resource (a Subnet) end to end.
+resource: oci://ghcr.io/krateo-blueprints/charts/aruba-cloudserver-environment
+tags: [getting-started, install, restdefinition, subnet]
+timestamp: 2026-08-11T00:00:00Z
+---
+
 # Getting started
 
 This walks through installing the provider and managing your first resource (a
