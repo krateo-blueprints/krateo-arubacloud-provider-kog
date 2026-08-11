@@ -3,8 +3,8 @@
 This document enumerates every issue found while generating RestDefinitions for
 **all** Aruba Cloud APIs directly from the official OpenAPI specifications
 (`https://api.arubacloud.com/openapi/<provider>.json`, vendored under
-`openapi/_source/`) with the **braghettos** fork of
-[`oasgen-provider`](https://github.com/braghettos/krateo-oasgen-provider) and
+`openapi/_source/`) with the **krateo** fork of
+[`oasgen-provider`](https://github.com/krateo-blueprints/krateo-oasgen-provider) and
 **no wrapper/proxy web service**.
 
 It is written to be actionable: each issue states what the API does, why the
@@ -26,7 +26,7 @@ Scope analysed: 11 specs, ~108 operations, **34 manageable resources** across th
 | # | Issue | Status | Resources affected | Evolution needed |
 |---|-------|--------|--------------------|------------------|
 | A1 | `nullable: true` unsupported | 🟥 | all (4117 keys stripped) | Accept OAS 3.0 `nullable`; auto-convert to 3.1 null-union |
-| A2 | `additionalProperties: {schema}` unsupported | 🟩 | container, metering, compute, storage, audit (42) | **Shipped** in oasgen 0.18.0 — typed maps reach the CRD ([#45](https://github.com/braghettos/krateo-oasgen-provider/issues/45)) |
+| A2 | `additionalProperties: {schema}` unsupported | 🟩 | container, metering, compute, storage, audit (42) | **Shipped** in oasgen 0.18.0 — typed maps reach the CRD ([#45](https://github.com/krateo-blueprints/krateo-oasgen-provider/issues/45)) |
 | A3 | `readOnly` / `writeOnly` ignored | 🟧 | metering, network, container, compute, storage (25) | Honour `readOnly` → status-only; `writeOnly` → create-only |
 | A4 | `number` / `format: double` coerced to integer | 🟧 | all billing/`price` fields (18) | Native `number` (float) type in CRD generation |
 | A5 | `format` only appended to description | 🟧 | all (int32/int64/date-time/uuid/uri) | Map `format` to CRD `format`/validation |
@@ -37,8 +37,8 @@ Scope analysed: 11 specs, ~108 operations, **34 manageable resources** across th
 | B3 | `findby` list envelope (`{total, values[]}`) | 🟧 | all list endpoints | Explicit `findby.itemsPath` / response-collection selector |
 | B4 | Secret-bearing spec fields (password, keys) | 🟧 | `database/DatabaseUser`, `compute/KeyPair`, `container/Registry` | `secretRef` resolver + OAS-declarable `*SecretRef` field |
 | C1 | Lifecycle expressed as POST action sub-endpoints | 🟥 | compute, container, database, project, baremetal | First-class "action verbs" or `createApiRef`/`updateApiRef` delegation |
-| C2 | Async readiness | 🟩 | all create/update | Solved by `async` (requeue); wired on `Hpc`. Poll-path validation + `handleParam` **shipped** in 0.18.0 ([#46](https://github.com/braghettos/krateo-oasgen-provider/issues/46)). Residual: open-string state enums |
-| C6 | Delete-direction `*ApiRef` extras lack the spec | 🟩 | `compute/CloudServer` (any delegated delete) | **Shipped** in RDC 0.18.0 — spec forwarded on every direction ([rdc#41](https://github.com/braghettos/krateo-rest-dynamic-controller/issues/41)) |
+| C2 | Async readiness | 🟩 | all create/update | Solved by `async` (requeue); wired on `Hpc`. Poll-path validation + `handleParam` **shipped** in 0.18.0 ([#46](https://github.com/krateo-blueprints/krateo-oasgen-provider/issues/46)). Residual: open-string state enums |
+| C6 | Delete-direction `*ApiRef` extras lack the spec | 🟩 | `compute/CloudServer` (any delegated delete) | **Shipped** in RDC 0.18.0 — spec forwarded on every direction ([rdc#41](https://github.com/krateo-blueprints/krateo-rest-dynamic-controller/issues/41)) |
 | C3 | Create requires multiple chained calls | 🟥 | `compute/CloudServer` | Multi-call composition (`createApiRef` / Snowplow) |
 | C4 | Resource has no delete verb | 🟧 | `baremetal/Hpc` | Allow lifecycle without delete; skip finalizer teardown |
 | C5 | Update only via sub-endpoint (no `PUT {id}`) | 🟧 | `compute/CloudServer` | `updateApiRef` delegation / action verbs |
@@ -72,7 +72,7 @@ author to hand-edit thousands of nodes.
 > workaround below (coercing to `additionalProperties: true`) has been **removed
 > from `scripts/patch_oas.py`**, so all 42 maps now keep their value type and
 > validation in the generated CRDs. Requires oasgen >= 0.18.0.
-> ([oasgen-provider#45](https://github.com/braghettos/krateo-oasgen-provider/issues/45))
+> ([oasgen-provider#45](https://github.com/krateo-blueprints/krateo-oasgen-provider/issues/45))
 
 Historical context — only the boolean form used to be supported. The Aruba APIs
 use typed free-form maps for genuinely useful, resource-facing fields, not just
@@ -150,7 +150,7 @@ shipped a Go **`subnet-plugin`** whose *entire purpose* was to flatten this
 `metadata` object, because "nested fields used as identifiers are not fully
 supported" (quoted from the old plugin README).
 
-The braghettos fork removes that need. Every metadata-wrapped resource in this
+The krateo fork removes that need. Every metadata-wrapped resource in this
 repo uses, with **no proxy**:
 
 ```yaml
@@ -293,7 +293,7 @@ out of reading the executor source, and both were fixed:
   RestDefinition is processed, instead of failing on the first poll.
 
 Full evidence: [adversarial-review](adversarial-review.md) findings #1/#6.
-([oasgen-provider#46](https://github.com/braghettos/krateo-oasgen-provider/issues/46))
+([oasgen-provider#46](https://github.com/krateo-blueprints/krateo-oasgen-provider/issues/46))
 
 ### C3 — multi-call create composition (🟥) — `compute/CloudServer`
 A usable CloudServer is created by chaining calls: create the server (OAS
@@ -330,7 +330,7 @@ update verb, drift on spec fields cannot be reconciled.
 > CloudServer delete RESTAction reads `.spec.projectId` like its create/update
 > siblings, and the static `deleteApiRef.extras.projectId` workaround — which
 > pinned one RestDefinition to one project — has been removed.
-> ([rdc#41](https://github.com/braghettos/krateo-rest-dynamic-controller/issues/41))
+> ([rdc#41](https://github.com/krateo-blueprints/krateo-rest-dynamic-controller/issues/41))
 
 **Found by the adversarial review** (RDC `observe_restaction.go: buildExtras`):
 create/update delegation forwarded the whole CR spec to the RESTAction, but a

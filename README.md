@@ -2,7 +2,7 @@
 
 **KOG** = *Krateo Operator Generator.*
 
-This repository contains Krateo [`oasgen-provider`](https://github.com/braghettos/krateo-oasgen-provider)
+This repository contains Krateo [`oasgen-provider`](https://github.com/krateo-blueprints/krateo-oasgen-provider)
 `RestDefinition`s that manage **all** manageable Aruba Cloud resources as
 Kubernetes Custom Resources — generated directly from the official
 [Aruba Cloud OpenAPI specifications](https://api.arubacloud.com/docs/intro) with
@@ -10,7 +10,7 @@ Kubernetes Custom Resources — generated directly from the official
 
 The predecessor blueprint managed a single resource (`Subnet`) and needed a Go
 proxy (`subnet-plugin`) just to reshape Aruba's `metadata` object. The
-**braghettos forks** of oasgen-provider and rest-dynamic-controller (both at
+**krateo forks** of oasgen-provider and rest-dynamic-controller (both at
 **0.17.0**; every feature this repo uses is present since RDC 0.15.0 — see the
 [verified version matrix](docs/adversarial-review.md))
 remove that need through nested identifiers, `requestFieldMapping`,
@@ -91,19 +91,19 @@ whole-environment provisioning. See
 
 ## Prerequisites
 
-A Kubernetes cluster with the **braghettos** oasgen-provider and its
-rest-dynamic-controller. A stock (non-braghettos) oasgen-provider does **not**
+A Kubernetes cluster with the **krateo** oasgen-provider and its
+rest-dynamic-controller. A stock (non-krateo) oasgen-provider does **not**
 have the features this repo relies on (nested identifiers, `fieldMapping`,
 `async`, `*ApiRef`).
 
 | Component | Minimum | Why |
 |-----------|---------|-----|
-| `ghcr.io/braghettos/krateo-oasgen-provider` | **0.18.0** | typed-map `additionalProperties`; `async.poll.handleParam` + poll-path validation |
-| `ghcr.io/braghettos/krateo-rest-dynamic-controller` | **0.18.0** | honours `handleParam`; forwards the CR spec on every `*ApiRef` direction |
+| `ghcr.io/krateo-blueprints/krateo-oasgen-provider` | **0.18.0** | typed-map `additionalProperties`; `async.poll.handleParam` + poll-path validation |
+| `ghcr.io/krateo-blueprints/krateo-rest-dynamic-controller` | **0.18.0** | honours `handleParam`; forwards the CR spec on every `*ApiRef` direction |
 | `krateo-oasgen-provider-chart` | **0.9.19** | first release pairing oasgen 0.18.0 **with** RDC 0.18.0 |
 
 ```sh
-helm install oasgen-provider oci://ghcr.io/braghettos/krateo/krateo-oasgen-provider \
+helm install oasgen-provider oci://ghcr.io/krateo-blueprints/charts/krateo-oasgen-provider \
   --version 0.9.19 --namespace krateo-system --create-namespace
 ```
 
