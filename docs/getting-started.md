@@ -18,7 +18,7 @@ This walks through installing the provider and managing your first resource (a
   > oasgen 0.18.0 with RDC 0.18.0:
   >
   > ```sh
-  > helm install oasgen-provider oci://ghcr.io/braghettos/krateo/krateo-oasgen-provider \
+  > helm install oasgen-provider oci://ghcr.io/krateo-blueprints/charts/krateo-oasgen-provider \
   >   --version 0.9.19 --namespace krateo-system --create-namespace
   > ```
   >

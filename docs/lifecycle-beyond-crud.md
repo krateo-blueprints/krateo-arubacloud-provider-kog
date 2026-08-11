@@ -158,7 +158,7 @@ Two non-obvious contracts govern `*ApiRef` delegation — both found by the
    `.spec.projectId` is null, every guard skips, snowplow reports success, and
    the finalizer never releases. That older behaviour is why this repo used to
    carry a static `deleteApiRef.extras.projectId` — now removed
-   ([rdc#41](https://github.com/braghettos/krateo-rest-dynamic-controller/issues/41)).
+   ([rdc#41](https://github.com/krateo-blueprints/krateo-rest-dynamic-controller/issues/41)).
 
 ## Caveats
 
