@@ -6,19 +6,19 @@ This walks through installing the provider and managing your first resource (a
 ## Prerequisites
 
 - A Kubernetes cluster (v1.20+).
-- The **braghettos** oasgen-provider installed, with its rest-dynamic-controller:
-  - `ghcr.io/braghettos/krateo-oasgen-provider` **≥ 0.18.0**
-  - `ghcr.io/braghettos/krateo-rest-dynamic-controller` **≥ 0.18.0**
+- The **krateo** oasgen-provider installed, with its rest-dynamic-controller:
+  - `ghcr.io/krateo-blueprints/krateo-oasgen-provider` **≥ 0.18.0**
+  - `ghcr.io/krateo-blueprints/krateo-rest-dynamic-controller` **≥ 0.18.0**
 
-  > A stock (non-braghettos) oasgen-provider does **not** have the features
+  > A stock (non-krateo) oasgen-provider does **not** have the features
   > these RestDefinitions rely on (nested identifiers, `fieldMapping`,
-  > `async`, `*ApiRef`). Install the braghettos fork.
+  > `async`, `*ApiRef`). Install the krateo fork.
   >
   > **Install chart 0.9.19 or newer** — it is the first release that pairs
   > oasgen 0.18.0 with RDC 0.18.0:
   >
   > ```sh
-  > helm install oasgen-provider oci://ghcr.io/braghettos/krateo/krateo-oasgen-provider \
+  > helm install oasgen-provider oci://ghcr.io/krateo-blueprints/charts/krateo-oasgen-provider \
   >   --version 0.9.19 --namespace krateo-system --create-namespace
   > ```
   >
