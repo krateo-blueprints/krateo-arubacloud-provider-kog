@@ -2,7 +2,7 @@
 
 **KOG** = *Krateo Operator Generator.*
 
-This repository contains Krateo [`oasgen-provider`](https://github.com/braghettos/krateo-oasgen-provider)
+This repository contains Krateo [`oasgen-provider`](https://github.com/krateo-blueprints/krateo-oasgen-provider)
 `RestDefinition`s that manage **all** manageable Aruba Cloud resources as
 Kubernetes Custom Resources — generated directly from the official
 [Aruba Cloud OpenAPI specifications](https://api.arubacloud.com/docs/intro) with
@@ -103,7 +103,7 @@ have the features this repo relies on (nested identifiers, `fieldMapping`,
 | `krateo-oasgen-provider-chart` | **0.9.19** | first release pairing oasgen 0.18.0 **with** RDC 0.18.0 |
 
 ```sh
-helm install oasgen-provider oci://ghcr.io/braghettos/krateo/krateo-oasgen-provider \
+helm install oasgen-provider oci://ghcr.io/krateo-blueprints/charts/krateo-oasgen-provider \
   --version 0.9.19 --namespace krateo-system --create-namespace
 ```
 
