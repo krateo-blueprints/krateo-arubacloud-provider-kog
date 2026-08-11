@@ -13,8 +13,8 @@ in the same change** that added this document.
 
 > **Update (oasgen/RDC 0.18.0).** Findings **#1** and **#2** were filed upstream
 > and have since **shipped as first-class features** — `async.poll.handleParam`
-> + admission-time poll-path validation ([oasgen#46](https://github.com/braghettos/krateo-oasgen-provider/issues/46)),
-> and spec forwarding on every `*ApiRef` direction ([rdc#41](https://github.com/braghettos/krateo-rest-dynamic-controller/issues/41)).
+> + admission-time poll-path validation ([oasgen#46](https://github.com/krateo-blueprints/krateo-oasgen-provider/issues/46)),
+> and spec forwarding on every `*ApiRef` direction ([rdc#41](https://github.com/krateo-blueprints/krateo-rest-dynamic-controller/issues/41)).
 > The local workarounds they forced have been **removed** from this repo; the
 > rows below keep the original evidence and record what replaced them.
 > Finding #3 (snowplow wiring) is unchanged and remains an install prerequisite.

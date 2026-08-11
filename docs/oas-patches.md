@@ -29,8 +29,8 @@ are now consumed closer to as-published:
 
 | Retired transformation | Was | Now |
 |------------------------|-----|-----|
-| coerce `additionalProperties: {schema}` → `true` (42×) | typed maps degraded to untyped objects in the CRD | oasgen 0.18.0 emits a **typed map** ([#45](https://github.com/braghettos/krateo-oasgen-provider/issues/45)) |
-| rename baremetal monitor param `{id}` → `{operationId}` (1×) | the vendor document had to be edited to satisfy a hardcoded parameter name | `async.poll.handleParam: id` uses Aruba's path **unmodified** ([#46](https://github.com/braghettos/krateo-oasgen-provider/issues/46)) |
+| coerce `additionalProperties: {schema}` → `true` (42×) | typed maps degraded to untyped objects in the CRD | oasgen 0.18.0 emits a **typed map** ([#45](https://github.com/krateo-blueprints/krateo-oasgen-provider/issues/45)) |
+| rename baremetal monitor param `{id}` → `{operationId}` (1×) | the vendor document had to be edited to satisfy a hardcoded parameter name | `async.poll.handleParam: id` uses Aruba's path **unmodified** ([#46](https://github.com/krateo-blueprints/krateo-oasgen-provider/issues/46)) |
 
 The `nullable` count moved 4117 → 4119 purely as a side effect: value schemas
 inside object-form `additionalProperties` are now traversed instead of being
