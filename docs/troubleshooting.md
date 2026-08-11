@@ -1,3 +1,12 @@
+---
+type: Runbook
+title: krateo-arubacloud-provider-kog — Troubleshooting
+description: Common failures — RestDefinition not Ready, silent handleParam/delegated-delete breaks, auth and query-config issues — and how to diagnose them.
+resource: oci://ghcr.io/krateo-blueprints/charts/aruba-cloudserver-environment
+tags: [troubleshooting, restdefinition, rdc, diagnose]
+timestamp: 2026-08-11T00:00:00Z
+---
+
 # Troubleshooting
 
 ## RestDefinition never becomes `Ready`

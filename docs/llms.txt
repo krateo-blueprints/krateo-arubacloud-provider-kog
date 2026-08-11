@@ -1,0 +1,36 @@
+# krateo-arubacloud-provider-kog — LLM doc index
+# One line per file. Read files at the tag matching the deployed Composition chart:
+# CompositionDefinition.spec.chart.version == compositions/aruba-cloudserver-environment/Chart.yaml version.
+docs/index.md: the map — what the blueprint is + links to the whole bundle and repo layout
+docs/overview.md: architecture — RestDefinition to generated CRD + controller, the metadata pattern, proxy elimination, *ApiRef delegation, the Composition
+docs/usage.md: install the krateo fork, apply ConfigMaps + RestDefinitions, manage a resource, provision an environment
+docs/configuration.md: the token Secret, per-kind <Kind>Configuration, RestDefinition fields, Composition chart values
+docs/api.md: the CRD contracts — RestDefinition, generated per-resource CRDs, RESTAction, CompositionDefinition
+docs/examples.md: index of the runnable examples
+docs/release.md: publishing the Composition chart as an OCI artifact + refreshing the generated manifests
+docs/log.md: curated history
+docs/architecture.md: deep dive — RestDefinition to CRD + controller, the metadata pattern, reconcile flow
+docs/authentication.md: the token Secret, <Kind>Configuration, per-verb query config, rotation
+docs/getting-started.md: install and manage your first resource end to end
+docs/coverage.md: the full resource/verb coverage matrix
+docs/oas-patches.md: every transformation applied to the raw specs, and why
+docs/terraform-parity.md: resource cross-map vs the official Aruba Terraform provider
+docs/adding-a-resource.md: how the generator maps an API shape to a RestDefinition
+docs/async-readiness.md: controller-native provisioning waits via the async block (Hpc)
+docs/lifecycle-beyond-crud.md: proxy-free solution for multi-call/action lifecycles
+docs/oasgen-provider-evolution.md: every issue that requires an oasgen-provider evolution
+docs/adversarial-review.md: every load-bearing claim attacked against the fork's executor source
+docs/troubleshooting.md: common failures and how to diagnose them
+docs/providers/README.md: provider reference index (per-provider pages)
+examples/cloudserver-environment/README.md: runnable whole-environment Composition walkthrough
+# Source (read at the same tag; the docs above are derived from these):
+README.md: the top-level intro, install and layout
+compositions/compositiondefinition.yaml: registers the aruba-cloudserver-environment chart as a Composition
+compositions/aruba-cloudserver-environment/Chart.yaml: the Composition chart metadata (version = the doc pin)
+compositions/aruba-cloudserver-environment/values.yaml: the environment input set with rationale
+restdefinitions/network/subnet.yaml: the canonical metadata-pattern RestDefinition (no proxy)
+restdefinitions/compute/cloudserver.yaml: the *ApiRef-delegated CloudServer RestDefinition
+restactions/compute/cloudserver-create.restaction.yaml: the idempotent delegated CREATE sequence
+scripts/patch_oas.py: the OAS patcher (logs every gap)
+scripts/generate_restdefinitions.py: the RestDefinition generator
+scripts/validate.py: the static + helm validator (must pass before release)

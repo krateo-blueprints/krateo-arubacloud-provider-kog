@@ -1,3 +1,12 @@
+---
+type: Architecture
+title: krateo-arubacloud-provider-kog — Lifecycle beyond the five CRUD verbs — the proxy-free solution
+description: The proxy-free solution for lifecycles beyond the five CRUD verbs — RESTAction delegation via *ApiRef plus a whole-environment Composition.
+resource: oci://ghcr.io/krateo-blueprints/charts/aruba-cloudserver-environment
+tags: [lifecycle, restaction, apiref, composition]
+timestamp: 2026-08-11T00:00:00Z
+---
+
 # Lifecycle beyond the five CRUD verbs — the proxy-free solution
 
 `oasgen-provider` models exactly five verbs (findby/get/create/update/delete).

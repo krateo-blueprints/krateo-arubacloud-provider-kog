@@ -1,3 +1,12 @@
+---
+type: Architecture
+title: krateo-arubacloud-provider-kog — Aruba Cloud Project provider
+description: Project provider reference — every resource, its verbs, endpoints, config and samples.
+resource: oci://ghcr.io/krateo-blueprints/charts/aruba-cloudserver-environment
+tags: [providers, project, folder, reference]
+timestamp: 2026-08-11T00:00:00Z
+---
+
 # Aruba Cloud Project provider
 
 - **OpenAPI**: `Aruba.CmpService.Project.Api` v1.0.0 (`openapi/_source/project.json` → patched `openapi/project.json`)

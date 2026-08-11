@@ -1,3 +1,12 @@
+---
+type: Architecture
+title: krateo-arubacloud-provider-kog — Async readiness — the controller's home turf
+description: Controller-native provisioning waits via the async block, wired on Hpc — how the controller polls for readiness instead of flapping.
+resource: oci://ghcr.io/krateo-blueprints/charts/aruba-cloudserver-environment
+tags: [async, readiness, hpc, polling]
+timestamp: 2026-08-11T00:00:00Z
+---
+
 # Async readiness — the controller's home turf
 
 Aruba provisions most resources **asynchronously**: a create returns immediately

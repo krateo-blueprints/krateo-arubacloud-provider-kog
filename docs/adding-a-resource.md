@@ -1,3 +1,12 @@
+---
+type: Runbook
+title: krateo-arubacloud-provider-kog — Adding or customising a resource
+description: How the generator maps an API shape to a RestDefinition, and how to add or override one by hand.
+resource: oci://ghcr.io/krateo-blueprints/charts/aruba-cloudserver-environment
+tags: [restdefinition, generator, extend, oas]
+timestamp: 2026-08-11T00:00:00Z
+---
+
 # Adding or customising a resource
 
 RestDefinitions are produced by `scripts/generate_restdefinitions.py` from the

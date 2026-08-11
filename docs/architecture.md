@@ -1,3 +1,12 @@
+---
+type: Architecture
+title: krateo-arubacloud-provider-kog — Architecture
+description: How a RestDefinition becomes a CRD + controller, the nested-metadata identifier pattern, and the reconcile flow.
+resource: oci://ghcr.io/krateo-blueprints/charts/aruba-cloudserver-environment
+tags: [architecture, restdefinition, crd, reconcile, metadata-pattern]
+timestamp: 2026-08-11T00:00:00Z
+---
+
 # Architecture
 
 ## Components

@@ -1,3 +1,12 @@
+---
+type: Architecture
+title: krateo-arubacloud-provider-kog — OAS patches reference
+description: Every transformation scripts/patch_oas.py applies to the raw Aruba specs to make them oasgen-consumable, and why.
+resource: oci://ghcr.io/krateo-blueprints/charts/aruba-cloudserver-environment
+tags: [oas, patches, openapi, patch-oas]
+timestamp: 2026-08-11T00:00:00Z
+---
+
 # OAS patches reference
 
 The raw Aruba Cloud specs under `openapi/_source/` are OpenAPI **3.0.1** and use a

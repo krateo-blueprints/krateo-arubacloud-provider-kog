@@ -1,3 +1,12 @@
+---
+type: Architecture
+title: krateo-arubacloud-provider-kog — Aruba Cloud Schedule provider
+description: Schedule provider reference — every resource, its verbs, endpoints, config and samples.
+resource: oci://ghcr.io/krateo-blueprints/charts/aruba-cloudserver-environment
+tags: [providers, schedule, reference]
+timestamp: 2026-08-11T00:00:00Z
+---
+
 # Aruba Cloud Schedule provider
 
 - **OpenAPI**: `Aruba.CmpService.ScheduleProvider.Api` v1.0.0 (`openapi/_source/schedule.json` → patched `openapi/schedule.json`)
