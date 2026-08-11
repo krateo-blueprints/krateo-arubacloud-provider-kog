@@ -4,7 +4,7 @@
 
 | Component | Role |
 |-----------|------|
-| **oasgen-provider** (braghettos fork) | Watches `RestDefinition` objects; from the referenced OpenAPI document it **generates a CRD** for the resource and **deploys a controller** to reconcile instances |
+| **oasgen-provider** (krateo fork) | Watches `RestDefinition` objects; from the referenced OpenAPI document it **generates a CRD** for the resource and **deploys a controller** to reconcile instances |
 | **rest-dynamic-controller (RDC)** | The generated controller; reconciles each Custom Resource by calling the Aruba API with the verbs declared in the RestDefinition |
 | **RestDefinition** | The single source of truth: which OAS, which resource `kind`, which endpoints map to findby/get/create/update/delete, identifiers, config fields |
 | **ConfigMap** | Holds the patched OAS document referenced by `oasPath: configmap://…` |
@@ -66,7 +66,7 @@ create body:  { metadata: { name, location, tags }, properties: { … } }
 read body:    { metadata: { id, name, … }, status: { state }, properties: { … } }
 ```
 
-The old blueprint shipped a Go proxy solely to flatten `metadata`. The braghettos
+The old blueprint shipped a Go proxy solely to flatten `metadata`. The krateo
 fork handles it declaratively:
 
 - `identifiers: [metadata.name]` — a **nested** identifier;

@@ -12,7 +12,7 @@ Proxy-free metadata handling
 Almost every Aruba resource wraps its human name and server id inside a
 ``metadata`` object (``metadata.name`` on create, ``metadata.id`` on read). The
 original blueprint needed a Go "subnet-plugin" to flatten that object. The
-braghettos oasgen-provider fork removes the need: it accepts *nested* identifiers
+krateo oasgen-provider fork removes the need: it accepts *nested* identifiers
 (``metadata.name``) and status fields (``metadata.id``), and ``requestFieldMapping``
 sources the ``{id}`` path parameter from ``status.metadata.id``. That is exactly
 the pattern the fork ships as its canonical Subnet example, replicated here for

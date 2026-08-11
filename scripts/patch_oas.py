@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Patch the vendored Aruba Cloud OpenAPI specs so they can be consumed by the
-Krateo oasgen-provider (braghettos fork) WITHOUT any wrapper/proxy web service.
+Krateo oasgen-provider (krateo fork) WITHOUT any wrapper/proxy web service.
 
 The original specs live under ``openapi/_source/`` exactly as published at
 ``https://api.arubacloud.com/openapi/<provider>.json``. This script rewrites the

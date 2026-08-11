@@ -1,7 +1,7 @@
 # Adversarial review — generated artifacts vs. the code that executes them
 
 This review deliberately attacked this repository's generated RestDefinitions,
-RESTActions and claims against the **actual executor source**: the braghettos
+RESTActions and claims against the **actual executor source**: the krateo
 forks of `krateo-rest-dynamic-controller` (RDC), `krateo-oasgen-provider` and
 `plumbing` (crdgen). Rationale: the fork's own history proves doc-comments can
 lie — `requestTransform` was schema-accepted and executed by **nothing** for a
@@ -13,8 +13,8 @@ in the same change** that added this document.
 
 > **Update (oasgen/RDC 0.18.0).** Findings **#1** and **#2** were filed upstream
 > and have since **shipped as first-class features** — `async.poll.handleParam`
-> + admission-time poll-path validation ([oasgen#46](https://github.com/braghettos/krateo-oasgen-provider/issues/46)),
-> and spec forwarding on every `*ApiRef` direction ([rdc#41](https://github.com/braghettos/krateo-rest-dynamic-controller/issues/41)).
+> + admission-time poll-path validation ([oasgen#46](https://github.com/krateo-blueprints/krateo-oasgen-provider/issues/46)),
+> and spec forwarding on every `*ApiRef` direction ([rdc#41](https://github.com/krateo-blueprints/krateo-rest-dynamic-controller/issues/41)).
 > The local workarounds they forced have been **removed** from this repo; the
 > rows below keep the original evidence and record what replaced them.
 > Finding #3 (snowplow wiring) is unchanged and remains an install prerequisite.
@@ -80,7 +80,7 @@ genuinely solved (#8). What remains, ranked by how fundamental it is:
 
 ## Method note
 
-Everything above was read from the braghettos forks only (`krateo-oasgen-provider`
+Everything above was read from the krateo forks only (`krateo-oasgen-provider`
 `main`@`70168ea`, `krateo-rest-dynamic-controller` `main`@`4a8ac8c` + tags
 0.15.0/0.16.0/0.16.1/0.17.0, `plumbing` v1.12.0). RESTAction jq programs and the
 end-to-end async flow remain unexecuted against a live cluster — that caveat
