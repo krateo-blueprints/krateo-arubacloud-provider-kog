@@ -1,16 +1,7 @@
----
-type: Architecture
-title: krateo-arubacloud-provider-kog — Aruba Cloud Metering (Insight) provider
-description: Metering (Insight) provider reference — every resource, its verbs, endpoints, config and samples.
-resource: oci://ghcr.io/krateo-blueprints/charts/aruba-cloudserver-environment
-tags: [providers, metering, alertrule, reference]
-timestamp: 2026-08-11T00:00:00Z
----
-
 # Aruba Cloud Metering (Insight) provider
 
-- **OpenAPI**: `Aruba.Insight.API` v1.0 (`openapi/_source/metering.json` → patched `openapi/metering.json`)
-- **Security scheme (patched)**: `accessToken` (HTTP Bearer)
+- **OpenAPI**: `Aruba.Insight.API` v1.0 (`openapi/metering.json`, vendored unmodified — see [OAS policy](../oas-patches.md))
+- **Security scheme (patched)**: `Bearer` (HTTP Bearer)
 - **ConfigMap**: `arubacloud-metering-openapi` in `krateo-system`
 - **Resources**: 1
 

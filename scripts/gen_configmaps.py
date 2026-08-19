@@ -15,21 +15,34 @@ OAS = os.path.join(ROOT, "openapi")
 OUT = os.path.join(ROOT, "configmaps")
 NS = "krateo-system"
 
-PROVIDERS = ["network", "compute", "container", "database", "storage",
-             "security", "schedule", "baremetal", "project", "metering"]
+# short provider name -> published filename (consumed UNMODIFIED)
+PROVIDERS = {'network': 'network-provider.json',
+             'compute': 'compute-provider.json',
+             'container': 'container-provider.json',
+             'database': 'database-provider.json',
+             'storage': 'storage-provider.json',
+             'security': 'security-provider.json',
+             'schedule': 'schedule-provider.json',
+             'baremetal': 'baremetal-provider.json',
+             'project': 'project.json',
+             'metering': 'metering.json'}
 
 
 def main():
     os.makedirs(OUT, exist_ok=True)
-    for p in PROVIDERS:
-        spec = json.load(open(os.path.join(OAS, f"{p}.json")))
+    for p, fn in PROVIDERS.items():
+        spec = json.load(open(os.path.join(OAS, fn)))
         # compact JSON keeps the ConfigMap well under the 1 MiB object limit
         content = json.dumps(spec, separators=(",", ":"))
         cm = {
             "apiVersion": "v1",
             "kind": "ConfigMap",
             "metadata": {"name": f"arubacloud-{p}-openapi", "namespace": NS},
-            "data": {f"{p}.json": content},
+            # The ConfigMap KEY is ours to choose and must be hyphen-free: the RestDefinition
+        # CRD validates oasPath with [a-zA-Z0-9.-_] for this segment, which is a RANGE
+        # ('.' to '_') and therefore excludes '-'. Aruba's filename (network-provider.json)
+        # would be rejected. The file on disk keeps its published name; only the key differs.
+        "data": {f"{p}.json": content},
         }
         with open(os.path.join(OUT, f"{p}-openapi.yaml"), "w") as f:
             yaml.safe_dump(cm, f, sort_keys=False, width=10**9)

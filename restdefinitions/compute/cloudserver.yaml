@@ -11,8 +11,6 @@ spec:
     kind: CloudServer
     identifiers:
     - metadata.name
-    additionalStatusFields:
-    - metadata.id
     excludedSpecFields:
     - cloudServerId
     createApiRef:

@@ -1,12 +1,3 @@
----
-type: Runbook
-title: krateo-arubacloud-provider-kog — Getting started
-description: Install the provider and manage your first resource (a Subnet) end to end.
-resource: oci://ghcr.io/krateo-blueprints/charts/aruba-cloudserver-environment
-tags: [getting-started, install, restdefinition, subnet]
-timestamp: 2026-08-11T00:00:00Z
----
-
 # Getting started
 
 This walks through installing the provider and managing your first resource (a
@@ -15,24 +6,25 @@ This walks through installing the provider and managing your first resource (a
 ## Prerequisites
 
 - A Kubernetes cluster (v1.20+).
-- The **krateo** oasgen-provider installed, with its rest-dynamic-controller:
-  - `ghcr.io/krateo-blueprints/krateo-oasgen-provider` **≥ 0.18.0**
-  - `ghcr.io/krateo-blueprints/krateo-rest-dynamic-controller` **≥ 0.18.0**
+- The **braghettos** oasgen-provider installed, with its rest-dynamic-controller:
+  - `ghcr.io/braghettos/krateo-oasgen-provider` **≥ 0.19.0**
+  - `ghcr.io/braghettos/krateo-rest-dynamic-controller` **≥ 0.19.0**
 
-  > A stock (non-krateo) oasgen-provider does **not** have the features
+  > A stock (non-braghettos) oasgen-provider does **not** have the features
   > these RestDefinitions rely on (nested identifiers, `fieldMapping`,
-  > `async`, `*ApiRef`). Install the krateo fork.
+  > `async`, `*ApiRef`). Install the braghettos fork.
   >
-  > **Install chart 0.9.19 or newer** — it is the first release that pairs
-  > oasgen 0.18.0 with RDC 0.18.0:
+  > **Install chart 0.9.20 or newer** — it pairs oasgen 0.19.0 with RDC 0.19.0
+  > (0.19.0 is what makes `apiKey`-in-header authentication work, which 7 of the
+  > 10 providers need):
   >
   > ```sh
-  > helm install oasgen-provider oci://ghcr.io/krateo-blueprints/charts/krateo-oasgen-provider \
-  >   --version 0.9.19 --namespace krateo-system --create-namespace
+  > helm install oasgen-provider oci://ghcr.io/braghettos/krateo/krateo-oasgen-provider \
+  >   --version 0.9.20 --namespace krateo-system --create-namespace
   > ```
   >
-  > On chart ≤ 0.9.18 (which ships RDC 0.16.1) these manifests fail *silently* —
-  > see [prerequisites](../README.md#prerequisites).
+  > On older charts these manifests fail *silently* — see
+  > [prerequisites](../README.md#prerequisites).
 - An Aruba Cloud Bearer token — see [authentication](authentication.md) and
   <https://api.arubacloud.com/docs/authentication/>.
 - `kubectl`, and (optional, for the Composition) `helm`.

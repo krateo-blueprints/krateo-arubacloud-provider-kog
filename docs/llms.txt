@@ -13,7 +13,6 @@ docs/architecture.md: deep dive — RestDefinition to CRD + controller, the meta
 docs/authentication.md: the token Secret, <Kind>Configuration, per-verb query config, rotation
 docs/getting-started.md: install and manage your first resource end to end
 docs/coverage.md: the full resource/verb coverage matrix
-docs/oas-patches.md: every transformation applied to the raw specs, and why
 docs/terraform-parity.md: resource cross-map vs the official Aruba Terraform provider
 docs/adding-a-resource.md: how the generator maps an API shape to a RestDefinition
 docs/async-readiness.md: controller-native provisioning waits via the async block (Hpc)
@@ -31,6 +30,5 @@ compositions/aruba-cloudserver-environment/values.yaml: the environment input se
 restdefinitions/network/subnet.yaml: the canonical metadata-pattern RestDefinition (no proxy)
 restdefinitions/compute/cloudserver.yaml: the *ApiRef-delegated CloudServer RestDefinition
 restactions/compute/cloudserver-create.restaction.yaml: the idempotent delegated CREATE sequence
-scripts/patch_oas.py: the OAS patcher (logs every gap)
 scripts/generate_restdefinitions.py: the RestDefinition generator
 scripts/validate.py: the static + helm validator (must pass before release)

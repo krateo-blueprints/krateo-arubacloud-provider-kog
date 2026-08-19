@@ -1,16 +1,7 @@
----
-type: Architecture
-title: krateo-arubacloud-provider-kog — Aruba Cloud Network provider
-description: Network provider reference — every resource, its verbs, endpoints, config and samples.
-resource: oci://ghcr.io/krateo-blueprints/charts/aruba-cloudserver-environment
-tags: [providers, network, reference]
-timestamp: 2026-08-11T00:00:00Z
----
-
 # Aruba Cloud Network provider
 
-- **OpenAPI**: `Aruba.Network.Api` v1.0.0 (`openapi/_source/network.json` → patched `openapi/network.json`)
-- **Security scheme (patched)**: `accessToken` (HTTP Bearer)
+- **OpenAPI**: `Aruba.Network.Api` v1.0.0 (`openapi/network-provider.json`, vendored unmodified — see [OAS policy](../oas-patches.md))
+- **Security scheme (patched)**: `Bearer` (HTTP Bearer)
 - **ConfigMap**: `arubacloud-network-openapi` in `krateo-system`
 - **Resources**: 10
 

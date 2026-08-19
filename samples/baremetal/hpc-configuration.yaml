@@ -5,17 +5,18 @@ metadata:
   namespace: default
 spec:
   authentication:
-    bearer:
+    apiKey:
       tokenRef:
         name: arubacloud-token
         namespace: default
         key: token
+      header: Authorization
+      valuePrefix: 'Bearer '
   configuration:
     query:
       findby:
         api-version: '1.0'
       get:
         api-version: '1.0'
-        ignoreDeletedStatus: false
       create:
         api-version: '1.0'

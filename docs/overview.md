@@ -22,7 +22,7 @@ The API surface flows through four generated layers, all reproducible from the
 scripts under `scripts/`:
 
 ```
-Aruba OpenAPI spec  --patch_oas.py-->        openapi/<provider>.json
+Aruba OpenAPI spec (vendored unmodified) --> openapi/<provider>.json
 openapi/<provider>.json --gen_configmaps.py--> configmaps/<provider>-openapi.yaml   (a ConfigMap)
                     --generate_restdefinitions.py--> restdefinitions/<provider>/<kind>.yaml
                     --gen_samples_and_coverage.py--> samples/ + docs/coverage.md

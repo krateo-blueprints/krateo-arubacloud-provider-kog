@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Static validation of the generated artifacts (no cluster needed):
-  * every RestDefinition verb path+method exists in its referenced patched OAS;
+  * the vendored Aruba OAS documents are UNMODIFIED (sha256 vs openapi/CHECKSUMS.txt);
+  * every RestDefinition verb path+method exists in its referenced OAS;
   * every requestFieldMapping.inPath is a real path parameter of that verb's path;
   * every oasPath configmap:// reference resolves to a generated ConfigMap;
   * all RestDefinition / ConfigMap / sample / restaction YAML is parseable;
@@ -9,6 +10,7 @@
 Exits non-zero if anything fails.
 """
 import glob
+import hashlib
 import json
 import os
 import re
@@ -19,14 +21,25 @@ import sys
 import yaml
 
 ROOT = os.path.join(os.path.dirname(__file__), "..")
-PROVIDERS = ["network", "compute", "container", "database", "storage",
-             "security", "schedule", "baremetal", "project", "metering"]
+# short provider name -> published filename (consumed UNMODIFIED)
+PROVIDERS = {
+    "network": "network-provider.json", "compute": "compute-provider.json",
+    "container": "container-provider.json", "database": "database-provider.json",
+    "storage": "storage-provider.json", "security": "security-provider.json",
+    "schedule": "schedule-provider.json", "baremetal": "baremetal-provider.json",
+    "project": "project.json", "metering": "metering.json",
+}
+
+
+# Verbatim from the RestDefinition CRD (ogen.krateo.io_restdefinitions.yaml).
+OASPATH_PATTERN = r"^(configmap:\/\/([a-z0-9-]+)\/([a-z0-9-]+)\/([a-zA-Z0-9.-_]+)|https?:\/\/\S+)$"
 
 
 def main():
     os.chdir(ROOT)
     errors = []
-    specs = {p: json.load(open(f"openapi/{p}.json")) for p in PROVIDERS}
+    verify_oas_unmodified(errors)
+    specs = {p: json.load(open(f"openapi/{fn}")) for p, fn in PROVIDERS.items()}
     cm_names = {yaml.safe_load(open(f))["metadata"]["name"]
                 for f in glob.glob("configmaps/*.yaml")}
 
@@ -35,7 +48,14 @@ def main():
         doc = yaml.safe_load(open(f))
         prov = f.split(os.sep)[1]
         spec = specs[prov]
-        cm = doc["spec"]["oasPath"].split("/")[3]
+        oas_path = doc["spec"]["oasPath"]
+        # Mirror the RestDefinition CRD's own oasPath pattern. Note the key segment's
+        # class is [a-zA-Z0-9.-_] -- a RANGE '.'-'_' that excludes '-', so a ConfigMap
+        # key containing a hyphen is rejected by the API server. Checking it here turns
+        # an apply-time failure into a validation-time one.
+        if not re.match(OASPATH_PATTERN, oas_path):
+            errors.append(f"{f}: oasPath rejected by the CRD pattern: {oas_path}")
+        cm = oas_path.split("/")[3]
         if cm not in cm_names:
             errors.append(f"{f}: oasPath ConfigMap '{cm}' not found")
         for v in doc["spec"]["resource"]["verbsDescription"]:
@@ -74,6 +94,7 @@ def main():
         except Exception as e:
             errors.append(f"{f}: {e}")
 
+    verify_sample_versions(errors, specs)
     charts = validate_charts(errors)
 
     print(f"Checked {len(rds)} RestDefinitions, {len(cm_names)} ConfigMaps, {charts} chart(s).")
@@ -83,6 +104,52 @@ def main():
             print("  -", e)
         sys.exit(1)
     print("OK: verb paths/methods exist in their OAS; oasPaths resolve; YAML valid; charts render.")
+
+
+def verify_oas_unmodified(errors):
+    """The vendored specs are Aruba's published documents, byte-for-byte. This repo
+    deliberately performs NO OAS rewriting -- KOG adapts to the published contract,
+    not the other way round -- so any drift here is a bug, not a patch."""
+    manifest = os.path.join("openapi", "CHECKSUMS.txt")
+    if not os.path.isfile(manifest):
+        errors.append("openapi/CHECKSUMS.txt missing: cannot prove the specs are unmodified")
+        return
+    expected = {}
+    for line in open(manifest):
+        digest, _, name = line.strip().partition("  ")
+        if name:
+            expected[name] = digest
+    for fn in sorted(glob.glob("openapi/*.json")):
+        name = os.path.basename(fn)
+        actual = hashlib.sha256(open(fn, "rb").read()).hexdigest()
+        if name not in expected:
+            errors.append(f"openapi/{name}: not listed in CHECKSUMS.txt")
+        elif actual != expected[name]:
+            errors.append(f"openapi/{name}: MODIFIED (sha256 differs from CHECKSUMS.txt)")
+    for name in expected:
+        if not os.path.isfile(os.path.join("openapi", name)):
+            errors.append(f"openapi/{name}: listed in CHECKSUMS.txt but missing")
+
+
+def verify_sample_versions(errors, specs):
+    """Sample apiVersions must match what oasgen actually generates. Learned on a
+    live cluster: the RESOURCE CRD's version is derived from the OAS info.version
+    (crdgen.NormalizeVersionName: 1.0.0 -> v1-0-0), while the companion
+    <Kind>Configuration CRD is always v1alpha1. Samples that hardcoded v1alpha1 for
+    the resource were rejected with "no matches for kind ... in version"."""
+    group = "arubacloud.ogen.krateo.io"
+    for f in sorted(glob.glob("samples/*/*.yaml")):
+        prov = f.split(os.sep)[1]
+        if prov not in specs:
+            continue
+        doc = yaml.safe_load(open(f))
+        if not isinstance(doc, dict) or "apiVersion" not in doc:
+            continue
+        v = (specs[prov].get("info") or {}).get("version") or ""
+        want_res = f"{group}/v{v.replace('.', '-')}" if v else f"{group}/v1alpha1"
+        want = f"{group}/v1alpha1" if doc.get("kind", "").endswith("Configuration") else want_res
+        if doc["apiVersion"] != want:
+            errors.append(f"{f}: apiVersion {doc['apiVersion']} but the cluster serves {want}")
 
 
 def find_helm():

@@ -46,8 +46,8 @@ Everything under `openapi/`, `configmaps/`, `restdefinitions/`, `samples/` and
 specs:
 
 ```sh
-# 1. refresh openapi/_source/*.json from https://api.arubacloud.com/openapi/, then:
-python3 scripts/patch_oas.py                 # -> openapi/  (+ logs every OAS gap)
+# 1. refresh openapi/*.json from https://api.arubacloud.com/openapi/ (vendored
+#    UNMODIFIED -- update openapi/CHECKSUMS.txt alongside; validate.py enforces it), then:
 python3 scripts/generate_restdefinitions.py  # -> restdefinitions/
 python3 scripts/gen_configmaps.py            # -> configmaps/
 python3 scripts/gen_samples_and_coverage.py  # -> samples/ + docs/coverage.md
@@ -55,7 +55,8 @@ python3 scripts/gen_provider_docs.py         # -> docs/providers/
 python3 scripts/validate.py                  # static + helm validation (must pass)
 ```
 
-`patch_oas.py` prints a count of every transformation it applies; each count is a
+The specs are consumed as published -- no OAS rewriting; RestDefinitions adapt to the
+contract instead. Any generation gap is a
 concrete oasgen-provider gap, analysed in
 [oasgen-provider evolution](oasgen-provider-evolution.md). `validate.py` must exit
 zero before a release: it checks every RestDefinition verb path+method against its

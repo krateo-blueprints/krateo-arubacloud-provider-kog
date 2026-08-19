@@ -1,12 +1,3 @@
----
-type: Architecture
-title: krateo-arubacloud-provider-kog — Async readiness — the controller's home turf
-description: Controller-native provisioning waits via the async block, wired on Hpc — how the controller polls for readiness instead of flapping.
-resource: oci://ghcr.io/krateo-blueprints/charts/aruba-cloudserver-environment
-tags: [async, readiness, hpc, polling]
-timestamp: 2026-08-11T00:00:00Z
----
-
 # Async readiness — the controller's home turf
 
 Aruba provisions most resources **asynchronously**: a create returns immediately
@@ -16,7 +7,7 @@ Kubernetes controller does it better and more naturally: it **requeues** and
 re-observes on a level-based loop, so "wait for ready" is just reconciliation —
 continuous, non-blocking, and self-healing if the resource later degrades.
 
-The krateo oasgen-provider fork exposes this directly with the per-verb
+The braghettos oasgen-provider fork exposes this directly with the per-verb
 **`async`** block. This repo wires it where the API is genuinely asynchronous, so
 readiness is **not** something we cede to Terraform — it is a feature we get from
 the controller model.

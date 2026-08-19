@@ -21,12 +21,17 @@ OAS = os.path.join(ROOT, "openapi")
 RD = os.path.join(ROOT, "restdefinitions")
 DOCS = os.path.join(ROOT, "docs", "providers")
 
-PROVIDERS = {
-    "network": "network.json", "compute": "compute.json", "container": "container.json",
-    "database": "database.json", "storage": "storage.json", "security": "security.json",
-    "schedule": "schedule.json", "baremetal": "baremetal.json", "project": "project.json",
-    "metering": "metering.json",
-}
+# short provider name -> published filename (consumed UNMODIFIED)
+PROVIDERS = {'network': 'network-provider.json',
+    'compute': 'compute-provider.json',
+    'container': 'container-provider.json',
+    'database': 'database-provider.json',
+    'storage': 'storage-provider.json',
+    'security': 'security-provider.json',
+    'schedule': 'schedule-provider.json',
+    'baremetal': 'baremetal-provider.json',
+    'project': 'project.json',
+    'metering': 'metering.json'}
 TITLES = {
     "network": "Network", "compute": "Compute", "container": "Container (Kubernetes)",
     "database": "Database (DBaaS)", "storage": "Storage", "security": "Security (KMS)",
@@ -91,7 +96,7 @@ def main():
         ss = list((spec.get("components", {}).get("securitySchemes") or {}).keys())
         out = [f"# Aruba Cloud {TITLES[prov]} provider\n"]
         out.append(f"- **OpenAPI**: `{info.get('title')}` v{info.get('version')} "
-                   f"(`openapi/_source/{fn}` → patched `openapi/{fn}`)\n"
+                   f"(`openapi/{fn}`, vendored unmodified — see [OAS policy](../oas-patches.md))\n"
                    f"- **Security scheme (patched)**: `{', '.join(ss)}` (HTTP Bearer)\n"
                    f"- **ConfigMap**: `arubacloud-{prov}-openapi` in `krateo-system`\n"
                    f"- **Resources**: {len(rds)}\n")

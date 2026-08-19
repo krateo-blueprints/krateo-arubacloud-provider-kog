@@ -1,12 +1,3 @@
----
-type: Architecture
-title: krateo-arubacloud-provider-kog — Lifecycle beyond the five CRUD verbs — the proxy-free solution
-description: The proxy-free solution for lifecycles beyond the five CRUD verbs — RESTAction delegation via *ApiRef plus a whole-environment Composition.
-resource: oci://ghcr.io/krateo-blueprints/charts/aruba-cloudserver-environment
-tags: [lifecycle, restaction, apiref, composition]
-timestamp: 2026-08-11T00:00:00Z
----
-
 # Lifecycle beyond the five CRUD verbs — the proxy-free solution
 
 `oasgen-provider` models exactly five verbs (findby/get/create/update/delete).
@@ -126,7 +117,7 @@ single-purpose Aruba CRs together, from one set of inputs.
   (`projectId`, `location`, `name`, CIDRs, flavor…).
 - Registration: [`compositions/compositiondefinition.yaml`](../compositions/compositiondefinition.yaml)
   (`core.krateo.io/v1alpha1`) points at the packaged OCI chart, exactly like
-  `krateo-blueprints/krateo-oasgen-provider-chart`'s own `compositiondefinition.yaml`.
+  `braghettos/krateo-oasgen-provider-chart`'s own `compositiondefinition.yaml`.
 
 Applying a Composition instance provisions the entire stack; the CloudServer
 inside it is managed by approach 1, so power/associations/volumes converge
@@ -167,7 +158,7 @@ Two non-obvious contracts govern `*ApiRef` delegation — both found by the
    `.spec.projectId` is null, every guard skips, snowplow reports success, and
    the finalizer never releases. That older behaviour is why this repo used to
    carry a static `deleteApiRef.extras.projectId` — now removed
-   ([rdc#41](https://github.com/krateo-blueprints/krateo-rest-dynamic-controller/issues/41)).
+   ([rdc#41](https://github.com/braghettos/krateo-rest-dynamic-controller/issues/41)).
 
 ## Caveats
 

@@ -12,7 +12,7 @@ Proxy-free metadata handling
 Almost every Aruba resource wraps its human name and server id inside a
 ``metadata`` object (``metadata.name`` on create, ``metadata.id`` on read). The
 original blueprint needed a Go "subnet-plugin" to flatten that object. The
-krateo oasgen-provider fork removes the need: it accepts *nested* identifiers
+braghettos oasgen-provider fork removes the need: it accepts *nested* identifiers
 (``metadata.name``) and status fields (``metadata.id``), and ``requestFieldMapping``
 sources the ``{id}`` path parameter from ``status.metadata.id``. That is exactly
 the pattern the fork ships as its canonical Subnet example, replicated here for
@@ -65,15 +65,18 @@ KIND_MAP = {
 # Which spec file each provider resource set comes from and the resource kind
 # prefix used to disambiguate collections that repeat a name (e.g. "backups"
 # exists in database, storage and container).
+# Aruba's published OAS documents, consumed UNMODIFIED. The key is the short
+# provider name used in ConfigMap/RestDefinition names; the value is the exact
+# filename as published at https://api.arubacloud.com/openapi/.
 PROVIDERS = {
-    "network": "network.json",
-    "compute": "compute.json",
-    "container": "container.json",
-    "database": "database.json",
-    "storage": "storage.json",
-    "security": "security.json",
-    "schedule": "schedule.json",
-    "baremetal": "baremetal.json",
+    "network": "network-provider.json",
+    "compute": "compute-provider.json",
+    "container": "container-provider.json",
+    "database": "database-provider.json",
+    "storage": "storage-provider.json",
+    "security": "security-provider.json",
+    "schedule": "schedule-provider.json",
+    "baremetal": "baremetal-provider.json",
     "project": "project.json",
     "metering": "metering.json",
 }

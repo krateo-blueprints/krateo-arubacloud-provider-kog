@@ -21,7 +21,36 @@ RD = os.path.join(ROOT, "restdefinitions")
 SAMPLES = os.path.join(ROOT, "samples")
 DOCS = os.path.join(ROOT, "docs")
 GROUP = "arubacloud.ogen.krateo.io"
-APIVER = f"{GROUP}/v1alpha1"
+
+
+# The generated <Kind>Configuration CRD is always served at v1alpha1, regardless of
+# the OAS info.version that drives the resource CRD.
+CONFIG_VERSION = "v1alpha1"
+
+
+def crd_version(spec):
+    """The RESOURCE CRD's version is DERIVED FROM THE OAS `info.version`: oasgen
+    calls crdgen.NormalizeVersionName(doc.Version()), turning 1.0.0 -> v1-0-0 and
+    1.0 -> v1-0. The companion <Kind>Configuration CRD is NOT versioned that way --
+    it is always v1alpha1 (see CONFIG_VERSION below).
+
+    Both facts were established on a live cluster; samples that hardcoded v1alpha1
+    for the resource were rejected with "no matches for kind ... in version".
+    """
+    v = (spec.get("info") or {}).get("version") or ""
+    return "v" + v.replace(".", "-") if v else "v1alpha1"
+# short provider name -> published filename (consumed UNMODIFIED)
+FILES = {'network': 'network-provider.json',
+         'compute': 'compute-provider.json',
+         'container': 'container-provider.json',
+         'database': 'database-provider.json',
+         'storage': 'storage-provider.json',
+         'security': 'security-provider.json',
+         'schedule': 'schedule-provider.json',
+         'baremetal': 'baremetal-provider.json',
+         'project': 'project.json',
+         'metering': 'metering.json'}
+
 
 
 def deref(spec, node, seen=None):
@@ -96,32 +125,76 @@ def create_body_props(spec, create_path):
     return {}, []
 
 
-def make_configuration(kind, verbs):
-    q = {}
-    for v in verbs:
-        entry = {"api-version": "1.0"}
-        if v == "get":
-            entry["ignoreDeletedStatus"] = False
-        q[v] = entry
+def auth_block(spec):
+    """Build the `authentication` block the generated <Kind>Configuration expects,
+    derived from the document's OWN security scheme (oasgen >= 0.19.0):
+
+      type: http, scheme: bearer  -> authentication.bearer
+      type: apiKey, in: header    -> authentication.apiKey {tokenRef, header, valuePrefix}
+
+    The apiKey shape carries the header name (oasgen defaults it from the scheme
+    when the document declares exactly one) and a valuePrefix that RDC prepends to
+    the credential: `req.Header.Set(header, valuePrefix+token)`.
+
+    Aruba declares `apiKey` in an `Authorization` header but expects BEARER framing,
+    so valuePrefix must be "Bearer " -- with the trailing space. oasgen deliberately
+    does not default it (a Secret already holding "Bearer x" would become
+    "Bearer Bearer x"), so it is set explicitly here. Leaving it empty sends the raw
+    token and every call 401s.
+    """
+    ref = {"name": "arubacloud-token", "namespace": "default", "key": "token"}
+    for sch in (spec.get("components", {}).get("securitySchemes") or {}).values():
+        if sch.get("type") == "http" and sch.get("scheme") == "bearer":
+            return {"bearer": {"tokenRef": ref}}
+        if sch.get("type") == "apiKey" and sch.get("in") == "header":
+            return {"apiKey": {
+                "tokenRef": ref,
+                "header": sch.get("name", "Authorization"),
+                "valuePrefix": "Bearer ",
+            }}
+    return {"bearer": {"tokenRef": ref}}
+
+
+def make_configuration(kind, verbs, auth, apiver, cfg_fields):
+    """Build a <Kind>Configuration.
+
+    The per-verb query block is derived from the RestDefinition's OWN
+    configurationFields, never hardcoded: a query parameter is only a valid field
+    here if that resource declared it. Hardcoding `ignoreDeletedStatus` on every
+    `get` was rejected by the API server as an unknown field on the 18 resources
+    whose endpoints do not declare it (strict decoding).
+
+    Only `api-version` is given a value -- it is the one parameter every Aruba
+    operation requires. The other declared params (filter/sort/limit/offset/
+    projection/ignoreDeletedStatus/...) are optional; add them per verb as needed.
+    """
+    applies = {}
+    for c in cfg_fields:
+        src = c.get("fromOpenAPI", {})
+        if src.get("in") != "query" or src.get("name") != "api-version":
+            continue
+        for a in c.get("fromRestDefinition", {}).get("actions", []):
+            for v in (verbs if a == "*" else [a]):
+                applies.setdefault(v, {})["api-version"] = "1.0"
+    q = {v: applies[v] for v in verbs if v in applies}
     return {
-        "apiVersion": APIVER,
+        "apiVersion": apiver,
         "kind": f"{kind}Configuration",
         "metadata": {"name": f"{kind.lower()}-config", "namespace": "default"},
         "spec": {
-            "authentication": {"bearer": {"tokenRef": {
-                "name": "arubacloud-token", "namespace": "default", "key": "token"}}},
+            "authentication": auth,
             "configuration": {"query": q},
         },
     }
 
 
-def make_cr(spec, prov, doc):
+def make_cr(spec, prov, doc, apiver):
     res = doc["spec"]["resource"]
     kind = res["kind"]
     create = next((v for v in res["verbsDescription"] if v["action"] == "create"), None)
     meta = any(i == "metadata.name" for i in res.get("identifiers", []))
     cr = {
-        "apiVersion": APIVER,
+        "apiVersion": apiver,
         "kind": kind,
         "metadata": {"name": f"example-{kind.lower()}", "namespace": "default",
                      "annotations": {"krateo.io/connector-verbose": "true"}},
@@ -175,9 +248,7 @@ def main():
         f.write("# The token is short-lived; rotate it as needed.\n")
         yaml.safe_dump(secret, f, sort_keys=False)
 
-    specs = {p: json.load(open(os.path.join(OAS, f"{p}.json")))
-             for p in ["network", "compute", "container", "database", "storage",
-                       "security", "schedule", "baremetal", "project", "metering"]}
+    specs = {p: json.load(open(os.path.join(OAS, fn))) for p, fn in FILES.items()}
 
     rows = []
     for prov, doc in load_rds():
@@ -186,9 +257,11 @@ def main():
         verbs = [v["action"] for v in res["verbsDescription"]]
         d = os.path.join(SAMPLES, prov)
         os.makedirs(d, exist_ok=True)
-        dump_yaml(make_configuration(kind, verbs),
+        apiver = f"{GROUP}/{crd_version(specs[prov])}"
+        dump_yaml(make_configuration(kind, verbs, auth_block(specs[prov]), f"{GROUP}/{CONFIG_VERSION}",
+                                     res.get("configurationFields", [])),
                   os.path.join(d, f"{kind.lower()}-configuration.yaml"))
-        dump_yaml(make_cr(specs[prov], prov, doc), os.path.join(d, f"{kind.lower()}.yaml"))
+        dump_yaml(make_cr(specs[prov], prov, doc, apiver), os.path.join(d, f"{kind.lower()}.yaml"))
         ids = ",".join(res.get("identifiers", []))
         rows.append((prov, kind, ",".join(verbs), ids))
 

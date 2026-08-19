@@ -1,16 +1,7 @@
----
-type: Architecture
-title: krateo-arubacloud-provider-kog — Aruba Cloud Storage provider
-description: Storage provider reference — every resource, its verbs, endpoints, config and samples.
-resource: oci://ghcr.io/krateo-blueprints/charts/aruba-cloudserver-environment
-tags: [providers, storage, reference]
-timestamp: 2026-08-11T00:00:00Z
----
-
 # Aruba Cloud Storage provider
 
-- **OpenAPI**: `Aruba.StorageProvider.Api` v1.0.0 (`openapi/_source/storage.json` → patched `openapi/storage.json`)
-- **Security scheme (patched)**: `accessToken` (HTTP Bearer)
+- **OpenAPI**: `Aruba.StorageProvider.Api` v1.0.0 (`openapi/storage-provider.json`, vendored unmodified — see [OAS policy](../oas-patches.md))
+- **Security scheme (patched)**: `Bearer` (HTTP Bearer)
 - **ConfigMap**: `arubacloud-storage-openapi` in `krateo-system`
 - **Resources**: 4
 

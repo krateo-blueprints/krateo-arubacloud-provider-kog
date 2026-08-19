@@ -1,12 +1,3 @@
----
-type: Architecture
-title: krateo-arubacloud-provider-kog — Feature parity with the official Aruba Cloud Terraform provider
-description: Resource cross-map of this blueprint against the official Aruba Cloud Terraform/OpenTofu provider.
-resource: oci://ghcr.io/krateo-blueprints/charts/aruba-cloudserver-environment
-tags: [terraform, parity, comparison, arubacloud]
-timestamp: 2026-08-11T00:00:00Z
----
-
 # Feature parity with the official Aruba Cloud Terraform provider
 
 Comparison against [`Arubacloud/terraform-provider-arubacloud`](https://github.com/Arubacloud/terraform-provider-arubacloud)

@@ -1,16 +1,7 @@
----
-type: Architecture
-title: krateo-arubacloud-provider-kog — Aruba Cloud Security (KMS) provider
-description: Security (KMS) provider reference — every resource, its verbs, endpoints, config and samples.
-resource: oci://ghcr.io/krateo-blueprints/charts/aruba-cloudserver-environment
-tags: [providers, security, kms, reference]
-timestamp: 2026-08-11T00:00:00Z
----
-
 # Aruba Cloud Security (KMS) provider
 
-- **OpenAPI**: `Aruba.SecurityProvider.Api` v1.0.0 (`openapi/_source/security.json` → patched `openapi/security.json`)
-- **Security scheme (patched)**: `accessToken` (HTTP Bearer)
+- **OpenAPI**: `Aruba.SecurityProvider.Api` v1.0.0 (`openapi/security-provider.json`, vendored unmodified — see [OAS policy](../oas-patches.md))
+- **Security scheme (patched)**: `Bearer` (HTTP Bearer)
 - **ConfigMap**: `arubacloud-security-openapi` in `krateo-system`
 - **Resources**: 3
 

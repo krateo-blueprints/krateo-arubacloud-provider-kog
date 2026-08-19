@@ -2,28 +2,54 @@
 
 **KOG** = *Krateo Operator Generator.*
 
-## What is this
-
-A proxy-free Krateo blueprint: [`oasgen-provider`](https://github.com/krateo-blueprints/krateo-oasgen-provider)
+This repository contains Krateo [`oasgen-provider`](https://github.com/braghettos/krateo-oasgen-provider)
 `RestDefinition`s that manage **all** manageable Aruba Cloud resources as
 Kubernetes Custom Resources — generated directly from the official
 [Aruba Cloud OpenAPI specifications](https://api.arubacloud.com/docs/intro) with
 **no wrapper/proxy web service** ("plugin").
 
 The predecessor blueprint managed a single resource (`Subnet`) and needed a Go
-proxy (`subnet-plugin`) just to reshape Aruba's `metadata` object. The **krateo
-forks** of oasgen-provider and rest-dynamic-controller remove that need through
-nested identifiers, `requestFieldMapping`, `fieldMapping`, `secretRef`, `async`
-and Snowplow `*ApiRef` delegation. This repo uses those features to cover **34
-resources across 10 providers with zero plugins**, and every load-bearing claim
-has been [adversarially verified](docs/adversarial-review.md) against the fork's
-executor source.
+proxy (`subnet-plugin`) just to reshape Aruba's `metadata` object. The
+**braghettos forks** of oasgen-provider and rest-dynamic-controller (both at
+**0.19.0**; every feature this repo uses is present since RDC 0.15.0 — see the
+[verified version matrix](docs/adversarial-review.md))
+remove that need through nested identifiers, `requestFieldMapping`,
+`fieldMapping`, `secretRef`, `async` and Snowplow `*ApiRef` delegation. This repo
+uses those features to cover **34 resources across 10 providers with zero
+plugins**, and every load-bearing claim has been
+[adversarially verified against the executor source](docs/adversarial-review.md).
+
+## Documentation
+
+Full docs live in [`docs/`](docs/index.md):
+
+- [Getting started](docs/getting-started.md) · [Architecture](docs/architecture.md) · [Authentication](docs/authentication.md)
+- [Provider reference](docs/providers/README.md) (per-provider pages) · [Coverage matrix](docs/coverage.md) · [OAS policy](docs/oas-patches.md) · [Terraform parity](docs/terraform-parity.md)
+- [Adding a resource](docs/adding-a-resource.md) · [Lifecycle beyond CRUD](docs/lifecycle-beyond-crud.md) · [oasgen-provider evolution](docs/oasgen-provider-evolution.md) · [Live-cluster test](docs/live-cluster-test.md) · [Troubleshooting](docs/troubleshooting.md)
+
+## What's here
+
+| Path | Contents |
+|------|----------|
+| `openapi/` | The official Aruba OpenAPI specs, vendored **byte-for-byte unmodified** (+ `CHECKSUMS.txt`) |
+| `configmaps/` | One ConfigMap per provider embedding its spec verbatim (the `oasPath` source) |
+| `restdefinitions/<provider>/` | One `RestDefinition` per manageable resource — **no proxies** |
+| `restactions/compute/` | Snowplow RESTActions that drive `CloudServer`'s multi-call lifecycle (delegated via `*ApiRef`) |
+| `compositions/` | A Krateo `CompositionDefinition` + Helm chart provisioning a whole environment |
+| `samples/<provider>/` | A `<Kind>Configuration` + a `<Kind>` CR skeleton per resource, plus the shared auth `Secret` |
+| `scripts/` | Reproducible generators (`generate_restdefinitions.py`, `gen_configmaps.py`, `gen_samples_and_coverage.py`, `validate.py`) |
+| `docs/oas-patches.md` | The **no-modification policy** for the vendored specs, how it is enforced, and what it costs |
+| `docs/oasgen-provider-evolution.md` | **Every issue that requires an oasgen-provider evolution** (the analytical deliverable) |
+| `docs/lifecycle-beyond-crud.md` | **Proxy-free solution** for lifecycle beyond the 5 CRUD verbs (RESTAction delegation + Composition) |
+| `docs/coverage.md` | Full resource/verb coverage matrix |
+
+## Coverage at a glance
 
 10 providers, 34 resources — full CRUD where the API allows it:
 
 - **network**: Vpc, Subnet, SecurityGroup, SecurityRule, ElasticIp, VpcPeering,
   VpcPeeringRoute, VpnTunnel, VpnRoute, LoadBalancer *(read-only)*
-- **compute**: CloudServer *(create/get/findby/delete — lifecycle actions delegated)*, KeyPair
+- **compute**: CloudServer *(create/get/findby/delete — lifecycle actions need delegation)*, KeyPair
 - **container**: Kaas, KaasBackup, Registry
 - **database**: Dbaas, Database, DatabaseUser, Grant, DatabaseBackup
 - **storage**: BlockStorage, Snapshot, Backup, Restore
@@ -33,100 +59,114 @@ executor source.
 - **project**: Project, Folder
 - **metering**: AlertRule
 
-## Install
+See [`docs/coverage.md`](docs/coverage.md) for the full matrix and
+[`docs/oasgen-provider-evolution.md`](docs/oasgen-provider-evolution.md) for what
+the API surface asks of oasgen-provider next.
 
-Prerequisites: a Kubernetes cluster with the **krateo fork** of oasgen-provider
-and its rest-dynamic-controller (a stock oasgen-provider lacks the features these
-manifests rely on). Minimums: oasgen-provider **0.18.0**, RDC **0.18.0**,
-`krateo-oasgen-provider-chart` **0.9.19** — see
-[Usage](docs/usage.md#prerequisites) for why.
+## How proxies were eliminated
+
+Almost every Aruba resource nests its name/id in a `metadata` object
+(`metadata.name` on create, `metadata.id` on read). That single fact is why the
+old `subnet-plugin` existed. Each RestDefinition here replaces it declaratively:
+
+```yaml
+resource:
+  kind: Subnet
+  identifiers: [metadata.name]           # nested identifier — no flattening proxy
+  additionalStatusFields: [metadata.id]
+  excludedSpecFields: [id]
+  verbsDescription:
+    - {action: get,    method: GET,    path: .../subnets/{id},
+       requestFieldMapping: [{inPath: id, inCustomResource: status.metadata.id}]}
+    # ...create/update/delete likewise
+```
+
+The full old-plugin → native-feature mapping is in the evolution report's
+appendix. The one remaining proxy-shaped need — `compute/CloudServer`'s
+multi-call, action-driven lifecycle — is solved **without a proxy** by delegating
+create/update/delete to Snowplow RESTActions via the fork's `*ApiRef`
+(`restactions/compute/`), with a Krateo Composition (`compositions/`) for
+whole-environment provisioning. See
+[`docs/lifecycle-beyond-crud.md`](docs/lifecycle-beyond-crud.md).
+
+## Prerequisites
+
+A Kubernetes cluster with the **braghettos** oasgen-provider and its
+rest-dynamic-controller. A stock (non-braghettos) oasgen-provider does **not**
+have the features this repo relies on (nested identifiers, `fieldMapping`,
+`async`, `*ApiRef`).
+
+| Component | Minimum | Why |
+|-----------|---------|-----|
+| `ghcr.io/braghettos/krateo-oasgen-provider` | **0.19.0** | `apiKey`-in-header auth (required by 7 of 10 providers); typed-map `additionalProperties`; `async.poll.handleParam` + poll-path validation |
+| `ghcr.io/braghettos/krateo-rest-dynamic-controller` | **0.19.0** | sends the `apiKey` header + `valuePrefix`; honours `handleParam`; forwards the CR spec on every `*ApiRef` direction |
+| `krateo-oasgen-provider-chart` | **0.9.20** | ships oasgen 0.19.0 paired with RDC 0.19.0 |
 
 ```sh
-# 0. the krateo oasgen-provider fork (first release pairing oasgen 0.18.0 with RDC 0.18.0)
-helm install oasgen-provider oci://ghcr.io/krateo-blueprints/charts/krateo-oasgen-provider \
-  --version 0.9.19 --namespace krateo-system --create-namespace
+helm install oasgen-provider oci://ghcr.io/braghettos/krateo/krateo-oasgen-provider \
+  --version 0.9.20 --namespace krateo-system --create-namespace
+```
 
-# 1. auth token (short-lived Aruba JWT)
+> [!IMPORTANT]
+> **Use chart ≥ 0.9.20.** Older charts pair a newer oasgen with an older RDC, and
+> these manifests then fail **silently** rather than loudly — `handleParam`
+> ignored (HPC async never polls), delegated deletes receiving no spec (the
+> CloudServer finalizer never releases), and on ≤ 0.9.19 no `apiKey` auth at all.
+> The chart pins `rdc.image.tag` by hand, so if you are stuck on an older chart
+> override it (`--set rdc.image.tag=0.19.0`) and verify the running image — see
+> [troubleshooting](docs/troubleshooting.md).
+
+## Install
+
+```sh
+# 0. The RestDefinition CRD ships as a SEPARATE chart from the provider
+helm install oasgen-provider-crd oci://ghcr.io/braghettos/krateo/krateo-oasgen-provider-crd \
+  --version 0.9.20 --namespace krateo-system
+
+# 1. Auth token (short-lived Aruba JWT)
 kubectl apply -f samples/arubacloud-token-secret.yaml
 
 # 2. OAS ConfigMaps (the oasPath sources) — must be in the oasgen-provider namespace
 kubectl apply -n krateo-system -f configmaps/
 
-# 3. the RestDefinitions (all providers, or pick a subset)
+# 3. The RestDefinitions (all providers, or pick a subset)
 kubectl apply -R -f restdefinitions/
 
-# 4. wait for the generated controllers to become Ready
+# 4. Wait for the generated controllers to become Ready
 kubectl get restdefinitions.ogen.krateo.io -A | awk 'NR==1 || /arubacloud/'
+
+# 5. Per resource you want to manage: a <Kind>Configuration, then the CR
+kubectl apply -f samples/network/subnet-configuration.yaml
+kubectl apply -f samples/network/subnet.yaml
 ```
 
-> [!IMPORTANT]
-> **Do not install chart ≤ 0.9.18 with these manifests.** 0.9.18 shipped oasgen
-> 0.18.0 against **RDC 0.16.1**; on that pairing the manifests are accepted and
-> then fail **silently** (`handleParam` ignored, delegated deletes receive no
-> spec). If pinned to an older chart, override `--set rdc.image.tag=0.18.0` and
-> verify the running image — see [Troubleshooting](docs/troubleshooting.md).
+## Authentication
 
-## Configure
-
-Two objects per resource kind, mirroring the upstream blueprint:
+Two objects, mirroring the upstream blueprint:
 
 1. a Kubernetes **Secret** holding the Aruba Bearer token
    (`samples/arubacloud-token-secret.yaml`);
-2. a **`<Kind>Configuration`** referencing that Secret and carrying per-verb query
-   config (e.g. `api-version`), referenced from each CR via `spec.configurationRef`.
+2. a **`<Kind>Configuration`** per resource kind, referencing that Secret and
+   carrying per-verb query config (e.g. `api-version`), referenced from each CR
+   via `spec.configurationRef`.
 
-Tokens are short-lived; rotation is the operator's responsibility. The full config
-surface — the Secret, the `<Kind>Configuration`, the RestDefinition fields, and the
-Composition chart values — is in [Configuration](docs/configuration.md).
+Tokens are short-lived; rotation is the operator's responsibility.
 
-## Examples
-
-- [`examples/cloudserver-environment/`](examples/cloudserver-environment/README.md)
-  — provision a complete environment (`Vpc` + `Subnet` + `SecurityGroup` +
-  `CloudServer`) from one input set, via the `aruba-cloudserver-environment`
-  Composition.
-- `samples/<provider>/` — a `<Kind>Configuration` + `<Kind>` CR skeleton for
-  every resource, plus the shared auth Secret.
-
-## Docs
-
-Full documentation lives in [`docs/`](docs/index.md):
-
-- Core: [Overview](docs/overview.md) · [Usage](docs/usage.md) ·
-  [Configuration](docs/configuration.md) · [API](docs/api.md) ·
-  [Examples](docs/examples.md) · [Release](docs/release.md) · [Log](docs/log.md)
-- References: [Getting started](docs/getting-started.md) ·
-  [Architecture](docs/architecture.md) · [Authentication](docs/authentication.md) ·
-  [Provider reference](docs/providers/README.md) · [Coverage matrix](docs/coverage.md) ·
-  [OAS patches](docs/oas-patches.md) · [Terraform parity](docs/terraform-parity.md)
-- Design & extension: [Adding a resource](docs/adding-a-resource.md) ·
-  [Async readiness](docs/async-readiness.md) ·
-  [Lifecycle beyond CRUD](docs/lifecycle-beyond-crud.md) ·
-  [oasgen-provider evolution](docs/oasgen-provider-evolution.md) ·
-  [Adversarial review](docs/adversarial-review.md) ·
-  [Troubleshooting](docs/troubleshooting.md)
-
-## Develop & release
+## Reproducing / regenerating
 
 Everything under `openapi/`, `configmaps/`, `restdefinitions/`, `samples/` and
-`docs/coverage.md`/`docs/providers/` is generated. To refresh from updated Aruba
-specs:
+`docs/coverage.md` is generated. To refresh from updated Aruba specs:
 
 ```sh
-# refresh openapi/_source/*.json from https://api.arubacloud.com/openapi/, then:
-python3 scripts/patch_oas.py                 # -> openapi/  (+ logs every OAS gap)
+# refresh openapi/*.json from https://api.arubacloud.com/openapi/ (then regenerate
+# openapi/CHECKSUMS.txt), and run:
 python3 scripts/generate_restdefinitions.py  # -> restdefinitions/
 python3 scripts/gen_configmaps.py            # -> configmaps/
 python3 scripts/gen_samples_and_coverage.py  # -> samples/ + docs/coverage.md
-python3 scripts/gen_provider_docs.py         # -> docs/providers/
-python3 scripts/validate.py                  # static + helm validation (must pass)
 ```
 
-`patch_oas.py` prints a count of every transformation it applies; each count is a
-concrete oasgen-provider gap, analysed in
-[oasgen-provider evolution](docs/oasgen-provider-evolution.md). The
-`aruba-cloudserver-environment` Composition chart is packaged and pushed to GHCR
-as an OCI artifact — see [Release](docs/release.md).
+The specs themselves are never rewritten — `scripts/validate.py` fails if any byte
+changes. See [OAS policy](docs/oas-patches.md).
 
 ## Caveats & assumptions
 
@@ -138,6 +178,7 @@ as an OCI artifact — see [Release](docs/release.md).
   `additionalStatusFields: [metadata.id]` + `requestFieldMapping id →
   status.metadata.id`) is the exact pattern the fork ships as its Subnet example,
   replicated across resources.
-- The OAS patches (strip `nullable`/`readOnly`, coerce `additionalProperties`)
-  change the contract to fit the tool; each is tracked in the evolution report as
-  something oasgen-provider should ideally handle natively.
+- `findby` assumes the controller extracts items from Aruba's
+  `{total, values[]}` list envelope (evolution report §B3).
+- The specs are consumed **unmodified** — no rewriting at all, enforced by a
+  sha256 manifest. See [OAS policy](docs/oas-patches.md).

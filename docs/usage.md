@@ -97,7 +97,6 @@ Everything under `openapi/`, `configmaps/`, `restdefinitions/`, `samples/` and
 `docs/coverage.md` is generated:
 
 ```sh
-python3 scripts/patch_oas.py                 # openapi/  (+ logs every OAS gap)
 python3 scripts/generate_restdefinitions.py  # restdefinitions/
 python3 scripts/gen_configmaps.py            # configmaps/
 python3 scripts/gen_samples_and_coverage.py  # samples/ + docs/coverage.md
