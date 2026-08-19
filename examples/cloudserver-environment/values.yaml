@@ -1,0 +1,39 @@
+# Default values for the aruba-cloudserver-environment composition.
+# One high-level input set fans out into VPC + Subnet + SecurityGroup +
+# CloudServer plus their per-kind Configuration resources.
+
+# Target namespace for the generated Custom Resources.
+namespace: default
+
+# Aruba project the environment lives in.
+projectId: REPLACE_PROJECT_ID
+
+# Location/region value (e.g. "ITBG-Bergamo").
+location: ITBG-Bergamo
+
+# Reference to the Secret holding the Aruba Bearer token (created separately).
+tokenSecret:
+  name: arubacloud-token
+  namespace: default
+  key: token
+
+apiVersion: "1.0"
+
+# Environment name prefix applied to every generated resource.
+name: demo
+
+vpc:
+  cidr: 10.0.0.0/16
+
+subnet:
+  cidr: 10.0.1.0/24
+  type: Advanced
+
+securityGroup: {}
+
+cloudServer:
+  flavorName: A1
+  # bootVolume/keyPair/userData are passed through verbatim to spec.properties.
+  bootVolume:
+    sizeGb: 40
+  userData: ""

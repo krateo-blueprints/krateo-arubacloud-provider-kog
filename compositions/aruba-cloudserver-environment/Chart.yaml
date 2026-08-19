@@ -9,7 +9,7 @@ description: >-
   Composition, and the CloudServer's own multi-call lifecycle is handled by its
   RestDefinition's *ApiRef delegation (see restactions/compute/).
 type: application
-version: 0.1.0
+version: CHART_VERSION
 appVersion: "1.0.0"
 keywords:
   - krateo

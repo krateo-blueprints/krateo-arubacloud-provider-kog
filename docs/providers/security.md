@@ -1,6 +1,6 @@
 # Aruba Cloud Security (KMS) provider
 
-- **OpenAPI**: `Aruba.SecurityProvider.Api` v1.0.0 (`openapi/_source/security-provider.json` → patched `openapi/security-provider.json`)
+- **OpenAPI**: `Aruba.SecurityProvider.Api` v1.0.0 (`openapi/security-provider.json`, vendored unmodified — see [OAS policy](../oas-patches.md))
 - **Security scheme (patched)**: `Bearer` (HTTP Bearer)
 - **ConfigMap**: `arubacloud-security-openapi` in `krateo-system`
 - **Resources**: 3

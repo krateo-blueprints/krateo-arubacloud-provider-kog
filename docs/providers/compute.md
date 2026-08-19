@@ -1,6 +1,6 @@
 # Aruba Cloud Compute provider
 
-- **OpenAPI**: `Aruba.CmpService.Computing.Api` v1.0.0 (`openapi/_source/compute-provider.json` → patched `openapi/compute-provider.json`)
+- **OpenAPI**: `Aruba.CmpService.Computing.Api` v1.0.0 (`openapi/compute-provider.json`, vendored unmodified — see [OAS policy](../oas-patches.md))
 - **Security scheme (patched)**: `Bearer` (HTTP Bearer)
 - **ConfigMap**: `arubacloud-compute-openapi` in `krateo-system`
 - **Resources**: 2

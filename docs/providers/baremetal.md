@@ -1,6 +1,6 @@
 # Aruba Cloud Bare Metal provider
 
-- **OpenAPI**: `Aruba.BaremetalProvider.Api` v1.0.0 (`openapi/_source/baremetal-provider.json` → patched `openapi/baremetal-provider.json`)
+- **OpenAPI**: `Aruba.BaremetalProvider.Api` v1.0.0 (`openapi/baremetal-provider.json`, vendored unmodified — see [OAS policy](../oas-patches.md))
 - **Security scheme (patched)**: `Bearer` (HTTP Bearer)
 - **ConfigMap**: `arubacloud-baremetal-openapi` in `krateo-system`
 - **Resources**: 1

@@ -1,6 +1,6 @@
 # Aruba Cloud Database (DBaaS) provider
 
-- **OpenAPI**: `Aruba.CmpService.DatabaseProvider.Api` v1.0.0 (`openapi/_source/database-provider.json` → patched `openapi/database-provider.json`)
+- **OpenAPI**: `Aruba.CmpService.DatabaseProvider.Api` v1.0.0 (`openapi/database-provider.json`, vendored unmodified — see [OAS policy](../oas-patches.md))
 - **Security scheme (patched)**: `Bearer` (HTTP Bearer)
 - **ConfigMap**: `arubacloud-database-openapi` in `krateo-system`
 - **Resources**: 5

@@ -1,6 +1,6 @@
 # Aruba Cloud Network provider
 
-- **OpenAPI**: `Aruba.Network.Api` v1.0.0 (`openapi/_source/network-provider.json` → patched `openapi/network-provider.json`)
+- **OpenAPI**: `Aruba.Network.Api` v1.0.0 (`openapi/network-provider.json`, vendored unmodified — see [OAS policy](../oas-patches.md))
 - **Security scheme (patched)**: `Bearer` (HTTP Bearer)
 - **ConfigMap**: `arubacloud-network-openapi` in `krateo-system`
 - **Resources**: 10

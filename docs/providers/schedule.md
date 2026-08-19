@@ -1,6 +1,6 @@
 # Aruba Cloud Schedule provider
 
-- **OpenAPI**: `Aruba.CmpService.ScheduleProvider.Api` v1.0.0 (`openapi/_source/schedule-provider.json` → patched `openapi/schedule-provider.json`)
+- **OpenAPI**: `Aruba.CmpService.ScheduleProvider.Api` v1.0.0 (`openapi/schedule-provider.json`, vendored unmodified — see [OAS policy](../oas-patches.md))
 - **Security scheme (patched)**: `Bearer` (HTTP Bearer)
 - **ConfigMap**: `arubacloud-schedule-openapi` in `krateo-system`
 - **Resources**: 3

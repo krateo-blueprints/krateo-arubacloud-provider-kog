@@ -96,7 +96,7 @@ def main():
         ss = list((spec.get("components", {}).get("securitySchemes") or {}).keys())
         out = [f"# Aruba Cloud {TITLES[prov]} provider\n"]
         out.append(f"- **OpenAPI**: `{info.get('title')}` v{info.get('version')} "
-                   f"(`openapi/_source/{fn}` → patched `openapi/{fn}`)\n"
+                   f"(`openapi/{fn}`, vendored unmodified — see [OAS policy](../oas-patches.md))\n"
                    f"- **Security scheme (patched)**: `{', '.join(ss)}` (HTTP Bearer)\n"
                    f"- **ConfigMap**: `arubacloud-{prov}-openapi` in `krateo-system`\n"
                    f"- **Resources**: {len(rds)}\n")

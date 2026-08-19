@@ -1,6 +1,6 @@
 # Aruba Cloud Storage provider
 
-- **OpenAPI**: `Aruba.StorageProvider.Api` v1.0.0 (`openapi/_source/storage-provider.json` → patched `openapi/storage-provider.json`)
+- **OpenAPI**: `Aruba.StorageProvider.Api` v1.0.0 (`openapi/storage-provider.json`, vendored unmodified — see [OAS policy](../oas-patches.md))
 - **Security scheme (patched)**: `Bearer` (HTTP Bearer)
 - **ConfigMap**: `arubacloud-storage-openapi` in `krateo-system`
 - **Resources**: 4
