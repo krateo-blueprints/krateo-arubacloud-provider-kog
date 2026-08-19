@@ -1,3 +1,11 @@
+---
+type: Runbook
+title: Live cluster test
+description: The end-to-end create/observe/drift/delete validation and how to repeat it.
+tags: [aruba, kog]
+timestamp: 2026-08-19T00:00:00Z
+---
+
 # Live-cluster test
 
 Everything in this repository had been validated statically until this run. This
@@ -51,9 +59,9 @@ a `PUT` on a real resource. Confirmed after the fact — subnet count unchanged 
 
 | Fix | Evidence from the running cluster |
 |---|---|
-| [#49](https://github.com/braghettos/krateo-oasgen-provider/issues/49) apiKey auth | `SubnetConfiguration` CRD exposes `authentication.apiKey` = `{tokenRef, header, valuePrefix}`, with `header.default: "Authorization"` and the description *"Defaulted from security scheme "Bearer", which declares "Authorization""*. `DbaasConfiguration` (an `http`/`bearer` spec) exposes only `authentication.bearer` — the per-document derivation is real |
-| [#46](https://github.com/braghettos/krateo-oasgen-provider/issues/46) `handleParam` | `arubacloud-baremetal-hpc` passes admission with `poll.path: …/monitor/{id}` + `handleParam: id` against Aruba's **unmodified** document |
-| [#45](https://github.com/braghettos/krateo-oasgen-provider/issues/45) typed maps | Correct but **latent here** — see the scope correction below |
+| [#49](https://github.com/krateo-platformops/oasgen-provider/issues/49) apiKey auth | `SubnetConfiguration` CRD exposes `authentication.apiKey` = `{tokenRef, header, valuePrefix}`, with `header.default: "Authorization"` and the description *"Defaulted from security scheme "Bearer", which declares "Authorization""*. `DbaasConfiguration` (an `http`/`bearer` spec) exposes only `authentication.bearer` — the per-document derivation is real |
+| [#46](https://github.com/krateo-platformops/oasgen-provider/issues/46) `handleParam` | `arubacloud-baremetal-hpc` passes admission with `poll.path: …/monitor/{id}` + `handleParam: id` against Aruba's **unmodified** document |
+| [#45](https://github.com/krateo-platformops/oasgen-provider/issues/45) typed maps | Correct but **latent here** — see the scope correction below |
 
 ## Defects found (all fixed)
 
@@ -117,7 +125,7 @@ the URL, not the credential, so the natural first suspicion is the endpoint.
 
 **Fixed here** in `scripts/get-aruba-token.sh` (`jq -j`, plus a whitespace assert
 that refuses to write an unusable token). **Filed upstream** as
-[rdc#45](https://github.com/braghettos/krateo-rest-dynamic-controller/issues/45):
+[rdc#45](https://github.com/krateo-platformops/rest-dynamic-controller/issues/45):
 credentials should be `TrimSpace`d, since leading/trailing whitespace is never
 meaningful in a bearer token or API key.
 
@@ -142,7 +150,7 @@ while the provider registers a dynamic watch on every generated Configuration.
 Quiet in the worst way: RestDefinitions still reach `Ready` and controllers still
 run, so nothing looks broken — the feature just degrades to resync-only.
 
-**Fixed upstream**: [chart#31](https://github.com/braghettos/krateo-oasgen-provider-chart/pull/31).
+**Fixed upstream**: [chart#31](https://github.com/krateo-platformops/oasgen-provider/pull/31).
 Verified by patching the live ClusterRole and restarting: **88 errors → 0**.
 
 ## Full lifecycle against the live API
@@ -178,7 +186,7 @@ and drift is detected again on the next reconcile, forever.
 Drift detection is otherwise accurate: the CR whose spec genuinely matched
 reality reported "up to date" in the very same log. This is specifically the
 *create-only field* case. Filed as
-[oasgen-provider#51](https://github.com/braghettos/krateo-oasgen-provider/issues/51):
+[oasgen-provider#51](https://github.com/krateo-platformops/oasgen-provider/issues/51):
 drift comparison should exclude fields the update verb's request body cannot
 express — the OAS already carries that information.
 

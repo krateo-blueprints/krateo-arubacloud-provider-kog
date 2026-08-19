@@ -1,7 +1,15 @@
+---
+type: Architecture
+title: Aruba Cloud Storage provider
+description: Storage provider reference — every resource, its verbs, identifiers and uncovered endpoints. Generated.
+tags: [providers, aruba, reference]
+timestamp: 2026-08-19T00:00:00Z
+---
+
 # Aruba Cloud Storage provider
 
 - **OpenAPI**: `Aruba.StorageProvider.Api` v1.0.0 (`openapi/storage-provider.json`, vendored unmodified — see [OAS policy](../oas-patches.md))
-- **Security scheme (patched)**: `Bearer` (HTTP Bearer)
+- **Security scheme**: `Bearer` (HTTP Bearer)
 - **ConfigMap**: `arubacloud-storage-openapi` in `krateo-system`
 - **Resources**: 4
 

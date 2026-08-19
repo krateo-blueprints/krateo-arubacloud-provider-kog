@@ -1,3 +1,11 @@
+---
+type: Decision
+title: Terraform parity
+description: Coverage compared against the Aruba Terraform provider, gap by gap.
+tags: [aruba, kog]
+timestamp: 2026-08-19T00:00:00Z
+---
+
 # Feature parity with the official Aruba Cloud Terraform provider
 
 Comparison against [`Arubacloud/terraform-provider-arubacloud`](https://github.com/Arubacloud/terraform-provider-arubacloud)

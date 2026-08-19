@@ -1,7 +1,15 @@
+---
+type: Architecture
+title: Aruba Cloud Network provider
+description: Network provider reference — every resource, its verbs, identifiers and uncovered endpoints. Generated.
+tags: [providers, aruba, reference]
+timestamp: 2026-08-19T00:00:00Z
+---
+
 # Aruba Cloud Network provider
 
 - **OpenAPI**: `Aruba.Network.Api` v1.0.0 (`openapi/network-provider.json`, vendored unmodified — see [OAS policy](../oas-patches.md))
-- **Security scheme (patched)**: `Bearer` (HTTP Bearer)
+- **Security scheme**: `Bearer` (HTTP Bearer)
 - **ConfigMap**: `arubacloud-network-openapi` in `krateo-system`
 - **Resources**: 10
 

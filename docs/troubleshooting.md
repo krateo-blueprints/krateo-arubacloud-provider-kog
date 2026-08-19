@@ -1,3 +1,11 @@
+---
+type: Runbook
+title: Troubleshooting
+description: Symptoms, causes and fixes observed on live clusters.
+tags: [aruba, kog]
+timestamp: 2026-08-19T00:00:00Z
+---
+
 # Troubleshooting
 
 ## RestDefinition never becomes `Ready`

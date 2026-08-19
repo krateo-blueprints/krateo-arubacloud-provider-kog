@@ -1,3 +1,11 @@
+---
+type: Configuration
+title: Authentication
+description: The short-lived Aruba JWT: how it is minted, stored and rotated.
+tags: [aruba, kog]
+timestamp: 2026-08-19T00:00:00Z
+---
+
 # Authentication
 
 Every Aruba Cloud call is authenticated with a **Bearer token** (a short-lived
@@ -110,7 +118,7 @@ RDC sends `Header.Set(header, valuePrefix + token)`.
 > identically to a wrong credential.
 
 Requires oasgen ≥ 0.19.0 and RDC ≥ 0.19.0
-([#49](https://github.com/braghettos/krateo-oasgen-provider/issues/49)); earlier
+([#49](https://github.com/krateo-platformops/oasgen-provider/issues/49)); earlier
 versions skipped the `apiKey` scheme silently and generated no auth block at all.
 
 ## RESTAction credentials
@@ -172,7 +180,7 @@ Two things to get right:
   only a few failures). Refreshing early means that window is never entered.
 - **No trailing whitespace in the written value.** A newline in the Secret
   produces `net/http: invalid header field value for "Authorization"` — see
-  [rdc#45](https://github.com/braghettos/krateo-rest-dynamic-controller/issues/45).
+  [rdc#45](https://github.com/krateo-platformops/rest-dynamic-controller/issues/45).
   ESO's `jsonPath` extraction is clean; a hand-written `template` may not be.
 
 > The manifests above are a **sketch, not a tested artifact** — ESO was not
