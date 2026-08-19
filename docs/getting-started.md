@@ -1,3 +1,11 @@
+---
+type: Usage
+title: Getting started
+description: Install the CRD chart, token, ConfigMaps and RestDefinitions, then manage the first resource.
+tags: [aruba, kog]
+timestamp: 2026-08-19T00:00:00Z
+---
+
 # Getting started
 
 This walks through installing the provider and managing your first resource (a

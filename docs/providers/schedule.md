@@ -1,7 +1,15 @@
+---
+type: Architecture
+title: Aruba Cloud Schedule provider
+description: Schedule provider reference — every resource, its verbs, identifiers and uncovered endpoints. Generated.
+tags: [providers, aruba, reference]
+timestamp: 2026-08-19T00:00:00Z
+---
+
 # Aruba Cloud Schedule provider
 
 - **OpenAPI**: `Aruba.CmpService.ScheduleProvider.Api` v1.0.0 (`openapi/schedule-provider.json`, vendored unmodified — see [OAS policy](../oas-patches.md))
-- **Security scheme (patched)**: `Bearer` (HTTP Bearer)
+- **Security scheme**: `Bearer` (HTTP Bearer)
 - **ConfigMap**: `arubacloud-schedule-openapi` in `krateo-system`
 - **Resources**: 3
 

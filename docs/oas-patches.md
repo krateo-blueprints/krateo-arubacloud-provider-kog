@@ -1,3 +1,11 @@
+---
+type: Standard
+title: OAS policy — the specs are not modified
+description: Why the vendored specs stay byte-for-byte, how validate.py enforces it, and what that costs.
+tags: [aruba, kog]
+timestamp: 2026-08-19T00:00:00Z
+---
+
 # OAS policy — the specs are **not** modified
 
 **This repository performs no OpenAPI rewriting.** The documents under
@@ -42,7 +50,7 @@ else, so the 7 providers declaring `apiKey`-in-header generated a
 not authenticate.
 
 That is now **shipped** (oasgen 0.19.0 + RDC 0.19.0,
-[#49](https://github.com/braghettos/krateo-oasgen-provider/issues/49)): both
+[#49](https://github.com/krateo-platformops/oasgen-provider/issues/49)): both
 scheme shapes generate a usable auth block, and an unsupported scheme is no
 longer skipped in silence.
 
@@ -65,12 +73,12 @@ specifically needs.
 
 | Former transformation | Count | Why it is gone |
 |---|------:|---|
-| coerce `additionalProperties: {schema}` → `true` | 42 | oasgen 0.18.0 emits a **typed map** ([#45](https://github.com/braghettos/krateo-oasgen-provider/issues/45)) |
-| rename baremetal monitor param `{id}` → `{operationId}` | 1 | `async.poll.handleParam: id` binds the handle to Aruba's own name ([#46](https://github.com/braghettos/krateo-oasgen-provider/issues/46)) |
+| coerce `additionalProperties: {schema}` → `true` | 42 | oasgen 0.18.0 emits a **typed map** ([#45](https://github.com/krateo-platformops/oasgen-provider/issues/45)) |
+| rename baremetal monitor param `{id}` → `{operationId}` | 1 | `async.poll.handleParam: id` binds the handle to Aruba's own name ([#46](https://github.com/krateo-platformops/oasgen-provider/issues/46)) |
 | strip `nullable: true` | ~4119 | **No-op.** Zero references in oasgen's `oas2jsonschema` or anywhere in RDC; removing the strip left all 34 RestDefinitions byte-identical |
 | strip `readOnly` / `writeOnly` | 25 | **No-op**, same evidence |
 | merge compute `v1.1` create into the base document | 1 | Dead weight: CloudServer delegates create via `createApiRef`, so the v1.1 `POST` was never referenced by any verb |
-| security scheme `apiKey` → `http`/`bearer` | 8 | **The one that was real** — filed as [#49](https://github.com/braghettos/krateo-oasgen-provider/issues/49) instead of patched, and **shipped** in oasgen/RDC 0.19.0 |
+| security scheme `apiKey` → `http`/`bearer` | 8 | **The one that was real** — filed as [#49](https://github.com/krateo-platformops/oasgen-provider/issues/49) instead of patched, and **shipped** in oasgen/RDC 0.19.0 |
 
 Three of those six were fixed upstream, two were never load-bearing, and one was
 unnecessary. **None of them is a patch any more.**

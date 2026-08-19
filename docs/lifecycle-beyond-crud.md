@@ -1,3 +1,11 @@
+---
+type: Architecture
+title: Lifecycle beyond CRUD
+description: Actions that are not create/read/update/delete and how they are modelled.
+tags: [aruba, kog]
+timestamp: 2026-08-19T00:00:00Z
+---
+
 # Lifecycle beyond the five CRUD verbs — the proxy-free solution
 
 `oasgen-provider` models exactly five verbs (findby/get/create/update/delete).
@@ -158,7 +166,7 @@ Two non-obvious contracts govern `*ApiRef` delegation — both found by the
    `.spec.projectId` is null, every guard skips, snowplow reports success, and
    the finalizer never releases. That older behaviour is why this repo used to
    carry a static `deleteApiRef.extras.projectId` — now removed
-   ([rdc#41](https://github.com/braghettos/krateo-rest-dynamic-controller/issues/41)).
+   ([rdc#41](https://github.com/krateo-platformops/rest-dynamic-controller/issues/41)).
 
 ## Caveats
 

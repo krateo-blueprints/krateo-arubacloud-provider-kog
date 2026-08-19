@@ -1,3 +1,11 @@
+---
+type: Usage
+title: Adding a resource
+description: The exact steps to cover a new Aruba resource with a RestDefinition.
+tags: [aruba, kog]
+timestamp: 2026-08-19T00:00:00Z
+---
+
 # Adding or customising a resource
 
 RestDefinitions are produced by `scripts/generate_restdefinitions.py` from the

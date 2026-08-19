@@ -1,3 +1,11 @@
+---
+type: Decision
+title: Adversarial review
+description: Claims made by this repo and how each was independently attacked and verified.
+tags: [aruba, kog]
+timestamp: 2026-08-19T00:00:00Z
+---
+
 # Adversarial review — generated artifacts vs. the code that executes them
 
 This review deliberately attacked this repository's generated RestDefinitions,
@@ -13,8 +21,8 @@ in the same change** that added this document.
 
 > **Update (oasgen/RDC 0.18.0).** Findings **#1** and **#2** were filed upstream
 > and have since **shipped as first-class features** — `async.poll.handleParam`
-> + admission-time poll-path validation ([oasgen#46](https://github.com/braghettos/krateo-oasgen-provider/issues/46)),
-> and spec forwarding on every `*ApiRef` direction ([rdc#41](https://github.com/braghettos/krateo-rest-dynamic-controller/issues/41)).
+> + admission-time poll-path validation ([oasgen#46](https://github.com/krateo-platformops/oasgen-provider/issues/46)),
+> and spec forwarding on every `*ApiRef` direction ([rdc#41](https://github.com/krateo-platformops/rest-dynamic-controller/issues/41)).
 > The local workarounds they forced have been **removed** from this repo; the
 > rows below keep the original evidence and record what replaced them.
 > Finding #3 (snowplow wiring) is unchanged and remains an install prerequisite.
@@ -79,7 +87,7 @@ genuinely solved (#8). What remains, ranked by how fundamental it is:
    keyword) and the compute v1.1 merge was dead weight; the typed-map coercion and
    the async param rename had already been superseded by 0.18.0. The last real one
    — §A7, `apiKey` security schemes — shipped in oasgen/RDC **0.19.0**
-   ([#49](https://github.com/braghettos/krateo-oasgen-provider/issues/49)), so
+   ([#49](https://github.com/krateo-platformops/oasgen-provider/issues/49)), so
    **Aruba's published documents are now consumed with zero modifications and all
    34 resources can authenticate**. The distance between "the published Aruba
    contract" and "what KOG can consume" is, for this API surface, gone.

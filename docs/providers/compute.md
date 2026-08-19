@@ -1,7 +1,15 @@
+---
+type: Architecture
+title: Aruba Cloud Compute provider
+description: Compute provider reference — every resource, its verbs, identifiers and uncovered endpoints. Generated.
+tags: [providers, aruba, reference]
+timestamp: 2026-08-19T00:00:00Z
+---
+
 # Aruba Cloud Compute provider
 
 - **OpenAPI**: `Aruba.CmpService.Computing.Api` v1.0.0 (`openapi/compute-provider.json`, vendored unmodified — see [OAS policy](../oas-patches.md))
-- **Security scheme (patched)**: `Bearer` (HTTP Bearer)
+- **Security scheme**: `Bearer` (HTTP Bearer)
 - **ConfigMap**: `arubacloud-compute-openapi` in `krateo-system`
 - **Resources**: 2
 

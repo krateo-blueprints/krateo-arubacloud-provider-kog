@@ -1,3 +1,11 @@
+---
+type: Component
+title: krateo-arubacloud-provider-kog
+description: Proxy-free Aruba Cloud RestDefinitions for Krateo — doc index.
+tags: [aruba, kog]
+timestamp: 2026-08-19T00:00:00Z
+---
+
 # Aruba Cloud Provider KOG — documentation
 
 Proxy-free Krateo `oasgen-provider` RestDefinitions for **all** manageable Aruba

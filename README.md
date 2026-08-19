@@ -1,8 +1,10 @@
 # Aruba Cloud Provider KOG — proxy-free RestDefinitions
 
+## What is this
+
 **KOG** = *Krateo Operator Generator.*
 
-This repository contains Krateo [`oasgen-provider`](https://github.com/braghettos/krateo-oasgen-provider)
+This repository contains Krateo [`oasgen-provider`](https://github.com/krateo-platformops/oasgen-provider)
 `RestDefinition`s that manage **all** manageable Aruba Cloud resources as
 Kubernetes Custom Resources — generated directly from the official
 [Aruba Cloud OpenAPI specifications](https://api.arubacloud.com/docs/intro) with
@@ -10,7 +12,7 @@ Kubernetes Custom Resources — generated directly from the official
 
 The predecessor blueprint managed a single resource (`Subnet`) and needed a Go
 proxy (`subnet-plugin`) just to reshape Aruba's `metadata` object. The
-**braghettos forks** of oasgen-provider and rest-dynamic-controller (both at
+**krateo-platformops builds** of oasgen-provider and rest-dynamic-controller (both at
 **0.19.0**; every feature this repo uses is present since RDC 0.15.0 — see the
 [verified version matrix](docs/adversarial-review.md))
 remove that need through nested identifiers, `requestFieldMapping`,
@@ -19,13 +21,100 @@ uses those features to cover **34 resources across 10 providers with zero
 plugins**, and every load-bearing claim has been
 [adversarially verified against the executor source](docs/adversarial-review.md).
 
-## Documentation
+## Install
+
+```sh
+# 0. The RestDefinition CRD ships as a SEPARATE chart from the provider
+helm install oasgen-provider-crd oci://ghcr.io/krateo-platformops/charts/oasgen-provider-crds \
+  --version 0.9.20 --namespace krateo-system
+
+# 1. Auth token (short-lived Aruba JWT)
+kubectl apply -f samples/arubacloud-token-secret.yaml
+
+# 2. OAS ConfigMaps (the oasPath sources) — must be in the oasgen-provider namespace
+kubectl apply -n krateo-system -f configmaps/
+
+# 3. The RestDefinitions (all providers, or pick a subset)
+kubectl apply -R -f restdefinitions/
+
+# 4. Wait for the generated controllers to become Ready
+kubectl get restdefinitions.ogen.krateo.io -A | awk 'NR==1 || /arubacloud/'
+
+# 5. Per resource you want to manage: a <Kind>Configuration, then the CR
+kubectl apply -f samples/network/subnet-configuration.yaml
+kubectl apply -f samples/network/subnet.yaml
+```
+
+## Configure
+
+### Prerequisites
+
+A Kubernetes cluster with the **krateo-platformops** oasgen-provider and its
+rest-dynamic-controller. A stock upstream oasgen-provider does **not**
+have the features this repo relies on (nested identifiers, `fieldMapping`,
+`async`, `*ApiRef`).
+
+| Component | Minimum | Why |
+|-----------|---------|-----|
+| `ghcr.io/krateo-platformops/oasgen-provider` | **0.20.0** (0.19.0 lineage; first platformops release — re-validation tracked) | `apiKey`-in-header auth (required by 7 of 10 providers); typed-map `additionalProperties`; `async.poll.handleParam` + poll-path validation |
+| `ghcr.io/krateo-platformops/rest-dynamic-controller` | **0.20.0** (0.19.0 lineage) | sends the `apiKey` header + `valuePrefix`; honours `handleParam`; forwards the CR spec on every `*ApiRef` direction |
+| `krateo-oasgen-provider-chart` | **0.9.20** | ships oasgen 0.19.0 paired with RDC 0.19.0 |
+
+```sh
+helm install oasgen-provider oci://ghcr.io/krateo-platformops/charts/oasgen-provider \
+  --version 0.9.20 --namespace krateo-system --create-namespace
+```
+
+> [!IMPORTANT]
+> **Use chart ≥ 0.9.20.** Older charts pair a newer oasgen with an older RDC, and
+> these manifests then fail **silently** rather than loudly — `handleParam`
+> ignored (HPC async never polls), delegated deletes receiving no spec (the
+> CloudServer finalizer never releases), and on ≤ 0.9.19 no `apiKey` auth at all.
+> The chart pins `rdc.image.tag` by hand, so if you are stuck on an older chart
+> override it (`--set rdc.image.tag=0.19.0`) and verify the running image — see
+> [troubleshooting](docs/troubleshooting.md).
+
+### Authentication
+
+Two objects, mirroring the upstream blueprint:
+
+1. a Kubernetes **Secret** holding the Aruba Bearer token
+   (`samples/arubacloud-token-secret.yaml`);
+2. a **`<Kind>Configuration`** per resource kind, referencing that Secret and
+   carrying per-verb query config (e.g. `api-version`), referenced from each CR
+   via `spec.configurationRef`.
+
+Tokens are short-lived; rotation is the operator's responsibility.
+
+## Examples
+
+Per-resource Configurations and CRs live under [`samples/`](samples/) (one pair per
+resource, all providers), and a full end-to-end composition under
+[`examples/cloudserver-environment/`](examples/cloudserver-environment/).
+
+## Docs
 
 Full docs live in [`docs/`](docs/index.md):
 
 - [Getting started](docs/getting-started.md) · [Architecture](docs/architecture.md) · [Authentication](docs/authentication.md)
 - [Provider reference](docs/providers/README.md) (per-provider pages) · [Coverage matrix](docs/coverage.md) · [OAS policy](docs/oas-patches.md) · [Terraform parity](docs/terraform-parity.md)
 - [Adding a resource](docs/adding-a-resource.md) · [Lifecycle beyond CRUD](docs/lifecycle-beyond-crud.md) · [oasgen-provider evolution](docs/oasgen-provider-evolution.md) · [Live-cluster test](docs/live-cluster-test.md) · [Troubleshooting](docs/troubleshooting.md)
+
+## Develop & release
+
+Everything under `openapi/`, `configmaps/`, `restdefinitions/`, `samples/` and
+`docs/coverage.md` is generated. To refresh from updated Aruba specs:
+
+```sh
+# refresh openapi/*.json from https://api.arubacloud.com/openapi/ (then regenerate
+# openapi/CHECKSUMS.txt), and run:
+python3 scripts/generate_restdefinitions.py  # -> restdefinitions/
+python3 scripts/gen_configmaps.py            # -> configmaps/
+python3 scripts/gen_samples_and_coverage.py  # -> samples/ + docs/coverage.md
+```
+
+The specs themselves are never rewritten — `scripts/validate.py` fails if any byte
+changes. See [OAS policy](docs/oas-patches.md).
 
 ## What's here
 
@@ -88,85 +177,6 @@ create/update/delete to Snowplow RESTActions via the fork's `*ApiRef`
 (`restactions/compute/`), with a Krateo Composition (`compositions/`) for
 whole-environment provisioning. See
 [`docs/lifecycle-beyond-crud.md`](docs/lifecycle-beyond-crud.md).
-
-## Prerequisites
-
-A Kubernetes cluster with the **braghettos** oasgen-provider and its
-rest-dynamic-controller. A stock (non-braghettos) oasgen-provider does **not**
-have the features this repo relies on (nested identifiers, `fieldMapping`,
-`async`, `*ApiRef`).
-
-| Component | Minimum | Why |
-|-----------|---------|-----|
-| `ghcr.io/braghettos/krateo-oasgen-provider` | **0.19.0** | `apiKey`-in-header auth (required by 7 of 10 providers); typed-map `additionalProperties`; `async.poll.handleParam` + poll-path validation |
-| `ghcr.io/braghettos/krateo-rest-dynamic-controller` | **0.19.0** | sends the `apiKey` header + `valuePrefix`; honours `handleParam`; forwards the CR spec on every `*ApiRef` direction |
-| `krateo-oasgen-provider-chart` | **0.9.20** | ships oasgen 0.19.0 paired with RDC 0.19.0 |
-
-```sh
-helm install oasgen-provider oci://ghcr.io/braghettos/krateo/krateo-oasgen-provider \
-  --version 0.9.20 --namespace krateo-system --create-namespace
-```
-
-> [!IMPORTANT]
-> **Use chart ≥ 0.9.20.** Older charts pair a newer oasgen with an older RDC, and
-> these manifests then fail **silently** rather than loudly — `handleParam`
-> ignored (HPC async never polls), delegated deletes receiving no spec (the
-> CloudServer finalizer never releases), and on ≤ 0.9.19 no `apiKey` auth at all.
-> The chart pins `rdc.image.tag` by hand, so if you are stuck on an older chart
-> override it (`--set rdc.image.tag=0.19.0`) and verify the running image — see
-> [troubleshooting](docs/troubleshooting.md).
-
-## Install
-
-```sh
-# 0. The RestDefinition CRD ships as a SEPARATE chart from the provider
-helm install oasgen-provider-crd oci://ghcr.io/braghettos/krateo/krateo-oasgen-provider-crd \
-  --version 0.9.20 --namespace krateo-system
-
-# 1. Auth token (short-lived Aruba JWT)
-kubectl apply -f samples/arubacloud-token-secret.yaml
-
-# 2. OAS ConfigMaps (the oasPath sources) — must be in the oasgen-provider namespace
-kubectl apply -n krateo-system -f configmaps/
-
-# 3. The RestDefinitions (all providers, or pick a subset)
-kubectl apply -R -f restdefinitions/
-
-# 4. Wait for the generated controllers to become Ready
-kubectl get restdefinitions.ogen.krateo.io -A | awk 'NR==1 || /arubacloud/'
-
-# 5. Per resource you want to manage: a <Kind>Configuration, then the CR
-kubectl apply -f samples/network/subnet-configuration.yaml
-kubectl apply -f samples/network/subnet.yaml
-```
-
-## Authentication
-
-Two objects, mirroring the upstream blueprint:
-
-1. a Kubernetes **Secret** holding the Aruba Bearer token
-   (`samples/arubacloud-token-secret.yaml`);
-2. a **`<Kind>Configuration`** per resource kind, referencing that Secret and
-   carrying per-verb query config (e.g. `api-version`), referenced from each CR
-   via `spec.configurationRef`.
-
-Tokens are short-lived; rotation is the operator's responsibility.
-
-## Reproducing / regenerating
-
-Everything under `openapi/`, `configmaps/`, `restdefinitions/`, `samples/` and
-`docs/coverage.md` is generated. To refresh from updated Aruba specs:
-
-```sh
-# refresh openapi/*.json from https://api.arubacloud.com/openapi/ (then regenerate
-# openapi/CHECKSUMS.txt), and run:
-python3 scripts/generate_restdefinitions.py  # -> restdefinitions/
-python3 scripts/gen_configmaps.py            # -> configmaps/
-python3 scripts/gen_samples_and_coverage.py  # -> samples/ + docs/coverage.md
-```
-
-The specs themselves are never rewritten — `scripts/validate.py` fails if any byte
-changes. See [OAS policy](docs/oas-patches.md).
 
 ## Caveats & assumptions
 

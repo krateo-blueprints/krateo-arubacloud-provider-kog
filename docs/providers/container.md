@@ -1,7 +1,15 @@
+---
+type: Architecture
+title: Aruba Cloud Container (Kubernetes) provider
+description: Container (Kubernetes) provider reference — every resource, its verbs, identifiers and uncovered endpoints. Generated.
+tags: [providers, aruba, reference]
+timestamp: 2026-08-19T00:00:00Z
+---
+
 # Aruba Cloud Container (Kubernetes) provider
 
 - **OpenAPI**: `Aruba.Container.Api` v1.0.0 (`openapi/container-provider.json`, vendored unmodified — see [OAS policy](../oas-patches.md))
-- **Security scheme (patched)**: `Bearer` (HTTP Bearer)
+- **Security scheme**: `Bearer` (HTTP Bearer)
 - **ConfigMap**: `arubacloud-container-openapi` in `krateo-system`
 - **Resources**: 3
 
