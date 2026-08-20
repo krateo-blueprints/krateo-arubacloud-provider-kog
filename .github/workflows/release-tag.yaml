@@ -12,7 +12,10 @@ on:
     tags: ["[0-9]+.[0-9]+.[0-9]+"]
 
 permissions:
-  contents: read
+  # contents: write — the stamped CompositionDefinition is attached to the release.
+  # It is applied by hand and is not inside the packaged chart, so it must ship as a
+  # release asset, not just live in the runner.
+  contents: write
   packages: write
 
 jobs:
@@ -29,6 +32,20 @@ jobs:
         run: |
           echo "VERSION=${GITHUB_REF_NAME}" >> "$GITHUB_ENV"
           echo "OCI_REPO=oci://ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/charts" >> "$GITHUB_ENV"
+
+      - name: Stamp the CompositionDefinition
+        run: |
+          set -euo pipefail
+          # The CD pins the version of the chart it installs but is not a Chart.yaml, so the
+          # per-chart stamp in the packaging step never touches it. Left by hand it drifts: the
+          # chart advances with the tag while the CD keeps naming an older, eventually
+          # unpublished, version. This workflow publishes every chart on every tag, so stamping
+          # the CD to the same tag is always valid. examples/ CDs are left as pinned fixtures.
+          find . -type f -name compositiondefinition.yaml \
+                 -not -path '*/charts/*' -not -path '*/examples/*' -not -path '*/samples/*' -print0 \
+            | while IFS= read -r -d '' cd; do
+                sed -i "s/CHART_VERSION/${VERSION}/g" "$cd"; echo "stamped $cd -> ${VERSION}"
+              done
 
       - name: Log in to GHCR
         run: |
@@ -50,3 +67,24 @@ jobs:
             echo "Published ${OCI_REPO}/${name}:${VERSION}"
             echo "::endgroup::"
           done
+
+      - name: Publish the stamped CompositionDefinition on the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          # Runs after the charts are pushed: the chart is the primary artifact and an asset
+          # problem must never block it. Stage into a fresh dir so a root-level CD is never
+          # cp'd onto itself (an error, not a no-op — a lesson from selfservice 0.2.26).
+          stage="$(mktemp -d)"; assets=()
+          while IFS= read -r -d '' cd; do
+            d="$(dirname "$cd")"
+            if [ "$d" = "." ]; then out="compositiondefinition.yaml"; else out="compositiondefinition-$(basename "$d").yaml"; fi
+            cp "$cd" "$stage/$out"; assets+=("$stage/$out")
+          done < <(find . -type f -name compositiondefinition.yaml \
+                        -not -path '*/charts/*' -not -path '*/examples/*' -not -path '*/samples/*' -print0)
+          [ ${#assets[@]} -eq 0 ] && { echo "no CompositionDefinition to publish"; exit 0; }
+          gh release view "${VERSION}" >/dev/null 2>&1 \
+            || gh release create "${VERSION}" --title "${VERSION}" --notes "Apply the attached CompositionDefinition to register this version."
+          gh release upload "${VERSION}" "${assets[@]}" --clobber
+          echo "attached: ${assets[*]}"
