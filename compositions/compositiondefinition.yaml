@@ -14,4 +14,4 @@ metadata:
 spec:
   chart:
     url: oci://ghcr.io/krateo-blueprints/charts/aruba-cloudserver-environment
-    version: "0.1.0"
+    version: CHART_VERSION
