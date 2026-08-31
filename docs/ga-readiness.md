@@ -30,15 +30,15 @@ A resource's tier is **earned by test evidence**, not asserted.
 | **Beta** | applies cleanly, reaches `Ready`, observe verified; mutation unproven | usable, sharp edges documented |
 | **Experimental** | generated and statically valid only | try it, expect to find things |
 
-### Proposed GA core (10)
+### Proposed GA core (9)
 
 Chosen because each is free or near-free, so the full lifecycle can be exercised
 repeatedly in CI without a cost conversation:
 
 `network`: **Vpc, Subnet, SecurityGroup, SecurityRule, VpcPeering, VpcPeeringRoute**
-· `compute`: **KeyPair** · `project`: **Project, Folder** · `network`:
-**LoadBalancer** *(read-only by construction — no create verb exists, so observe
-is its whole lifecycle)*
+· `compute`: **KeyPair** · `project`: **Project, Folder**
+
+`LoadBalancer` was in this list and has been **removed** — see P0-4.
 
 ### Beta
 
@@ -51,7 +51,16 @@ VpnTunnel/VpnRoute.
 ### Experimental
 
 `compute/CloudServer` and the `aruba-cloudserver-environment` Composition — see
-blocker P0-3.
+blocker P0-3 — and `network/LoadBalancer`, see P0-4.
+
+**P0-4 in detail.** The generator gives every read-only resource
+`identifiers: [name]` on the assumption the name is a spec field, which is true
+only when a create body defines it. Fixing it needs one of: a synthetic spec field
+the user fills in to select the instance (the same capability §B4 wants for
+`*SecretRef`, and not expressible from a pure OAS today); selecting by a path
+parameter where the API offers one; or accepting that read-only resources are
+only addressable once `status.id` is known. Until then the resource is generated
+but not usable, and saying so is better than shipping it in a GA list.
 
 ## Blockers
 
@@ -59,6 +68,7 @@ blocker P0-3.
 
 | # | Blocker | Scope | Owner |
 |---|---|---|---|
+| P0-4 | **Read-only resources have no usable identifier.** `LoadBalancer` declares `identifiers: [name]`, but a read-only resource has no create body, so no identifier field is ever materialised in its CRD spec — which holds only `configurationRef` and `projectId`. There is no way to say *which* load balancer is meant: `findby` can never match, and `get` binds `{id}` from a `status.id` nothing populates. Unusable by construction. | `network/LoadBalancer` | this repo + upstream |
 | P0-1 | **Token expires hourly.** The ESO rotation path is documented but **untested**; a stock install stops working after ~60 minutes. Rotation-without-restart *is* verified, so the premise holds — the manifests do not. | all tiers | this repo |
 | P0-2 | **GA-core lifecycle evidence.** 9 of the 10 core resources have never been created. Only Subnet has a completed cycle. | GA core | this repo |
 | P0-3 | **CloudServer is unproven.** Its RESTActions have never executed (they need snowplow plus `URL_SNOWPLOW`, which no chart sets), and the Composition still carries `REPLACE_…` cross-resource placeholders. | experimental | this repo + upstream |
