@@ -36,6 +36,11 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Install Python dependencies
+        # The generators and validator parse and emit YAML; PyYAML is the only
+        # third-party dependency any of them has.
+        run: pip install --quiet pyyaml
+
       - name: Install Helm
         uses: azure/setup-helm@v4
 
