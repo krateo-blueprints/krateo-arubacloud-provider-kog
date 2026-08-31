@@ -1,0 +1,18 @@
+apiVersion: arubacloud.ogen.krateo.io/v1-0-0
+kind: KeyPair
+metadata:
+  name: ga-lifecycle-keypair
+  namespace: default
+  annotations:
+    krateo.io/connector-verbose: 'true'
+spec:
+  configurationRef:
+    name: keypair-config
+    namespace: default
+  projectId: 69a55c8d5e6f0e14f14093ff
+  metadata:
+    name: ga-lifecycle-keypair
+    location:
+      value: ITBG-Bergamo
+  properties:
+    value: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFfU/yv4pvyTyEB0lIzcD3GjyP/T1ZqfHV0ppmdLwjdJ ga-lifecycle"
