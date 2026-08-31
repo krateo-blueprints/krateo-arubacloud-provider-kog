@@ -18,6 +18,28 @@ rest-dynamic-controller 0.19.0 · all 34 RestDefinitions applied · authenticate
 against the live Aruba Cloud API with an OAuth2 client-credentials token
 (`scripts/get-aruba-token.sh`).
 
+## Re-verified on 0.21.1 (2026-08-31)
+
+Repeated after the monorepo migration, against the current release, to check that
+the two-minor jump from 0.19.0 changed nothing in practice. It did not.
+
+| Check | Result |
+|---|---|
+| RestDefinitions accepted / `Ready` | **34 / 34** |
+| CRDs generated · RDC controllers ready | **68** · **34** |
+| RDC image (derived from chart `appVersion`) | `rest-dynamic-controller:0.21.1` — lockstep works |
+| Samples validated server-side against the generated CRDs | **68 / 68** |
+| Provider `ERROR` lines in 2 min | **0** — the `watch` RBAC fix holds |
+| Generated CRD versions | resource `v1-0-0` / `v1-0`, Configuration `v1alpha1` — unchanged |
+
+This is the empirical counterpart to the source diff: the `apis/restdefinitions`
+tree differs by two lines across 0.19.0..0.21.1 (both the Go module path move), and
+the cluster agrees.
+
+Still unfixed upstream: the `oasPath` key-segment regex, so hyphen-free ConfigMap
+keys remain necessary
+([#74](https://github.com/krateo-platformops/oasgen-provider/pull/74) open).
+
 ## Result
 
 | Check | Result |
