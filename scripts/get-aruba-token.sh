@@ -35,17 +35,55 @@ umask 077
 default_id=""
 [ -r "$ID_FILE" ] && default_id=$(cat "$ID_FILE")
 
-if [ -n "$default_id" ]; then
-  read -r -p "client_id [$default_id]: " ARUBA_ID
-  ARUBA_ID=${ARUBA_ID:-$default_id}
-else
-  read -r -p "client_id: " ARUBA_ID
-fi
-[ -n "$ARUBA_ID" ] || { echo "error: client_id is required" >&2; exit 1; }
+# Prompts must come from the terminal, not from stdin. When this script is run
+# with stdin redirected -- a pipe, CI, or an agent harness -- a plain `read` gets
+# EOF immediately and `set -e` exits with NO output at all, which reads exactly
+# like "it ran and did nothing". Reading /dev/tty directly, and saying so when
+# there is no terminal, turns a silent exit into an explanation.
+if [ -n "${ARUBA_CLIENT_SECRET:-}" ]; then
+  # Non-interactive path, for automation that already holds the secret in its
+  # environment. Deliberately not a command-line flag: argv is world-readable
+  # via ps, an environment variable is not.
+  ARUBA_ID=${ARUBA_CLIENT_ID:-$default_id}
+  ARUBA_SECRET=$ARUBA_CLIENT_SECRET
+  [ -n "$ARUBA_ID" ] || {
+    echo "error: ARUBA_CLIENT_SECRET is set but no client id -- set ARUBA_CLIENT_ID too" >&2
+    exit 1
+  }
+  echo "using client_id from the environment: $ARUBA_ID"
+elif { exec 3</dev/tty; } 2>/dev/null; then
+  # Test by opening it, not with [ -r /dev/tty ]: the file can be readable by
+  # permission while the device itself is unusable ("Device not configured"),
+  # which puts us straight back to a confusing failure.
+  if [ -n "$default_id" ]; then
+    read -r -p "client_id [$default_id]: " ARUBA_ID <&3
+    ARUBA_ID=${ARUBA_ID:-$default_id}
+  else
+    read -r -p "client_id: " ARUBA_ID <&3
+  fi
+  [ -n "$ARUBA_ID" ] || { echo "error: client_id is required" >&2; exit 1; }
 
-# -s: not echoed to the terminal.
-read -rs -p "client_secret: " ARUBA_SECRET; echo
-[ -n "$ARUBA_SECRET" ] || { echo "error: client_secret is required" >&2; exit 1; }
+  # -s: not echoed to the terminal.
+  read -rs -p "client_secret: " ARUBA_SECRET <&3; echo
+  exec 3<&-
+  [ -n "$ARUBA_SECRET" ] || { echo "error: client_secret is required" >&2; exit 1; }
+else
+  cat >&2 <<'EOM'
+error: no terminal available to prompt for the client secret.
+
+This script asks for the secret interactively so it never lands in your shell
+history or in a process listing. That needs a real terminal, and there is none
+here (stdin is redirected).
+
+Either:
+  * run it directly in a terminal window:   scripts/get-aruba-token.sh
+  * or supply the credential by environment, which keeps it out of argv:
+      ARUBA_CLIENT_ID=cmp-... ARUBA_CLIENT_SECRET=... scripts/get-aruba-token.sh
+    (note that this does put the secret in your shell history unless you prefix
+    the command with a space)
+EOM
+  exit 1
+fi
 
 # --data-urlencode, not -d: client secrets routinely contain +, / and =, which a
 # plain -d would send unencoded and turn into a misleading 'invalid_client'.
