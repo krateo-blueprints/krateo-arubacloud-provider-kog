@@ -70,15 +70,15 @@ but not usable, and saying so is better than shipping it in a GA list.
 |---|---|---|---|
 | P0-4 | **Read-only resources have no usable identifier.** `LoadBalancer` declares `identifiers: [name]`, but a read-only resource has no create body, so no identifier field is ever materialised in its CRD spec — which holds only `configurationRef` and `projectId`. There is no way to say *which* load balancer is meant: `findby` can never match, and `get` binds `{id}` from a `status.id` nothing populates. Unusable by construction. Filed as [oasgen-provider#75](https://github.com/krateo-platformops/oasgen-provider/issues/75). | `network/LoadBalancer` | this repo + upstream |
 | P0-1 | **Token expires hourly.** The ESO rotation path is documented but **untested**; a stock install stops working after ~60 minutes. Rotation-without-restart *is* verified, so the premise holds — the manifests do not. | all tiers | this repo |
-| P0-2 | **GA-core lifecycle evidence.** 9 of the 10 core resources have never been created. Only Subnet has a completed cycle. | GA core | this repo |
+| P0-2 | **GA-core lifecycle evidence.** 8 of the 9 core resources have never been created; only Subnet has a completed cycle, with Vpc observe-verified. **Blocked on tooling permission, not on the provider** — creating resources requires a `kubectl apply` grant this session does not have. Everything not requiring it is done. | GA core | this repo |
 | P0-3 | **CloudServer is unproven.** Its RESTActions have never executed (they need snowplow plus `URL_SNOWPLOW`, which no chart sets), and the Composition still carries `REPLACE_…` cross-resource placeholders. | experimental | this repo + upstream |
 
 ### P1 — before the GA label is durable
 
 | # | Blocker | Note |
 |---|---|---|
-| ~~P1-1~~ | ~~No CI gate.~~ **Done** — `.github/workflows/validate.yaml` gates every PR on `validate.py`, generator determinism, and a kind smoke test (34/34 Ready, all 69 samples server-dry-run against their generated CRDs, provider error log clean). | this repo |
-| ~~P1-2~~ | ~~No upstream-spec drift detection.~~ **Done** — `.github/workflows/oas-drift.yaml` re-downloads all twelve specs weekly and files one issue on any change. Finding it corrected the documented source URL, which pointed at a redirect serving HTML. | this repo |
+| ~~P1-1~~ | ~~No CI gate.~~ **Done** — `.github/workflows/validate.yaml` gates every PR on `validate.py`, generator determinism, and a kind smoke test (34/34 Ready, all 69 samples server-dry-run against their generated CRDs, provider error log clean). **Proven green in CI** — run [33418610761](https://github.com/krateo-blueprints/krateo-arubacloud-provider-kog/actions/runs/33418610761): a clean kind cluster reached 34/34 Ready, all 69 samples were accepted, and the provider logged nothing. | this repo |
+| ~~P1-2~~ | ~~No upstream-spec drift detection.~~ **Done** — `.github/workflows/oas-drift.yaml` re-downloads all twelve specs weekly and files one issue on any change. **Proven green in CI**, reporting 12/12 unchanged. Building it corrected the documented source URL, which pointed at a redirect serving HTML for every filename — following the documented refresh procedure would have overwritten the specs with an error page. | this repo |
 | P1-3 | **`findby` item extraction is a heuristic** — RDC returns the *first array-valued key* of the response object. Correct for Aruba today (one array), nondeterministic the day a response carries two. | upstream (§B3) |
 | P1-4 | **`oasPath` regex** rejects hyphenated ConfigMap keys — [oasgen-provider#74](https://github.com/krateo-platformops/oasgen-provider/pull/74) open. | upstream |
 
