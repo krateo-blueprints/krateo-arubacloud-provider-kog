@@ -28,6 +28,55 @@ GROUP = "arubacloud.ogen.krateo.io"
 CONFIG_VERSION = "v1alpha1"
 
 
+# Support tier per resource, keyed (provider, Kind).
+#
+# A tier is EARNED BY EXECUTED EVIDENCE, never by how correct a RestDefinition looks.
+# That rule exists because every serious defect this repo has found was invisible to
+# review and surfaced only on a cluster. So the default is deliberately pessimistic:
+# anything absent from this table is experimental, and promoting a resource means
+# adding a row here with the evidence that justifies it.
+#
+#   ga           full create -> observe -> drift -> delete against the live Aruba API
+#   beta         observe verified live; mutation unproven
+#   experimental generated, statically valid, admitted by the API server
+#   blocked      known non-functional, with the reason recorded
+#
+# See docs/ga-readiness.md for what each tier claims about production use.
+TIERS = {
+    ("network", "Subnet"): (
+        "ga",
+        "full lifecycle live — [live-cluster-test](live-cluster-test.md)",
+    ),
+    ("network", "Vpc"): (
+        "beta",
+        "observe verified live (id `69a5609f…`, no mutation)",
+    ),
+    ("network", "LoadBalancer"): (
+        "blocked",
+        "read-only resource has no identifier field — [oasgen-provider#75]"
+        "(https://github.com/krateo-platformops/oasgen-provider/issues/75), "
+        "[P0-4](ga-readiness.md#blockers)",
+    ),
+    ("compute", "CloudServer"): (
+        "experimental",
+        "RESTActions never executed — [P0-3](ga-readiness.md#blockers)",
+    ),
+}
+
+TIER_DEFAULT = ("experimental", "applies and reaches `Ready`; sample admitted by its CRD")
+
+TIER_BADGE = {
+    "ga": "**GA**",
+    "beta": "beta",
+    "experimental": "experimental",
+    "blocked": "**blocked**",
+}
+
+
+def tier_for(prov, kind):
+    return TIERS.get((prov, kind), TIER_DEFAULT)
+
+
 def crd_version(spec):
     """The RESOURCE CRD's version is DERIVED FROM THE OAS `info.version`: oasgen
     calls crdgen.NormalizeVersionName(doc.Version()), turning 1.0.0 -> v1-0-0 and
@@ -285,10 +334,36 @@ def main():
                 "RestDefinitions under `restdefinitions/`. No proxy/plugin is used "
                 "for any resource.\n\n")
         f.write(f"**{len(rows)} manageable resources** across 10 providers.\n\n")
-        f.write("| Provider | Kind | Verbs | Identifier(s) |\n")
-        f.write("|----------|------|-------|---------------|\n")
+
+        counts = {}
+        for prov, kind, _, _ in rows:
+            counts[tier_for(prov, kind)[0]] = counts.get(tier_for(prov, kind)[0], 0) + 1
+
+        f.write("## Support tiers\n\n")
+        f.write(
+            "A tier states what has actually been *executed* against the live Aruba API, "
+            "not how correct a RestDefinition looks. Every serious defect found in this "
+            "repository was invisible to review and surfaced only on a cluster, so a "
+            "resource is only promoted when there is evidence to link.\n\n"
+        )
+        f.write("| Tier | Bar | Count |\n|------|-----|-------|\n")
+        f.write("| **GA** | full `create → observe → drift → delete` against the live API | "
+                f"{counts.get('ga', 0)} |\n")
+        f.write("| beta | observe verified live; mutation unproven | "
+                f"{counts.get('beta', 0)} |\n")
+        f.write("| experimental | generated, valid, reaches `Ready`, sample admitted | "
+                f"{counts.get('experimental', 0)} |\n")
+        f.write("| **blocked** | known non-functional, reason recorded | "
+                f"{counts.get('blocked', 0)} |\n\n")
+        f.write("Only **GA** claims fitness for production use. See "
+                "[ga-readiness](ga-readiness.md).\n\n")
+
+        f.write("## Resources\n\n")
+        f.write("| Provider | Kind | Tier | Verbs | Identifier(s) | Evidence |\n")
+        f.write("|----------|------|------|-------|---------------|----------|\n")
         for prov, kind, verbs, ids in rows:
-            f.write(f"| {prov} | `{kind}` | {verbs} | `{ids}` |\n")
+            tier, why = tier_for(prov, kind)
+            f.write(f"| {prov} | `{kind}` | {TIER_BADGE[tier]} | {verbs} | `{ids}` | {why} |\n")
         f.write("\n## Not generated (and why)\n\n")
         f.write("- **Action-only endpoints** (power on/off, attach/detach, "
                 "associate/disassociate, download, restore, rename, automaticrenew, "

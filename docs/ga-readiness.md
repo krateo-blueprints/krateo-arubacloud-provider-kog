@@ -68,7 +68,7 @@ but not usable, and saying so is better than shipping it in a GA list.
 
 | # | Blocker | Scope | Owner |
 |---|---|---|---|
-| P0-4 | **Read-only resources have no usable identifier.** `LoadBalancer` declares `identifiers: [name]`, but a read-only resource has no create body, so no identifier field is ever materialised in its CRD spec — which holds only `configurationRef` and `projectId`. There is no way to say *which* load balancer is meant: `findby` can never match, and `get` binds `{id}` from a `status.id` nothing populates. Unusable by construction. | `network/LoadBalancer` | this repo + upstream |
+| P0-4 | **Read-only resources have no usable identifier.** `LoadBalancer` declares `identifiers: [name]`, but a read-only resource has no create body, so no identifier field is ever materialised in its CRD spec — which holds only `configurationRef` and `projectId`. There is no way to say *which* load balancer is meant: `findby` can never match, and `get` binds `{id}` from a `status.id` nothing populates. Unusable by construction. Filed as [oasgen-provider#75](https://github.com/krateo-platformops/oasgen-provider/issues/75). | `network/LoadBalancer` | this repo + upstream |
 | P0-1 | **Token expires hourly.** The ESO rotation path is documented but **untested**; a stock install stops working after ~60 minutes. Rotation-without-restart *is* verified, so the premise holds — the manifests do not. | all tiers | this repo |
 | P0-2 | **GA-core lifecycle evidence.** 9 of the 10 core resources have never been created. Only Subnet has a completed cycle. | GA core | this repo |
 | P0-3 | **CloudServer is unproven.** Its RESTActions have never executed (they need snowplow plus `URL_SNOWPLOW`, which no chart sets), and the Composition still carries `REPLACE_…` cross-resource placeholders. | experimental | this repo + upstream |
@@ -77,8 +77,8 @@ but not usable, and saying so is better than shipping it in a GA list.
 
 | # | Blocker | Note |
 |---|---|---|
-| P1-1 | **No CI gate.** `validate.py` and a kind smoke test must run on every PR, or the seven-defect pattern simply repeats. | this repo |
-| P1-2 | **No upstream-spec drift detection.** Aruba's OAS will change; nothing notices today. The checksum manifest pins what we vendored, not what upstream now publishes. | this repo |
+| ~~P1-1~~ | ~~No CI gate.~~ **Done** — `.github/workflows/validate.yaml` gates every PR on `validate.py`, generator determinism, and a kind smoke test (34/34 Ready, all 69 samples server-dry-run against their generated CRDs, provider error log clean). | this repo |
+| ~~P1-2~~ | ~~No upstream-spec drift detection.~~ **Done** — `.github/workflows/oas-drift.yaml` re-downloads all twelve specs weekly and files one issue on any change. Finding it corrected the documented source URL, which pointed at a redirect serving HTML. | this repo |
 | P1-3 | **`findby` item extraction is a heuristic** — RDC returns the *first array-valued key* of the response object. Correct for Aruba today (one array), nondeterministic the day a response carries two. | upstream (§B3) |
 | P1-4 | **`oasPath` regex** rejects hyphenated ConfigMap keys — [oasgen-provider#74](https://github.com/krateo-platformops/oasgen-provider/pull/74) open. | upstream |
 
@@ -100,11 +100,13 @@ GA is declared when **all** hold:
    live API, with the account left as found.
 2. A token-rotation path is **executed** end to end, not sketched — an install
    survives past token expiry unattended.
-3. CI runs `validate.py` plus a kind smoke test (all 34 apply, all reach `Ready`)
-   on every PR.
-4. Tier labels appear per resource in `docs/coverage.md` and the README, each
-   backed by linked evidence.
-5. Upstream-spec drift is detected automatically, not discovered by a user.
+3. ~~CI runs `validate.py` plus a kind smoke test (all 34 apply, all reach `Ready`)
+   on every PR.~~ **Met.**
+4. ~~Tier labels appear per resource in `docs/coverage.md` and the README, each
+   backed by linked evidence.~~ **Met** — generated from an explicit evidence table in
+   `scripts/gen_samples_and_coverage.py`, so a promotion requires citing what was run.
+   Standing today: 1 GA, 1 beta, 31 experimental, 1 blocked.
+5. ~~Upstream-spec drift is detected automatically, not discovered by a user.~~ **Met.**
 6. No P0 open.
 
 ## Sequence
@@ -113,8 +115,9 @@ GA is declared when **all** hold:
 resources; make ESO rotation real and survive an expiry. Cheap resources only, per
 the agreed test budget.
 
-**Phase 2 — make it repeatable.** P1-1 and P1-2: CI gate and upstream drift
-detection. Without these, phase 1's evidence decays silently.
+**Phase 2 — make it repeatable.** ~~P1-1 and P1-2: CI gate and upstream drift
+detection.~~ **Done**, and deliberately done before phase 1 completes: without the
+gate, phase 1's evidence decays silently as the repo changes underneath it.
 
 **Phase 3 — label and ship.** Tier tables, per-resource evidence links, install
 docs stated against the tier a user is choosing.

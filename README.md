@@ -160,6 +160,23 @@ changes. See [OAS policy](docs/oas-patches.md).
 - **project**: Project, Folder
 - **metering**: AlertRule
 
+### Maturity — read this before depending on a resource
+
+Coverage is not the same as readiness. A tier records what has been **executed**
+against the live Aruba API, because every serious defect this project found was
+invisible to review and surfaced only on a cluster:
+
+| Tier | Count | Claim |
+|------|-------|-------|
+| **GA** | 1 | full `create → observe → drift → delete` proven live — fit for production |
+| beta | 1 | observe verified live; mutation unproven |
+| experimental | 31 | generated and valid, reaches `Ready`, sample admitted by its CRD |
+| **blocked** | 1 | known non-functional — `network/LoadBalancer`, see [#75](https://github.com/krateo-platformops/oasgen-provider/issues/75) |
+
+**The provider as a whole is not yet GA.** Per-resource tiers and the evidence
+behind each are in [`docs/coverage.md`](docs/coverage.md); what remains is tracked
+in [`docs/ga-readiness.md`](docs/ga-readiness.md).
+
 See [`docs/coverage.md`](docs/coverage.md) for the full matrix and
 [`docs/oasgen-provider-evolution.md`](docs/oasgen-provider-evolution.md) for what
 the API surface asks of oasgen-provider next.
