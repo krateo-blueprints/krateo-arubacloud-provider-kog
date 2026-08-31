@@ -12,8 +12,15 @@ timestamp: 2026-08-19T00:00:00Z
 `openapi/` are Aruba's published specifications, byte-for-byte:
 
 ```
-https://api.arubacloud.com/openapi/<provider>.json
+https://arubacloud.github.io/api/openapi/<provider>.json
 ```
+
+> An earlier version of this page cited
+> `https://api.arubacloud.com/openapi/<provider>.json`. That host **301-redirects
+> to the documentation homepage** and returns the same HTML for every filename, so
+> the URL never served a specification at all. Corrected after
+> `scripts/check_oas_drift.py` reported all twelve documents as drifted with an
+> identical hash.
 
 KOG adapts to the published contract, not the other way round. A vendor's API
 description is the authority; a generator that requires it to be edited before it
@@ -37,9 +44,15 @@ openapi/metering.json: MODIFIED (sha256 differs from CHECKSUMS.txt)
 To refresh from upstream, replace the files and regenerate the manifest:
 
 ```sh
-curl -sO https://api.arubacloud.com/openapi/network-provider.json   # etc.
+curl -sO https://arubacloud.github.io/api/openapi/network-provider.json   # etc.
 (cd openapi && shasum -a 256 *.json | sort -k2 > CHECKSUMS.txt)
 ```
+
+That guards our copy against local edits. It cannot tell you that *upstream* has
+changed — for that, `scripts/check_oas_drift.py` re-downloads all twelve and
+compares them to the manifest. It runs weekly in CI (`.github/workflows/oas-drift.yaml`)
+and opens an issue on any difference, so a spec change is something this project
+finds rather than something a user reports.
 
 ## What it cost, and how that resolved
 

@@ -1,0 +1,155 @@
+name: validate
+
+# The gate this repository was missing. Every serious defect found so far -- the
+# oasPath regex, the CRD version derivation, the RBAC watch verb, the Configuration
+# query fields, the separate CRD chart -- was invisible to review and surfaced only
+# on a real cluster. So the smoke job is not optional garnish: it is the job that
+# would have caught five of the seven.
+#
+# No Aruba credentials are involved. A RestDefinition reaching Ready is oasgen-provider
+# generating a CRD and starting a controller; it never calls the Aruba API. That is
+# precisely what makes this runnable on every PR.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  # Pin the provider the RestDefinitions are validated against. Bumping this is a
+  # deliberate act with a visible diff, not something that drifts under us on a
+  # Tuesday -- and the smoke job re-proves the 34 against the new version.
+  OASGEN_VERSION: "0.21.1"
+
+jobs:
+  validate:
+    name: static validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+
+      - name: scripts/validate.py
+        # Enforces: the vendored OAS is byte-for-byte unmodified (sha256 vs
+        # CHECKSUMS.txt), every verb path+method exists in its document, every
+        # requestFieldMapping.inPath is a real path parameter, async poll paths
+        # match verbatim and carry their {handleParam}, oasPath satisfies the CRD
+        # regex, sample apiVersions match the derived CRD versions, and every chart
+        # lints and renders.
+        run: python3 scripts/validate.py
+
+      - name: Generators are deterministic
+        # The committed artefacts must be exactly what the generators produce. If
+        # someone hand-edits a generated RestDefinition, the next regeneration
+        # silently reverts it -- better to fail here than to lose the change later.
+        run: |
+          python3 scripts/generate_restdefinitions.py
+          python3 scripts/gen_configmaps.py
+          python3 scripts/gen_samples_and_coverage.py
+          python3 scripts/gen_provider_docs.py
+          if ! git diff --quiet; then
+            echo "::error::Generated files differ from the committed ones. Re-run the scripts in scripts/ and commit the result."
+            git diff --stat
+            git diff
+            exit 1
+          fi
+
+  smoke:
+    name: kind smoke test
+    runs-on: ubuntu-latest
+    needs: validate
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create kind cluster
+        uses: helm/kind-action@v1
+        with:
+          cluster_name: aruba-ci
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+
+      - name: Install oasgen-provider
+        run: |
+          helm install oasgen-provider-crds \
+            oci://ghcr.io/krateo-platformops/charts/oasgen-provider-crds \
+            --version "${OASGEN_VERSION}" --namespace krateo-system --create-namespace --wait
+          helm install oasgen-provider \
+            oci://ghcr.io/krateo-platformops/charts/oasgen-provider \
+            --version "${OASGEN_VERSION}" --namespace krateo-system --wait --timeout 5m
+
+      - name: Apply OAS ConfigMaps and RestDefinitions
+        run: |
+          kubectl apply -n krateo-system -f configmaps/
+          kubectl apply -R -f restdefinitions/
+
+      - name: Every RestDefinition reaches Ready
+        run: |
+          set -uo pipefail
+          expected=$(find restdefinitions -name '*.yaml' | wc -l | tr -d ' ')
+          echo "expecting ${expected} RestDefinitions to become Ready"
+
+          # Poll rather than `kubectl wait`: each RestDefinition generates a CRD and
+          # rolls out a controller Deployment, so the set becomes Ready gradually and
+          # a per-object wait would serialise what is actually happening in parallel.
+          deadline=$(( $(date +%s) + 600 ))
+          while :; do
+            ready=$(kubectl get restdefinitions.ogen.krateo.io -A \
+              -o jsonpath='{range .items[*]}{.status.conditions[?(@.type=="Ready")].status}{"\n"}{end}' \
+              2>/dev/null | grep -c '^True$' || true)
+            echo "  ready ${ready}/${expected}"
+            [ "${ready}" = "${expected}" ] && break
+            if [ "$(date +%s)" -ge "${deadline}" ]; then
+              echo "::error::only ${ready}/${expected} RestDefinitions became Ready within 10m"
+              kubectl get restdefinitions.ogen.krateo.io -A
+              kubectl get restdefinitions.ogen.krateo.io -A -o yaml | grep -A10 'conditions:' | head -100
+              kubectl -n krateo-system logs deploy/oasgen-provider --tail=200 || true
+              exit 1
+            fi
+            sleep 15
+          done
+
+      - name: Samples are accepted by the generated CRDs
+        # The generated CRDs use strict decoding, so this catches a sample whose
+        # apiVersion or field set no longer matches what oasgen generated -- the
+        # exact class of break that hit all 34 samples once already. Server-side
+        # dry-run validates against the live schema without creating anything, in
+        # Kubernetes or at Aruba.
+        run: |
+          set -uo pipefail
+          fail=0
+          for f in $(find samples -name '*.yaml'); do
+            if ! out=$(kubectl apply --dry-run=server -f "$f" 2>&1); then
+              echo "::error file=${f}::${out}"
+              fail=1
+            fi
+          done
+          exit $fail
+
+      - name: Provider logged no errors
+        # A controller that starts, serves, and logs errors on every reconcile still
+        # reports Ready. The RBAC watch defect looked exactly like this.
+        run: |
+          if kubectl -n krateo-system logs deploy/oasgen-provider --tail=-1 \
+               | grep -iE '"level":"(error|fatal)"' | head -20 | grep .; then
+            echo "::error::oasgen-provider logged errors"
+            exit 1
+          fi
+          echo "clean"
+
+      - name: Diagnostics on failure
+        if: failure()
+        run: |
+          kubectl get pods -A
+          kubectl -n krateo-system logs deploy/oasgen-provider --tail=300 || true
+          kubectl get events -A --sort-by=.lastTimestamp | tail -50

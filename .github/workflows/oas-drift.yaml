@@ -1,0 +1,94 @@
+name: oas-drift
+
+# Aruba's specifications will change. openapi/CHECKSUMS.txt pins what we vendored,
+# which is exactly the wrong direction to detect that: it proves our copy is intact
+# while saying nothing about upstream having moved. This job closes that loop so a
+# spec change is something we find, not something a user reports.
+#
+# It never edits openapi/. Adopting a change is deliberate: re-vendor, regenerate,
+# re-validate, review. In particular an info.version bump renames the generated CRD
+# version (1.0.0 -> v1-0-0), which breaks existing CRs and must never happen silently.
+
+on:
+  schedule:
+    - cron: "17 6 * * 1" # Mondays, early
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Compare vendored specs against what Aruba publishes today
+        id: check
+        run: |
+          set +e
+          python3 scripts/check_oas_drift.py | tee /tmp/drift.txt
+          echo "code=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+
+      - name: Open or update the drift issue
+        if: steps.check.outputs.code == '1'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const body = [
+              'Upstream OpenAPI documents no longer match what this repository vendored.',
+              '',
+              '```',
+              fs.readFileSync('/tmp/drift.txt', 'utf8').trim(),
+              '```',
+              '',
+              '### Why this matters',
+              '',
+              'The repository consumes Aruba\'s specs byte-for-byte and derives everything from them:',
+              'the generated CRDs, their versions, the sample manifests, and the RestDefinition verb',
+              'paths. A change upstream can therefore be anything from cosmetic to breaking.',
+              '',
+              'The one to look at first is `info.version`: the CRD version is derived from it',
+              '(`1.0.0` -> `v1-0-0`), so a bump renames the served version and orphans existing CRs.',
+              '',
+              '### To resolve',
+              '',
+              '1. Re-download the affected documents into `openapi/`.',
+              '2. `(cd openapi && shasum -a 256 *.json | sort -k2 > CHECKSUMS.txt)`',
+              '3. Re-run the generators in `scripts/`, then `python3 scripts/validate.py`.',
+              '4. Review the generated diff before merging, especially any CRD version change.',
+              '',
+              `_Detected by [${context.workflow}](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})._`,
+            ].join('\n');
+
+            const title = 'Upstream OpenAPI drift detected';
+            const { data: open } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner, repo: context.repo.repo,
+              state: 'open', labels: 'oas-drift',
+            });
+
+            // Update in place rather than filing a fresh issue each Monday -- a weekly
+            // pile of near-identical issues is how a real signal gets tuned out.
+            if (open.length) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: open[0].number, body,
+              });
+              core.notice(`Updated existing drift issue #${open[0].number}`);
+            } else {
+              const { data: created } = await github.rest.issues.create({
+                owner: context.repo.owner, repo: context.repo.repo,
+                title, body, labels: ['oas-drift'],
+              });
+              core.notice(`Opened drift issue #${created.number}`);
+            }
+
+      - name: Fail the run when drift was found
+        if: steps.check.outputs.code == '1'
+        run: exit 1
