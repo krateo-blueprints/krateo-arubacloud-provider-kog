@@ -11,7 +11,7 @@ timestamp: 2026-08-19T00:00:00Z
 This document enumerates every issue found while generating RestDefinitions for
 **all** Aruba Cloud APIs directly from the official OpenAPI specifications
 (`https://api.arubacloud.com/openapi/<provider>.json`, vendored under
-`openapi/`, byte-for-byte unmodified) with the **braghettos** fork of
+`openapi/`, byte-for-byte unmodified) with
 [`oasgen-provider`](https://github.com/krateo-platformops/oasgen-provider) and
 **no wrapper/proxy web service**.
 
@@ -212,7 +212,7 @@ shipped a Go **`subnet-plugin`** whose *entire purpose* was to flatten this
 `metadata` object, because "nested fields used as identifiers are not fully
 supported" (quoted from the old plugin README).
 
-The braghettos fork removes that need. Every metadata-wrapped resource in this
+oasgen-provider removes that need. Every metadata-wrapped resource in this
 repo uses, with **no proxy**:
 
 ```yaml

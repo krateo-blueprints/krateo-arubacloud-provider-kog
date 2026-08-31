@@ -124,8 +124,8 @@ single-purpose Aruba CRs together, from one set of inputs.
   `*Configuration` resources, all parameterised by shared values
   (`projectId`, `location`, `name`, CIDRs, flavor…).
 - Registration: [`compositions/compositiondefinition.yaml`](../compositions/compositiondefinition.yaml)
-  (`core.krateo.io/v1alpha1`) points at the packaged OCI chart, exactly like
-  `braghettos/krateo-oasgen-provider-chart`'s own `compositiondefinition.yaml`.
+  (`core.krateo.io/v1alpha1`) points at the packaged OCI chart, the same shape
+  oasgen-provider's own chart uses.
 
 Applying a Composition instance provisions the entire stack; the CloudServer
 inside it is managed by approach 1, so power/associations/volumes converge

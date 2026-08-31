@@ -15,7 +15,7 @@ Kubernetes controller does it better and more naturally: it **requeues** and
 re-observes on a level-based loop, so "wait for ready" is just reconciliation —
 continuous, non-blocking, and self-healing if the resource later degrades.
 
-The braghettos oasgen-provider fork exposes this directly with the per-verb
+oasgen-provider exposes this directly with the per-verb
 **`async`** block. This repo wires it where the API is genuinely asynchronous, so
 readiness is **not** something we cede to Terraform — it is a feature we get from
 the controller model.

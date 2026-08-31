@@ -14,25 +14,22 @@ This walks through installing the provider and managing your first resource (a
 ## Prerequisites
 
 - A Kubernetes cluster (v1.20+).
-- The **braghettos** oasgen-provider installed, with its rest-dynamic-controller:
-  - `ghcr.io/braghettos/krateo-oasgen-provider` **≥ 0.19.0**
-  - `ghcr.io/braghettos/krateo-rest-dynamic-controller` **≥ 0.19.0**
+- The Krateo **oasgen-provider** and its rest-dynamic-controller, **≥ 0.21.1**.
 
-  > A stock (non-braghettos) oasgen-provider does **not** have the features
-  > these RestDefinitions rely on (nested identifiers, `fieldMapping`,
-  > `async`, `*ApiRef`). Install the braghettos fork.
+  > oasgen-provider is a **monorepo**: rest-dynamic-controller and both Helm charts
+  > live in it, and the standalone controller repo is archived. The chart derives
+  > the RDC tag from its own `appVersion`, so the two images cannot drift apart.
   >
-  > **Install chart 0.9.20 or newer** — it pairs oasgen 0.19.0 with RDC 0.19.0
-  > (0.19.0 is what makes `apiKey`-in-header authentication work, which 7 of the
-  > 10 providers need):
-  >
-  > ```sh
-  > helm install oasgen-provider oci://ghcr.io/braghettos/krateo/krateo-oasgen-provider \
-  >   --version 0.9.20 --namespace krateo-system --create-namespace
-  > ```
-  >
-  > On older charts these manifests fail *silently* — see
-  > [prerequisites](../README.md#prerequisites).
+  > A stock upstream oasgen-provider from before this lineage does **not** have the
+  > features these RestDefinitions rely on (nested identifiers, `fieldMapping`,
+  > `async`, `*ApiRef`, `apiKey` auth).
+
+  ```sh
+  helm install oasgen-provider-crds oci://ghcr.io/krateo-platformops/charts/oasgen-provider-crds \
+    --version 0.21.1 --namespace krateo-system --create-namespace
+  helm install oasgen-provider oci://ghcr.io/krateo-platformops/charts/oasgen-provider \
+    --version 0.21.1 --namespace krateo-system
+  ```
 - An Aruba Cloud Bearer token — see [authentication](authentication.md) and
   <https://api.arubacloud.com/docs/authentication/>.
 - `kubectl`, and (optional, for the Composition) `helm`.

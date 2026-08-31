@@ -9,8 +9,8 @@ timestamp: 2026-08-19T00:00:00Z
 # Adversarial review — generated artifacts vs. the code that executes them
 
 This review deliberately attacked this repository's generated RestDefinitions,
-RESTActions and claims against the **actual executor source**: the braghettos
-forks of `krateo-rest-dynamic-controller` (RDC), `krateo-oasgen-provider` and
+RESTActions and claims against the **actual executor source**: the
+then-current repositories of `krateo-rest-dynamic-controller` (RDC), `krateo-oasgen-provider` and
 `plumbing` (crdgen). Rationale: the fork's own history proves doc-comments can
 lie — `requestTransform` was schema-accepted and executed by **nothing** for a
 full release before being rejected at admission and finally implemented in
@@ -94,7 +94,8 @@ genuinely solved (#8). What remains, ranked by how fundamental it is:
 
 ## Method note
 
-Everything above was read from the braghettos forks only (`krateo-oasgen-provider`
+Everything above was read from the then-current repositories, since renamed into
+the `krateo-platformops` org and folded into a monorepo (`krateo-oasgen-provider`
 `main`@`70168ea`, `krateo-rest-dynamic-controller` `main`@`4a8ac8c` + tags
 0.15.0/0.16.0/0.16.1/0.17.0, `plumbing` v1.12.0). RESTAction jq programs and the
 end-to-end async flow remain unexecuted against a live cluster — that caveat

@@ -56,22 +56,34 @@ have the features this repo relies on (nested identifiers, `fieldMapping`,
 
 | Component | Minimum | Why |
 |-----------|---------|-----|
-| `ghcr.io/krateo-platformops/oasgen-provider` | **0.20.0** (0.19.0 lineage; first platformops release — re-validation tracked) | `apiKey`-in-header auth (required by 7 of 10 providers); typed-map `additionalProperties`; `async.poll.handleParam` + poll-path validation |
-| `ghcr.io/krateo-platformops/rest-dynamic-controller` | **0.20.0** (0.19.0 lineage) | sends the `apiKey` header + `valuePrefix`; honours `handleParam`; forwards the CR spec on every `*ApiRef` direction |
-| `krateo-oasgen-provider-chart` | **0.9.20** | ships oasgen 0.19.0 paired with RDC 0.19.0 |
+| `ghcr.io/krateo-platformops/oasgen-provider` | **0.21.1** | `apiKey`-in-header auth (7 of 10 providers need it); typed-map `additionalProperties`; `async.poll.handleParam` + poll-path validation |
+| `ghcr.io/krateo-platformops/rest-dynamic-controller` | **0.21.1** | sends the `apiKey` header + `valuePrefix`; honours `handleParam`; forwards the CR spec on every `*ApiRef` direction; trims Secret-sourced credentials |
+| chart `oci://ghcr.io/krateo-platformops/charts/oasgen-provider` | **0.21.1** | the two components are released in lockstep at identical versions |
+
+oasgen-provider is now a **monorepo**: rest-dynamic-controller and both Helm charts
+live in it, and the standalone `rest-dynamic-controller` repo is archived. The chart
+derives `rdc.image.tag` from its own `appVersion`, so the two images can no longer
+drift apart — a chart version *is* the pair it ships.
 
 ```sh
+# CRDs first — they are a separate chart
+helm install oasgen-provider-crds oci://ghcr.io/krateo-platformops/charts/oasgen-provider-crds \
+  --version 0.21.1 --namespace krateo-system --create-namespace
+
 helm install oasgen-provider oci://ghcr.io/krateo-platformops/charts/oasgen-provider \
-  --version 0.9.20 --namespace krateo-system --create-namespace
+  --version 0.21.1 --namespace krateo-system
 ```
 
 > [!IMPORTANT]
-> **Use chart ≥ 0.9.20.** Older charts pair a newer oasgen with an older RDC, and
-> these manifests then fail **silently** rather than loudly — `handleParam`
-> ignored (HPC async never polls), delegated deletes receiving no spec (the
-> CloudServer finalizer never releases), and on ≤ 0.9.19 no `apiKey` auth at all.
-> The chart pins `rdc.image.tag` by hand, so if you are stuck on an older chart
-> override it (`--set rdc.image.tag=0.19.0`) and verify the running image — see
+> **Install the CRD chart too.** `oasgen-provider` alone leaves you with a running
+> provider and no `RestDefinition` CRD — every `kubectl apply` then fails with
+> *"no matches for kind"*. The two charts are versioned together.
+>
+> Version skew between oasgen and RDC used to be the sharp edge here (a chart
+> shipping a newer provider against an older controller failed **silently**:
+> `handleParam` ignored so HPC async never polled, delegated deletes receiving no
+> spec so the CloudServer finalizer never released). Chart 0.21.x derives the RDC
+> tag from `appVersion`, which removes that failure mode — see
 > [troubleshooting](docs/troubleshooting.md).
 
 ### Authentication

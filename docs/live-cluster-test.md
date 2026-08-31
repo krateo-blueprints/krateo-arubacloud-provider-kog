@@ -255,8 +255,8 @@ What remains unexercised:
 
 ```sh
 kind create cluster --name aruba-kog-test
-helm install oasgen-provider     oci://ghcr.io/braghettos/krateo/krateo-oasgen-provider     --version 0.9.20 -n krateo-system --create-namespace --wait
-helm install oasgen-provider-crd oci://ghcr.io/braghettos/krateo/krateo-oasgen-provider-crd --version 0.9.20 -n krateo-system --wait
+helm install oasgen-provider-crds oci://ghcr.io/krateo-platformops/charts/oasgen-provider-crds --version 0.21.1 -n krateo-system --create-namespace --wait
+helm install oasgen-provider      oci://ghcr.io/krateo-platformops/charts/oasgen-provider      --version 0.21.1 -n krateo-system --wait
 kubectl apply -n krateo-system -f configmaps/
 kubectl apply -n krateo-system -R -f restdefinitions/
 kubectl get restdefinitions.ogen.krateo.io -n krateo-system   # wait for Ready

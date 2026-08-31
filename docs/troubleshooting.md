@@ -18,10 +18,11 @@ kubectl logs deploy/oasgen-provider -n krateo-system
 
 Common causes:
 
-- **Wrong provider image.** These RestDefinitions need the **braghettos** fork
-  (nested identifiers, `fieldMapping`, `*ApiRef`, …). A stock (non-braghettos)
-  oasgen-provider will reject or mis-handle them. Check the deployment image is
-  `ghcr.io/braghettos/krateo-oasgen-provider`.
+- **Wrong provider image or version.** These RestDefinitions need
+  oasgen-provider **≥ 0.21.1** (nested identifiers, `fieldMapping`, `*ApiRef`,
+  `apiKey` auth). Check the deployment image is
+  `ghcr.io/krateo-platformops/oasgen-provider` at that version or newer; older
+  lineages reject or mis-handle these definitions.
 - **ConfigMap missing or in the wrong namespace.** `oasPath` is
   `configmap://krateo-system/arubacloud-<provider>-openapi/<published-filename>.json`; apply
   `configmaps/` into the **same namespace** oasgen-provider reads
