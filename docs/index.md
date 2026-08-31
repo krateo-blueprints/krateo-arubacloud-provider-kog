@@ -37,6 +37,7 @@ official OpenAPI specifications.
 | [Async readiness](async-readiness.md) | Controller-native provisioning waits via the `async` block (wired on `Hpc`) |
 | [Lifecycle beyond CRUD](lifecycle-beyond-crud.md) | Proxy-free solution for multi-call/action lifecycles: RESTAction delegation + Composition |
 | [oasgen-provider evolution](oasgen-provider-evolution.md) | Every issue that requires an oasgen-provider evolution (the analysis) |
+| [GA readiness](ga-readiness.md) | What GA means here, the tiers, what blocks it, and how each tier is earned |
 | [Live-cluster test](live-cluster-test.md) | What a real cluster proved — and the four defects static validation could not catch |
 | [Adversarial review](adversarial-review.md) | Every load-bearing claim attacked against the fork's executor source — confirmed breaks (fixed) and acquittals |
 | [Troubleshooting](troubleshooting.md) | Common failures and how to diagnose them |
