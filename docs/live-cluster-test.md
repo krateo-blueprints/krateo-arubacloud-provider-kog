@@ -285,3 +285,70 @@ kubectl get restdefinitions.ogen.krateo.io -n krateo-system   # wait for Ready
 kubectl apply -f samples/arubacloud-token-secret.yaml         # edit the token first
 kubectl apply -f samples/network/subnet-configuration.yaml -f samples/network/subnet.yaml
 ```
+
+---
+
+## GA lifecycle run — 2026-09-01
+
+Driven with [`scripts/ga-lifecycle-test.sh`](../scripts/ga-lifecycle-test.sh) on
+kind `aruba-ga`, oasgen-provider/RDC **0.21.1**, against the live Aruba API.
+
+### `compute/KeyPair` — create → observe → delete
+
+| Step | Evidence |
+|------|----------|
+| create | CR `Ready=True Synced=True`; upstream id `6a9659ebae7f206033039d45` |
+| observe | forced re-reconcile returned the same id — a real round-trip, not stale status |
+| delete | controller issued `DELETE .../keyPairs/6a9659…`; Aruba returned `state: Deleting` |
+| residue | none — 0 keypairs in the project 45s later |
+
+### `network/Vpc` — create → observe → **drift** → delete
+
+| Step | Evidence |
+|------|----------|
+| create | upstream id `6a965b3f823ddef7e8717970`, `state: Active` |
+| observe | id matched `status.metadata.id` |
+| drift | `tags` changed **out of band** to `["drifted-by-hand"]`; controller restored `["ga-expected"]` within ~40s |
+| delete | `state: Deleting`, then gone |
+| residue | none — only the pre-existing `cloudburst-default` VPC remains, its subnet untouched (`updateDate` still 2026-03-07) |
+
+Credential rotation was exercised incidentally and again needed **no restart**: the
+controllers were failing `401` against an expired token and recovered on their own
+once the Secret was updated. That is the third independent confirmation of the ESO
+premise in [authentication](authentication.md).
+
+## Two defects this run found
+
+### Empty arrays in a CR spec are unenforceable (upstream)
+
+The first drift attempt — `tags: []` in spec versus `["drifted-by-hand"]` upstream —
+was **never corrected**, while the controller logged *"External resource is up to
+date"* and the CR reported `Ready=True`. The cause is in RDC's `compareSlices`:
+
+```go
+// If the second slice is longer, we ignore the extra elements because
+// we only compare fields that exist in the first map.
+if len(valueSlice) > len(rmSlice) { ...not equal... }
+for i, v := range valueSlice { ... }
+```
+
+With an empty CR slice, `0 > 1` is false and the loop body never runs, so the
+comparison returns equal. **An empty array in spec matches any remote array.**
+Consequences beyond tags: emptying any list is invisible to drift detection, and
+because comparison is positional, so is reordering with a shorter CR slice. The
+same subset rule applies to maps, where it is deliberate — `configurationRef` must
+be ignored — but for slices it silently weakens the declarative guarantee.
+
+Verified by contrast: a **non-empty** mismatch (`["ga-expected"]` vs
+`["drifted-by-hand"]`) was detected and corrected in ~40s, so the `update` verb
+itself is sound.
+
+### Delete finalizers release on "requested", not "completed"
+
+`kubectl delete` returned in **0.388s** while Aruba still reported
+`state: Deleting`. Deletion did complete here, but the finalizer released on the
+DELETE being *accepted*. If the asynchronous deletion later failed — quota, a
+dependency, an upstream error — the CR would already be gone with nothing left to
+retry, leaving a billable orphan and no Kubernetes object to show for it. The
+`async` block already models poll-until-complete for create; delete has no
+equivalent.

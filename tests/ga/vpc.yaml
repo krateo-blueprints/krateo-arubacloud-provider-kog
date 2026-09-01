@@ -1,0 +1,20 @@
+apiVersion: arubacloud.ogen.krateo.io/v1-0-0
+kind: Vpc
+metadata:
+  name: ga-lifecycle-vpc
+  namespace: default
+  annotations:
+    krateo.io/connector-verbose: 'true'
+spec:
+  configurationRef:
+    name: vpc-config
+    namespace: default
+  projectId: 69a55c8d5e6f0e14f14093ff
+  metadata:
+    name: ga-lifecycle-vpc
+    location:
+      value: ITBG-Bergamo
+    tags: []
+  properties:
+    default: false
+    preset: false

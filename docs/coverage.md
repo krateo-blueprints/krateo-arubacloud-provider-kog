@@ -18,9 +18,9 @@ A tier states what has actually been *executed* against the live Aruba API, not 
 
 | Tier | Bar | Count |
 |------|-----|-------|
-| **GA** | full `create → observe → drift → delete` against the live API | 1 |
-| beta | observe verified live; mutation unproven | 1 |
-| experimental | generated, valid, reaches `Ready`, sample admitted | 31 |
+| **GA** | full `create → observe → drift → delete` against the live API | 3 |
+| beta | observe verified live; mutation unproven | 0 |
+| experimental | generated, valid, reaches `Ready`, sample admitted | 30 |
 | **blocked** | known non-functional, reason recorded | 1 |
 
 Only **GA** claims fitness for production use. See [ga-readiness](ga-readiness.md).
@@ -31,7 +31,7 @@ Only **GA** claims fitness for production use. See [ga-readiness](ga-readiness.m
 |----------|------|------|-------|---------------|----------|
 | baremetal | `Hpc` | experimental | findby,get,create | `metadata.name` | applies and reaches `Ready`; sample admitted by its CRD |
 | compute | `CloudServer` | experimental | findby,get | `metadata.name` | RESTActions never executed — [P0-3](ga-readiness.md#blockers) |
-| compute | `KeyPair` | experimental | findby,get,create,delete | `metadata.name` | applies and reaches `Ready`; sample admitted by its CRD |
+| compute | `KeyPair` | **GA** | findby,get,create,delete | `metadata.name` | full lifecycle live — [live-cluster-test](live-cluster-test.md) |
 | container | `Kaas` | experimental | findby,get,create,update,delete | `metadata.name` | applies and reaches `Ready`; sample admitted by its CRD |
 | container | `KaasBackup` | experimental | findby,get,create,update,delete | `metadata.name` | applies and reaches `Ready`; sample admitted by its CRD |
 | container | `Registry` | experimental | findby,get,create,update,delete | `metadata.name` | applies and reaches `Ready`; sample admitted by its CRD |
@@ -46,7 +46,7 @@ Only **GA** claims fitness for production use. See [ga-readiness](ga-readiness.m
 | network | `SecurityGroup` | experimental | findby,get,create,update,delete | `metadata.name` | applies and reaches `Ready`; sample admitted by its CRD |
 | network | `SecurityRule` | experimental | findby,get,create,update,delete | `metadata.name` | applies and reaches `Ready`; sample admitted by its CRD |
 | network | `Subnet` | **GA** | findby,get,create,update,delete | `metadata.name` | full lifecycle live — [live-cluster-test](live-cluster-test.md) |
-| network | `Vpc` | beta | findby,get,create,update,delete | `metadata.name` | observe verified live (id `69a5609f…`, no mutation) |
+| network | `Vpc` | **GA** | findby,get,create,update,delete | `metadata.name` | full lifecycle live incl. drift correction — [live-cluster-test](live-cluster-test.md) |
 | network | `VpcPeering` | experimental | findby,get,create,update,delete | `metadata.name` | applies and reaches `Ready`; sample admitted by its CRD |
 | network | `VpcPeeringRoute` | experimental | findby,get,create,update,delete | `metadata.name` | applies and reaches `Ready`; sample admitted by its CRD |
 | network | `VpnRoute` | experimental | findby,get,create,update,delete | `metadata.name` | applies and reaches `Ready`; sample admitted by its CRD |

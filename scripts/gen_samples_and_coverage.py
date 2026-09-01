@@ -48,8 +48,12 @@ TIERS = {
         "full lifecycle live — [live-cluster-test](live-cluster-test.md)",
     ),
     ("network", "Vpc"): (
-        "beta",
-        "observe verified live (id `69a5609f…`, no mutation)",
+        "ga",
+        "full lifecycle live incl. drift correction — [live-cluster-test](live-cluster-test.md)",
+    ),
+    ("compute", "KeyPair"): (
+        "ga",
+        "full lifecycle live — [live-cluster-test](live-cluster-test.md)",
     ),
     ("network", "LoadBalancer"): (
         "blocked",
