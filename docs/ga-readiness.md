@@ -110,6 +110,11 @@ GA is declared when **all** hold:
 5. ~~Upstream-spec drift is detected automatically, not discovered by a user.~~ **Met.**
 6. No P0 open.
 
+## Completing the remaining surface
+
+[ga-plan](ga-plan.md) sequences all 34 resources into waves, with the cost profile
+and the structural work each wave needs.
+
 ## Sequence
 
 **Phase 1 — prove the core.** P0-2 and P0-1: full lifecycle on the 10 GA-core
