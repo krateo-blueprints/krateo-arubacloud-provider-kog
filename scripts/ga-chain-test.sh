@@ -71,16 +71,18 @@ teardown() {
   local tok; tok=$(cat "$TOKEN_FILE" 2>/dev/null)
   for attempt in 1 2 3 4 5 6; do
     local left
-    left=$(curl -s -H "Authorization: Bearer ${tok}" \
-      "${API}/projects/${PROJECT}/providers/Aruba.Network/vpcs?api-version=1.0" 2>/dev/null \
+    left=$(for prov in vpcs securityGroups; do
+      curl -s -H "Authorization: Bearer ${tok}" \
+      "${API}/projects/${PROJECT}/providers/Aruba.Network/${prov}?api-version=1.0" 2>/dev/null \
       | python3 -c "
 import json,sys
 try: d=json.load(sys.stdin)
 except Exception: print('?'); raise SystemExit
 vals=d.get('values') or d.get('value') or []
-print(len([v for v in vals if str(v.get('metadata',{}).get('name','')).startswith('ga-chain-')]))" 2>/dev/null)
-    echo "    attempt ${attempt}: ga-chain-* VPCs still present: ${left}"
-    [ "$left" = "0" ] && { echo "    clean"; return; }
+print(len([v for v in vals if str(v.get('metadata',{}).get('name','')).startswith('ga-chain-')]))" 2>/dev/null
+    done | paste -sd+ - | bc)
+    echo "    attempt ${attempt}: ga-chain-* resources still present: ${left:-?}"
+    [ "${left:-1}" = "0" ] && { echo "    clean"; return; }
     sleep 20
   done
   echo "    WARNING: ga-chain-* resources may remain -- check the Aruba console." >&2
@@ -88,9 +90,17 @@ print(len([v for v in vals if str(v.get('metadata',{}).get('name','')).startswit
 # Any exit path tears down. A chain abandoned half-built is the costly failure.
 trap teardown EXIT
 
-apply_wait() { # apply_wait <kind> <name> <manifest-file>
+# Sets LAST_ID rather than printing the id, and MUST NOT be called via $( ).
+#
+# Command substitution runs the function in a SUBSHELL, so `CREATED+=(...)` inside it
+# is discarded when that subshell exits. The first version did `VPC_A=$(apply_wait ...)`
+# for four of the five resources, so teardown saw only the one called directly and
+# left four live cloud resources behind -- exactly the outcome the EXIT trap exists to
+# prevent. A global assignment keeps everything in one shell.
+apply_wait() { # apply_wait <kind> <name> <manifest-file>  -> sets LAST_ID
   local kind="$1" name="$2" file="$3"
-  echo "--- creating ${kind}/${name}"
+  LAST_ID=""
+  echo "--- creating ${kind}/${name}" >&2
   k apply -f "$file" >/dev/null || return 1
   CREATED+=("${kind}/${name}")
 
@@ -103,7 +113,7 @@ apply_wait() { # apply_wait <kind> <name> <manifest-file>
     if [ "$(date +%s)" -ge "$deadline" ]; then
       echo "    TIMEOUT: ${kind}/${name} never became Ready" >&2
       k get "${kind}.${GROUP}" "$name" -n "$NS" \
-        -o jsonpath='{.status.conditions[*].message}' 2>/dev/null | head -c 400; echo
+        -o jsonpath='{.status.conditions[*].message}' 2>/dev/null | head -c 400 >&2; echo >&2
       return 1
     fi
     sleep 10
@@ -115,11 +125,11 @@ apply_wait() { # apply_wait <kind> <name> <manifest-file>
   id=$(k get "${kind}.${GROUP}" "$name" -n "$NS" -o jsonpath='{.status.metadata.id}' 2>/dev/null)
   [ -n "$id" ] || id=$(k get "${kind}.${GROUP}" "$name" -n "$NS" -o jsonpath='{.status.id}' 2>/dev/null)
   [ -n "$id" ] || { echo "    no id in status for ${kind}/${name}" >&2; return 1; }
-  echo "    Ready, id=${id}"
-  printf '%s' "$id"
+  echo "    Ready, id=${id}" >&2
+  LAST_ID="$id"
 }
 
-hdr() { printf '%s\n\n' "=== $* ==="; }
+hdr() { printf '%s\n\n' "=== $* ===" >&2; }
 
 # ---------------------------------------------------------------- vpc-a, vpc-b
 hdr "1. parent VPCs"
@@ -135,8 +145,8 @@ spec:
   properties: {default: false, preset: false}
 EOF
 }
-mkvpc ga-chain-vpc-a; VPC_A=$(apply_wait Vpc ga-chain-vpc-a /tmp/ga-ga-chain-vpc-a.yaml) || exit 1
-mkvpc ga-chain-vpc-b; VPC_B=$(apply_wait Vpc ga-chain-vpc-b /tmp/ga-ga-chain-vpc-b.yaml) || exit 1
+mkvpc ga-chain-vpc-a; apply_wait Vpc ga-chain-vpc-a /tmp/ga-ga-chain-vpc-a.yaml || exit 1; VPC_A="$LAST_ID"
+mkvpc ga-chain-vpc-b; apply_wait Vpc ga-chain-vpc-b /tmp/ga-ga-chain-vpc-b.yaml || exit 1; VPC_B="$LAST_ID"
 
 # ------------------------------------------------------------- security group
 hdr "2. SecurityGroup in vpc-a"
@@ -151,7 +161,7 @@ spec:
   metadata: {name: ga-chain-sg, location: {value: "${LOCATION}"}, tags: []}
   properties: {default: false, preset: false}
 EOF
-SG=$(apply_wait SecurityGroup ga-chain-sg /tmp/ga-sg.yaml) || exit 1
+apply_wait SecurityGroup ga-chain-sg /tmp/ga-sg.yaml || exit 1; SG="$LAST_ID"
 
 # -------------------------------------------------------------- security rule
 hdr "3. SecurityRule in the SecurityGroup"
@@ -171,7 +181,7 @@ spec:
     port: "443"
     target: {kind: Ip, value: "0.0.0.0/0"}
 EOF
-apply_wait SecurityRule ga-chain-sr /tmp/ga-sr.yaml >/dev/null || exit 1
+apply_wait SecurityRule ga-chain-sr /tmp/ga-sr.yaml || exit 1
 
 # ---------------------------------------------------------------- vpc peering
 hdr "4. VpcPeering vpc-a -> vpc-b"
@@ -189,7 +199,7 @@ spec:
   properties:
     remoteVpc: {uri: "/projects/${PROJECT}/providers/Aruba.Network/vpcs/${VPC_B}"}
 EOF
-PEER=$(apply_wait VpcPeering ga-chain-peering /tmp/ga-peer.yaml) || exit 1
+apply_wait VpcPeering ga-chain-peering /tmp/ga-peer.yaml || exit 1; PEER="$LAST_ID"
 
 # ---------------------------------------------------------- peering route ($$)
 if [ "$WITH_BILLABLE" = "1" ]; then
@@ -209,7 +219,7 @@ spec:
     remoteNetworkAddress: "10.20.0.0/16"
     billingPlan: {billingPeriod: Hour}
 EOF
-  apply_wait VpcPeeringRoute ga-chain-route /tmp/ga-route.yaml >/dev/null || exit 1
+  apply_wait VpcPeeringRoute ga-chain-route /tmp/ga-route.yaml || exit 1
 else
   echo "5. VpcPeeringRoute SKIPPED -- it carries a billingPlan and costs money."
   echo "   Re-run with --with-billable to include it."

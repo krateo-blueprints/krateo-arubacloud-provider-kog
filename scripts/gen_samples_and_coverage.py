@@ -65,6 +65,26 @@ TIERS = {
         "spec fields are the identifier itself and an account-wide `default` flag, "
         "neither safe to perturb — [live-cluster-test](live-cluster-test.md)",
     ),
+    ("network", "SecurityGroup"): (
+        "beta",
+        "create/observe/delete proven live; drift not yet exercised — "
+        "[live-cluster-test](live-cluster-test.md)",
+    ),
+    ("network", "SecurityRule"): (
+        "beta",
+        "create/observe/delete proven live; drift not yet exercised — "
+        "[live-cluster-test](live-cluster-test.md)",
+    ),
+    ("network", "VpcPeering"): (
+        "beta",
+        "create/observe/delete proven live (free — no `billingPlan`); drift not yet "
+        "exercised — [live-cluster-test](live-cluster-test.md)",
+    ),
+    ("network", "VpcPeeringRoute"): (
+        "experimental",
+        "**billable** (`properties.billingPlan.billingPeriod`); opt-in behind "
+        "`ga-chain-test.sh --with-billable`, never executed",
+    ),
     ("network", "LoadBalancer"): (
         "blocked",
         "read-only resource has no identifier field — [oasgen-provider#75]"
