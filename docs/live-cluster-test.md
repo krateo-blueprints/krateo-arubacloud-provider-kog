@@ -319,7 +319,7 @@ premise in [authentication](authentication.md).
 
 ## Two defects this run found
 
-### Empty arrays in a CR spec are unenforceable (upstream)
+### Empty arrays in a CR spec are unenforceable ([oasgen-provider#76](https://github.com/krateo-platformops/oasgen-provider/issues/76))
 
 The first drift attempt — `tags: []` in spec versus `["drifted-by-hand"]` upstream —
 was **never corrected**, while the controller logged *"External resource is up to
