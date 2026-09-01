@@ -55,6 +55,16 @@ TIERS = {
         "ga",
         "full lifecycle live — [live-cluster-test](live-cluster-test.md)",
     ),
+    ("project", "Project"): (
+        "ga",
+        "full lifecycle live incl. drift correction — [live-cluster-test](live-cluster-test.md)",
+    ),
+    ("project", "Folder"): (
+        "beta",
+        "create/observe/delete proven live; drift **not** exercised — its only mutable "
+        "spec fields are the identifier itself and an account-wide `default` flag, "
+        "neither safe to perturb — [live-cluster-test](live-cluster-test.md)",
+    ),
     ("network", "LoadBalancer"): (
         "blocked",
         "read-only resource has no identifier field — [oasgen-provider#75]"

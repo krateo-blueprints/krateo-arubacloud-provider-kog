@@ -1,0 +1,17 @@
+apiVersion: arubacloud.ogen.krateo.io/v1-0-0
+kind: Project
+metadata:
+  name: ga-lifecycle-project
+  namespace: default
+  annotations:
+    krateo.io/connector-verbose: 'true'
+spec:
+  configurationRef:
+    name: project-config
+    namespace: default
+  metadata:
+    name: ga-lifecycle-project
+    tags: []
+  properties:
+    default: false
+    description: GA lifecycle evidence run

@@ -1,0 +1,13 @@
+apiVersion: arubacloud.ogen.krateo.io/v1-0-0
+kind: Folder
+metadata:
+  name: ga-lifecycle-folder
+  namespace: default
+  annotations:
+    krateo.io/connector-verbose: 'true'
+spec:
+  configurationRef:
+    name: folder-config
+    namespace: default
+  name: ga-lifecycle-folder
+  default: false

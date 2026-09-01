@@ -317,6 +317,29 @@ controllers were failing `401` against an expired token and recovered on their o
 once the Secret was updated. That is the third independent confirmation of the ESO
 premise in [authentication](authentication.md).
 
+### `project/Project` — create → observe → **drift** → delete
+
+| Step | Evidence |
+|------|----------|
+| create | upstream id `6a965fdd4300bf195e381808` |
+| drift | `properties.description` changed out of band to `DRIFTED-BY-HAND`; controller restored it in ~3 min |
+| delete | `GET` returned **404** |
+
+Note the reconcile latency difference: the Vpc slice drift corrected in ~40s, this
+scalar in ~3 min. Both are within the backoff window; neither is a defect, but a
+drift test that gives up after a minute would wrongly call this one a failure.
+
+### `project/Folder` — create → observe → delete (beta, not GA)
+
+Created as `6a9661334300bf195e381832` and cleanly removed, but **drift was
+deliberately not exercised**: its only mutable spec fields are `name` — which is its
+identifier, so perturbing it tests rename semantics rather than drift — and
+`default`, an account-wide flag whose value affects other resources. It stays beta
+rather than being promoted on a test that was never run.
+
+Its status is also shaped differently from the metadata-wrapped resources: a flat
+`status.id`, not `status.metadata.id`.
+
 ## Two defects this run found
 
 ### Empty arrays in a CR spec are unenforceable ([oasgen-provider#76](https://github.com/krateo-platformops/oasgen-provider/issues/76))

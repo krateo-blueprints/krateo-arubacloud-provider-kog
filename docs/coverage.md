@@ -18,9 +18,9 @@ A tier states what has actually been *executed* against the live Aruba API, not 
 
 | Tier | Bar | Count |
 |------|-----|-------|
-| **GA** | full `create → observe → drift → delete` against the live API | 3 |
-| beta | observe verified live; mutation unproven | 0 |
-| experimental | generated, valid, reaches `Ready`, sample admitted | 30 |
+| **GA** | full `create → observe → drift → delete` against the live API | 4 |
+| beta | observe verified live; mutation unproven | 1 |
+| experimental | generated, valid, reaches `Ready`, sample admitted | 28 |
 | **blocked** | known non-functional, reason recorded | 1 |
 
 Only **GA** claims fitness for production use. See [ga-readiness](ga-readiness.md).
@@ -51,8 +51,8 @@ Only **GA** claims fitness for production use. See [ga-readiness](ga-readiness.m
 | network | `VpcPeeringRoute` | experimental | findby,get,create,update,delete | `metadata.name` | applies and reaches `Ready`; sample admitted by its CRD |
 | network | `VpnRoute` | experimental | findby,get,create,update,delete | `metadata.name` | applies and reaches `Ready`; sample admitted by its CRD |
 | network | `VpnTunnel` | experimental | findby,get,create,update,delete | `metadata.name` | applies and reaches `Ready`; sample admitted by its CRD |
-| project | `Folder` | experimental | findby,get,create,update,delete | `name` | applies and reaches `Ready`; sample admitted by its CRD |
-| project | `Project` | experimental | findby,get,create,update,delete | `metadata.name` | applies and reaches `Ready`; sample admitted by its CRD |
+| project | `Folder` | beta | findby,get,create,update,delete | `name` | create/observe/delete proven live; drift **not** exercised — its only mutable spec fields are the identifier itself and an account-wide `default` flag, neither safe to perturb — [live-cluster-test](live-cluster-test.md) |
+| project | `Project` | **GA** | findby,get,create,update,delete | `metadata.name` | full lifecycle live incl. drift correction — [live-cluster-test](live-cluster-test.md) |
 | schedule | `BackupPolicy` | experimental | findby,get,create,update,delete | `metadata.name` | applies and reaches `Ready`; sample admitted by its CRD |
 | schedule | `BackupPolicyAssignment` | experimental | findby,get,create,update,delete | `metadata.name` | applies and reaches `Ready`; sample admitted by its CRD |
 | schedule | `Job` | experimental | findby,get,create,update,delete | `metadata.name` | applies and reaches `Ready`; sample admitted by its CRD |
