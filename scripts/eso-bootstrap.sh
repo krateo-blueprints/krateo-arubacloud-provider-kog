@@ -89,6 +89,15 @@ k create secret generic "$NAME" -n "$NS" \
   --dry-run=client -o yaml | k apply -f - >/dev/null
 unset CLIENT_SECRET
 
+# BOTH labels are mandatory, and neither failure explains itself:
+#   reconcile.external-secrets.io/managed  ESO's informer caches only labelled Secrets,
+#                                          so without it the lookup fails with a bare
+#                                          "not found" while the Secret plainly exists
+#   external-secrets.io/type=webhook       demanded by the webhook provider itself
+k label secret "$NAME" -n "$NS" \
+  reconcile.external-secrets.io/managed=true \
+  external-secrets.io/type=webhook --overwrite >/dev/null
+
 printf '%s' "$CLIENT_ID" > "$ID_FILE" 2>/dev/null || true
 
 echo "stored credential in ${NS}/${NAME}"
