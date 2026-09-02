@@ -23,7 +23,7 @@ env:
   # Pin the provider the RestDefinitions are validated against. Bumping this is a
   # deliberate act with a visible diff, not something that drifts under us on a
   # Tuesday -- and the smoke job re-proves the 34 against the new version.
-  OASGEN_VERSION: "0.21.1"
+  OASGEN_VERSION: "0.22.2"
 
 jobs:
   validate:
