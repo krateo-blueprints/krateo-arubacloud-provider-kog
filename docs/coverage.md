@@ -30,7 +30,7 @@ Only **GA** claims fitness for production use. See [ga-readiness](ga-readiness.m
 | Provider | Kind | Tier | Verbs | Identifier(s) | Evidence |
 |----------|------|------|-------|---------------|----------|
 | baremetal | `Hpc` | experimental | findby,get,create | `metadata.name` | applies and reaches `Ready`; sample admitted by its CRD |
-| compute | `CloudServer` | experimental | findby,get | `metadata.name` | RESTActions never executed — [P0-3](ga-readiness.md#blockers) |
+| compute | `CloudServer` | experimental | findby,get | `metadata.name` | gained a `metadata.name` selector on 0.22.1; RESTActions still never executed — [P0-3](ga-readiness.md#blockers) |
 | compute | `KeyPair` | **GA** | findby,get,create,delete | `metadata.name` | full lifecycle live — [live-cluster-test](live-cluster-test.md) |
 | container | `Kaas` | experimental | findby,get,create,update,delete | `metadata.name` | applies and reaches `Ready`; sample admitted by its CRD |
 | container | `KaasBackup` | experimental | findby,get,create,update,delete | `metadata.name` | applies and reaches `Ready`; sample admitted by its CRD |

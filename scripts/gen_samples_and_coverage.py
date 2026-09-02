@@ -93,7 +93,8 @@ TIERS = {
     ),
     ("compute", "CloudServer"): (
         "experimental",
-        "RESTActions never executed — [P0-3](ga-readiness.md#blockers)",
+        "gained a `metadata.name` selector on 0.22.1; RESTActions still never "
+        "executed — [P0-3](ga-readiness.md#blockers)",
     ),
 }
 
@@ -307,6 +308,17 @@ def make_cr(spec, prov, doc, apiver):
             for pp in path_params(v["path"]):
                 if pp not in excluded:
                     spec_body[pp] = "REPLACE"
+        # Emit the identifier as a SELECTOR. A read-only resource has no create body,
+        # so path parameters alone leave the user unable to say WHICH object is meant --
+        # the sample applies cleanly and matches nothing. oasgen 0.22.1 generates the
+        # selector field (#75); this makes the sample actually use it.
+        for ident in res.get("identifiers", []):
+            if ident in excluded or ident in spec_body:
+                continue
+            # A dotted identifier becomes a FLAT key containing the dot -- oasgen emits
+            # `metadata.name` as one property, not a nested metadata object. Nesting it
+            # is rejected by strict decoding as `unknown field "spec.metadata"`.
+            spec_body[ident] = "REPLACE_selects_the_existing_object_by_this_value"
     return cr
 
 

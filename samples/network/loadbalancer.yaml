@@ -10,3 +10,4 @@ spec:
     name: loadbalancer-config
     namespace: default
   projectId: REPLACE
+  name: REPLACE_selects_the_existing_object_by_this_value
