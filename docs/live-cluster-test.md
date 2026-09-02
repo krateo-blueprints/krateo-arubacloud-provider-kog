@@ -375,3 +375,53 @@ dependency, an upstream error — the CR would already be gone with nothing left
 retry, leaving a billable orphan and no Kubernetes object to show for it. The
 `async` block already models poll-until-complete for create; delete has no
 equivalent.
+
+---
+
+## 0.22.1 verification — 2026-09-02
+
+Upgraded from 0.21.1 to verify the three cross-cutting fixes against the live API
+rather than trusting their unit tests. 34/34 RestDefinitions Ready; all 35 generated
+controllers moved to `rest-dynamic-controller:0.22.1`.
+
+| Fix | Verdict | Evidence |
+|-----|---------|----------|
+| [#76](https://github.com/krateo-platformops/oasgen-provider/issues/76) empty-array drift | **works** | The scenario that previously failed forever — spec `tags: []` vs upstream `["drifted-by-hand"]` — was corrected in ~3 min |
+| [#75](https://github.com/krateo-platformops/oasgen-provider/issues/75) read-only identifier | **works** | `LoadBalancer` now generates a `name` field described as a *SELECTOR*; a CR carrying it is accepted, where it was previously rejected with `strict decoding error` |
+| [#77](https://github.com/krateo-platformops/oasgen-provider/issues/77) delete verification | **regressed** | See below — filed as [#98](https://github.com/krateo-platformops/oasgen-provider/issues/98) |
+
+### Regression: delete now hangs forever
+
+Holding the finalizer until the resource is verified gone is right, but a **404 on
+DELETE** is treated as a retryable error rather than as the success condition it is.
+Once the deletion completes, every retry 404s and the finalizer never releases:
+
+```
+$ time kubectl delete vpc.arubacloud.ogen.krateo.io ga-drift80
+vpc... "ga-drift80" deleted
+error: timed out waiting for the condition        elapsed: 300s
+```
+
+The external resource was gone (`HTTP 404`) but the CR sat in `Deleting` with its
+finalizer until removed by hand. `Observe()` already handles
+`restclient.IsNotFoundError`; the delete path does not. On an API that deletes
+asynchronously this means **resources cannot be deleted through Kubernetes at all**,
+so 0.22.1 is not safe for the storage or database waves until it is fixed.
+
+### Upgrading does not regenerate existing CRDs
+
+`LoadBalancer` still had its old identifier-less schema after the upgrade, and the
+provider logged *"External resource is up to date"*. The CRD dated from before the
+upgrade. Only deleting and re-applying the RestDefinition produced the fixed schema.
+
+Generated controller **Deployments** were updated (all 35 moved to 0.22.1), so the
+staleness is specific to the CRD schema. A generator fix therefore does not reach
+already-deployed resources on upgrade, which is a trap for anyone upgrading
+specifically to obtain one.
+
+### P0-1 closed: token rotation proven unattended
+
+The client credential was stored `2026-09-01 06:25`. The token in use on
+`2026-09-02 11:09` was issued by ESO that morning, ~29 hours and ~29 expiries later,
+with no human involvement, and returns HTTP 200. Rotation is no longer sketched — the
+install has demonstrably survived past expiry unattended.

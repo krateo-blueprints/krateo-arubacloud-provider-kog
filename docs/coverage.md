@@ -20,8 +20,8 @@ A tier states what has actually been *executed* against the live Aruba API, not 
 |------|-----|-------|
 | **GA** | full `create → observe → drift → delete` against the live API | 4 |
 | beta | observe verified live; mutation unproven | 4 |
-| experimental | generated, valid, reaches `Ready`, sample admitted | 25 |
-| **blocked** | known non-functional, reason recorded | 1 |
+| experimental | generated, valid, reaches `Ready`, sample admitted | 26 |
+| **blocked** | known non-functional, reason recorded | 0 |
 
 Only **GA** claims fitness for production use. See [ga-readiness](ga-readiness.md).
 
@@ -42,7 +42,7 @@ Only **GA** claims fitness for production use. See [ga-readiness](ga-readiness.m
 | database | `Grant` | experimental | findby,get,create,delete | `user` | applies and reaches `Ready`; sample admitted by its CRD |
 | metering | `AlertRule` | experimental | findby,get,create,update,delete | `metadata.name` | applies and reaches `Ready`; sample admitted by its CRD |
 | network | `ElasticIp` | experimental | findby,get,create,update,delete | `metadata.name` | applies and reaches `Ready`; sample admitted by its CRD |
-| network | `LoadBalancer` | **blocked** | findby,get | `name` | read-only resource has no identifier field — [oasgen-provider#75](https://github.com/krateo-platformops/oasgen-provider/issues/75), [P0-4](ga-readiness.md#blockers) |
+| network | `LoadBalancer` | experimental | findby,get | `name` | unblocked on 0.22.1 — generates a `name` selector and the CR is accepted ([#75](https://github.com/krateo-platformops/oasgen-provider/issues/75) fixed); no load balancer exists in the test account, so a positive match is unproven |
 | network | `SecurityGroup` | beta | findby,get,create,update,delete | `metadata.name` | create/observe/delete proven live; drift not yet exercised — [live-cluster-test](live-cluster-test.md) |
 | network | `SecurityRule` | beta | findby,get,create,update,delete | `metadata.name` | create/observe/delete proven live; drift not yet exercised — [live-cluster-test](live-cluster-test.md) |
 | network | `Subnet` | **GA** | findby,get,create,update,delete | `metadata.name` | full lifecycle live — [live-cluster-test](live-cluster-test.md) |

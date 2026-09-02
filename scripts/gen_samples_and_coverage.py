@@ -86,10 +86,10 @@ TIERS = {
         "`ga-chain-test.sh --with-billable`, never executed",
     ),
     ("network", "LoadBalancer"): (
-        "blocked",
-        "read-only resource has no identifier field — [oasgen-provider#75]"
-        "(https://github.com/krateo-platformops/oasgen-provider/issues/75), "
-        "[P0-4](ga-readiness.md#blockers)",
+        "experimental",
+        "unblocked on 0.22.1 — generates a `name` selector and the CR is accepted "
+        "([#75](https://github.com/krateo-platformops/oasgen-provider/issues/75) fixed); "
+        "no load balancer exists in the test account, so a positive match is unproven",
     ),
     ("compute", "CloudServer"): (
         "experimental",
