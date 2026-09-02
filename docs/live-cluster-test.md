@@ -425,3 +425,26 @@ The client credential was stored `2026-09-01 06:25`. The token in use on
 `2026-09-02 11:09` was issued by ESO that morning, ~29 hours and ~29 expiries later,
 with no human involvement, and returns HTTP 200. Rotation is no longer sketched — the
 install has demonstrably survived past expiry unattended.
+
+### 0.22.2 — delete regression fixed, all three defects now verified
+
+[#99](https://github.com/krateo-platformops/oasgen-provider/pull/99) treats a 404 on
+DELETE as success. Re-tested on 0.22.2 with a fresh VPC (`6a98aacd823ddef7e871b08c`):
+
+```
+$ time kubectl delete vpc.arubacloud.ogen.krateo.io ga-del98
+vpc... "ga-del98" deleted
+elapsed: 17s
+$ kubectl get vpc ga-del98            -> NotFound
+$ GET .../vpcs/6a98aacd823ddef7e871b08c  -> HTTP 404
+```
+
+The 17 seconds are the point. The original defect returned in **0.388s** without
+verifying anything; the 0.22.1 regression hung for the full **300s** timeout. Taking
+17s and then releasing is the resource actually being confirmed gone.
+
+All three cross-cutting defects — [#75](https://github.com/krateo-platformops/oasgen-provider/issues/75),
+[#76](https://github.com/krateo-platformops/oasgen-provider/issues/76),
+[#77](https://github.com/krateo-platformops/oasgen-provider/issues/77)/[#98](https://github.com/krateo-platformops/oasgen-provider/issues/98)
+— are now fixed and verified against the live API. The storage and database waves are
+no longer gated on an orphan risk.
