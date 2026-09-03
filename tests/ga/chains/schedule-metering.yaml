@@ -1,0 +1,50 @@
+name: schedule-metering
+vars:
+  PROJECT: 69a55c8d5e6f0e14f14093ff
+  LOCATION: ITBG-Bergamo
+residue:
+- /projects/${PROJECT}/providers/Aruba.Schedule/backupPolicies
+- /projects/${PROJECT}/providers/Aruba.Schedule/jobs
+- /projects/${PROJECT}/providers/Aruba.Insight/alertRules
+resources:
+- kind: BackupPolicy
+  name: ga-backuppolicy
+  spec:
+    configurationRef:
+      name: backuppolicy-config
+      namespace: default
+    projectId: ${PROJECT}
+    metadata:
+      name: ga-backuppolicy
+      tags: []
+    properties:
+      resourceType: volume
+      schedules:
+      - frequency: Daily
+        backupType: Full
+        retentionDays: 1
+        time: 02:00:00
+  drift: /projects/${PROJECT}/providers/Aruba.Schedule/backupPolicies/${id:self}
+- kind: Job
+  name: ga-job
+  spec:
+    configurationRef:
+      name: job-config
+      namespace: default
+    projectId: ${PROJECT}
+    metadata:
+      name: ga-job
+      location:
+        value: ${LOCATION}
+      tags: []
+    properties:
+      scheduleJobType: Recurring
+      cron: 0 3 * * *
+      enabled: false
+      executeUntil: '2027-01-01T00:00:00Z'
+      steps:
+      - name: ga-noop-read
+        httpVerb: GET
+        resourceUri: /projects/${PROJECT}/providers/Aruba.Network/vpcs/69a5609fa851081197caa45f
+        actionUri: /projects/${PROJECT}/providers/Aruba.Network/vpcs/69a5609fa851081197caa45f
+  drift: /projects/${PROJECT}/providers/Aruba.Schedule/jobs/${id:self}

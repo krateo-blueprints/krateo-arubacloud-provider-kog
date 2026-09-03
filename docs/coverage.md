@@ -18,9 +18,9 @@ A tier states what has actually been *executed* against the live Aruba API, not 
 
 | Tier | Bar | Count |
 |------|-----|-------|
-| **GA** | full `create → observe → drift → delete` against the live API | 7 |
+| **GA** | full `create → observe → drift → delete` against the live API | 8 |
 | beta | observe verified live; mutation unproven | 1 |
-| experimental | generated, valid, reaches `Ready`, sample admitted | 26 |
+| experimental | generated, valid, reaches `Ready`, sample admitted | 25 |
 | **blocked** | known non-functional, reason recorded | 0 |
 
 Only **GA** claims fitness for production use. See [ga-readiness](ga-readiness.md).
@@ -53,9 +53,9 @@ Only **GA** claims fitness for production use. See [ga-readiness](ga-readiness.m
 | network | `VpnTunnel` | experimental | findby,get,create,update,delete | `metadata.name` | applies and reaches `Ready`; sample admitted by its CRD |
 | project | `Folder` | beta | findby,get,create,update,delete | `name` | create/observe/delete proven live; drift **not** exercised — its only mutable spec fields are the identifier itself and an account-wide `default` flag, neither safe to perturb — [live-cluster-test](live-cluster-test.md) |
 | project | `Project` | **GA** | findby,get,create,update,delete | `metadata.name` | full lifecycle live incl. drift correction — [live-cluster-test](live-cluster-test.md) |
-| schedule | `BackupPolicy` | experimental | findby,get,create,update,delete | `metadata.name` | applies and reaches `Ready`; sample admitted by its CRD |
+| schedule | `BackupPolicy` | **GA** | findby,get,create,update,delete | `metadata.name` | full lifecycle live incl. drift correction — [live-cluster-test](live-cluster-test.md) |
 | schedule | `BackupPolicyAssignment` | experimental | findby,get,create,update,delete | `metadata.name` | applies and reaches `Ready`; sample admitted by its CRD |
-| schedule | `Job` | experimental | findby,get,create,update,delete | `metadata.name` | applies and reaches `Ready`; sample admitted by its CRD |
+| schedule | `Job` | experimental | findby,get,create,update,delete | `metadata.name` | requires exactly one `steps[]` entry bound to an existing resource (`resourceUri` + `actionUri`); lifecycle unproven |
 | security | `Key` | experimental | findby,get,create,update,delete | `name` | applies and reaches `Ready`; sample admitted by its CRD |
 | security | `Kmip` | experimental | findby,get,create,update,delete | `name` | applies and reaches `Ready`; sample admitted by its CRD |
 | security | `Kms` | experimental | findby,get,create,update,delete | `metadata.name` | applies and reaches `Ready`; sample admitted by its CRD |

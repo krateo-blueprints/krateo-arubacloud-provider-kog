@@ -45,8 +45,15 @@ is about which semantics to adopt, not about the code.
 Derived from the generated CRDs, which resolve the OAS correctly (an earlier
 hand-rolled scan under-reported this and is not trustworthy):
 
-**Declare `properties.billingPlan` (7):** `Dbaas`, `Kaas`, `Registry`,
-`DatabaseBackup`, `ElasticIp`, `VpcPeeringRoute`, `VpnTunnel`
+**Carry a billing field (12):** `Backup`, `BlockStorage`, `DatabaseBackup`, `Dbaas`,
+`ElasticIp`, `Kaas`, `KaasBackup`, `Kms`, `Registry`, `Snapshot`, `VpcPeeringRoute`,
+`VpnTunnel`
+
+> Corrected. An earlier pass searched only for `billingPlan` and reported 7. Five
+> resources declare **`billingPeriod`** without a `billingPlan` wrapper —
+> `BlockStorage`, `Snapshot`, `Backup`, `KaasBackup` and, importantly, **`Kms`**.
+> Since `Key` and `Kmip` both require a Kms `id`, the whole `security` provider sits
+> behind a billable parent, which is the opposite of what Wave 2 assumed.
 
 **Absence of `billingPlan` does not mean free.** `BlockStorage`, `Snapshot`,
 `Backup` and `Hpc` bill by capacity or by hour without declaring a plan in the
@@ -84,13 +91,21 @@ from beta by adding the drift step; add `VpnTunnel`/`VpnRoute` and `ElasticIp`
 Chains: `Vpc → {Subnet, SecurityGroup → SecurityRule, VpcPeering → VpcPeeringRoute}`
 and `VpnTunnel → VpnRoute`.
 
-### Wave 2 — free standalone resources (9)
+### Wave 2 — free standalone resources (revised: 3, not 9)
 
-`project` is done. Remaining: `schedule` (`BackupPolicy`, `BackupPolicyAssignment`,
-`Job`), `security` (`Kms`, `Key`, `Kmip`), `metering` (`AlertRule`).
+`BackupPolicy` is **done** — full lifecycle including drift, on the declarative
+runner.
 
-These have no parents and no declared billing, so they are the cheapest evidence
-left. Confirm `security` pricing first — key management commonly bills per key.
+What is actually free is much smaller than this wave first assumed:
+
+- **`security` moved to a billable wave.** `Kms` carries `billingPeriod`, and `Key`
+  and `Kmip` both require a Kms `id`, so all three are gated behind a paid parent.
+- **`BackupPolicyAssignment` is not independently testable.** It binds a policy to a
+  `resource.uri`, and the assignable resources are block storage, which bills.
+- **`Job` needs a target.** The API rejects a job without exactly one `steps[]` entry,
+  and a step is a `resourceUri` + `actionUri` pair pointing at something that exists.
+
+That leaves `AlertRule` and `Job` (the latter only once a safe target exists).
 
 ### Wave 3 — storage (4)
 

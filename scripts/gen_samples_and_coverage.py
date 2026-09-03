@@ -83,6 +83,15 @@ TIERS = {
         "**billable** (`properties.billingPlan.billingPeriod`); opt-in behind "
         "`ga-chain-test.sh --with-billable`, never executed",
     ),
+    ("schedule", "BackupPolicy"): (
+        "ga",
+        "full lifecycle live incl. drift correction — [live-cluster-test](live-cluster-test.md)",
+    ),
+    ("schedule", "Job"): (
+        "experimental",
+        "requires exactly one `steps[]` entry bound to an existing resource "
+        "(`resourceUri` + `actionUri`); lifecycle unproven",
+    ),
     ("network", "LoadBalancer"): (
         "experimental",
         "unblocked on 0.22.1 — generates a `name` selector and the CR is accepted "
