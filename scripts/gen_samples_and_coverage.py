@@ -108,9 +108,12 @@ TIERS = {
         "[live-cluster-test](live-cluster-test.md)",
     ),
     ("storage", "Restore"): (
-        "beta",
-        "create/observe/delete proven live as part of the storage chain; drift not "
-        "exercised — [live-cluster-test](live-cluster-test.md)",
+        "ga",
+        "create → observe → delete proven live in the storage chain. Drift is **not "
+        "applicable**: its update body (`RestoreUpdatePropertiesDto`) is an empty "
+        "schema with zero properties, so there is nothing to converge — the same bar "
+        "as the resources with no update verb — "
+        "[live-cluster-test](live-cluster-test.md)",
     ),
     ("security", "Kms"): (
         "beta",
@@ -127,6 +130,12 @@ TIERS = {
     ("security", "Kmip"): (
         "experimental",
         "same `kmipId` status mapping correction as Key; not yet run",
+    ),
+    ("network", "ElasticIp"): (
+        "ga",
+        "full lifecycle live incl. drift correction — **billable** "
+        "(`billingPlan.billingPeriod`), created and deleted within one hour — "
+        "[live-cluster-test](live-cluster-test.md)",
     ),
     ("network", "LoadBalancer"): (
         "experimental",

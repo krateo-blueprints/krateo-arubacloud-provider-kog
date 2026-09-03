@@ -1,0 +1,25 @@
+# Remaining network resources. ElasticIp BILLS (billingPlan.billingPeriod: Hour) but is
+# self-contained and hourly, so it is the cheapest of the outstanding billable set.
+#
+# VpnTunnel/VpnRoute are deliberately NOT here yet: a tunnel needs a Vpc, an ElasticIp
+# and a pre-shared key, and a PSK does not belong in a committed fixture.
+name: network-extra
+vars:
+  PROJECT: 69a55c8d5e6f0e14f14093ff
+  LOCATION: ITBG-Bergamo
+residue:
+  - /projects/${PROJECT}/providers/Aruba.Network/elasticIps
+resources:
+  - kind: ElasticIp
+    name: ga-elasticip
+    billable: true
+    spec:
+      configurationRef: {name: elasticip-config, namespace: default}
+      projectId: "${PROJECT}"
+      metadata:
+        name: ga-elasticip
+        location: {value: "${LOCATION}"}
+        tags: []
+      properties:
+        billingPlan: {billingPeriod: Hour}
+    drift: /projects/${PROJECT}/providers/Aruba.Network/elasticIps/${id:self}

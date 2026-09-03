@@ -178,7 +178,8 @@ are now work items:
 | `CloudServer` RESTActions never executed | Wire `URL_SNOWPLOW`/`URL_AUTHN` into the generated RDC deployment and drive the delegated create/update/delete for real |
 | `Kaas`, `Dbaas`, `Hpc` cost real money per run | Accept the spend, record a dated run per resource, and let CI re-verify only the free set |
 | `DatabaseUser.password` is a plaintext spec field | Fix it before `database` is promoted — a GA resource must not require a secret in its spec |
-| `Key`, `Kmip`, `Restore`, `Folder` have no safe field to perturb | Declare a per-resource drift field in the chain fixture rather than relying on `metadata.tags` |
+| `Key`, `Kmip`, `Folder` have no safe field to perturb | Declare a per-resource drift field in the chain fixture rather than relying on `metadata.tags` |
+| `Restore` appeared to be in that set | **Resolved**: its update body `RestoreUpdatePropertiesDto` is an empty schema — zero properties — so there is nothing to converge. Drift is not applicable, not merely hard, and its bar is `create → observe → delete` |
 
 Done means **all** of:
 
@@ -200,10 +201,11 @@ at the end:
   `Succeeded`, and a single provisioning run is expensive and slow.
 - **`CloudServer`** depends on a snowplow deployment no chart currently produces; that
   is upstream work, not test work.
-- **`BackupPolicyAssignment`, `Restore`, `Grant`** are action-shaped resources whose
-  "drift" may not be meaningful — there may be nothing to converge. Where that is true,
-  the right answer is to say the GA bar is `create → observe → delete` for them, as it
-  already is for the eight without an update verb, rather than to invent a test.
+- **`BackupPolicyAssignment` and `Grant`** are action-shaped resources whose "drift"
+  may not be meaningful. `Restore` was in this group and is now settled: its update
+  body is an empty schema, so the bar is `create → observe → delete`. Applying the
+  same test to the other two is the way to close them — read the update body, and if
+  it cannot express anything, say so instead of inventing a test that cannot fail.
 
 Anything that turns out genuinely unreachable gets recorded as such, with the reason
 and what would unblock it — not quietly relabelled.

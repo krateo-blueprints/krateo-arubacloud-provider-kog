@@ -18,9 +18,9 @@ A tier states what has actually been *executed* against the live Aruba API, not 
 
 | Tier | Bar | Count |
 |------|-----|-------|
-| **GA** | full `create → observe → drift → delete` against the live API | 11 |
-| beta | observe verified live; mutation unproven | 3 |
-| experimental | generated, valid, reaches `Ready`, sample admitted | 20 |
+| **GA** | full `create → observe → drift → delete` against the live API | 13 |
+| beta | observe verified live; mutation unproven | 2 |
+| experimental | generated, valid, reaches `Ready`, sample admitted | 19 |
 | **blocked** | known non-functional, reason recorded | 0 |
 
 Only **GA** claims fitness for production use. See [ga-readiness](ga-readiness.md).
@@ -41,7 +41,7 @@ Only **GA** claims fitness for production use. See [ga-readiness](ga-readiness.m
 | database | `Dbaas` | experimental | findby,get,create,update,delete | `metadata.name` | applies and reaches `Ready`; sample admitted by its CRD |
 | database | `Grant` | experimental | findby,get,create,delete | `user` | applies and reaches `Ready`; sample admitted by its CRD |
 | metering | `AlertRule` | experimental | findby,get,create,update,delete | `name` | applies and reaches `Ready`; sample admitted by its CRD |
-| network | `ElasticIp` | experimental | findby,get,create,update,delete | `metadata.name` | applies and reaches `Ready`; sample admitted by its CRD |
+| network | `ElasticIp` | **GA** | findby,get,create,update,delete | `metadata.name` | full lifecycle live incl. drift correction — **billable** (`billingPlan.billingPeriod`), created and deleted within one hour — [live-cluster-test](live-cluster-test.md) |
 | network | `LoadBalancer` | experimental | findby,get | `name` | unblocked on 0.22.1 — generates a `name` selector and the CR is accepted ([#75](https://github.com/krateo-platformops/oasgen-provider/issues/75) fixed); no load balancer exists in the test account, so a positive match is unproven |
 | network | `SecurityGroup` | **GA** | findby,get,create,update,delete | `metadata.name` | full lifecycle live incl. drift correction — [live-cluster-test](live-cluster-test.md) |
 | network | `SecurityRule` | **GA** | findby,get,create,update,delete | `metadata.name` | full lifecycle live incl. drift correction — [live-cluster-test](live-cluster-test.md) |
@@ -61,7 +61,7 @@ Only **GA** claims fitness for production use. See [ga-readiness](ga-readiness.m
 | security | `Kms` | beta | findby,get,create,update,delete | `metadata.name` | every step proven live but never in one run — drift corrected in run 1, delete clean in run 2 (run 1's delete hung on [#101](https://github.com/krateo-platformops/oasgen-provider/issues/101)); GA needs a single clean end-to-end pass |
 | storage | `Backup` | **GA** | findby,get,create,update,delete | `metadata.name` | full lifecycle live incl. drift correction — **billable** — [live-cluster-test](live-cluster-test.md) |
 | storage | `BlockStorage` | **GA** | findby,get,create,update,delete | `metadata.name` | full lifecycle live incl. drift correction — **billable** (`billingPeriod`), run at 20 GB and deleted immediately — [live-cluster-test](live-cluster-test.md) |
-| storage | `Restore` | beta | findby,get,create,update,delete | `metadata.name` | create/observe/delete proven live as part of the storage chain; drift not exercised — [live-cluster-test](live-cluster-test.md) |
+| storage | `Restore` | **GA** | findby,get,create,update,delete | `metadata.name` | create → observe → delete proven live in the storage chain. Drift is **not applicable**: its update body (`RestoreUpdatePropertiesDto`) is an empty schema with zero properties, so there is nothing to converge — the same bar as the resources with no update verb — [live-cluster-test](live-cluster-test.md) |
 | storage | `Snapshot` | **GA** | findby,get,create,update,delete | `metadata.name` | full lifecycle live incl. drift correction — **billable** — [live-cluster-test](live-cluster-test.md) |
 
 ## Not generated (and why)
