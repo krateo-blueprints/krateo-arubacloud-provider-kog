@@ -114,14 +114,15 @@ TIERS = {
     ),
     ("security", "Kms"): (
         "beta",
-        "create/observe/drift proven live; **delete blocked** — an orphaned child key "
-        "left it undeletable and the CR then hung on a non-404 error "
-        "([#101](https://github.com/krateo-platformops/oasgen-provider/issues/101))",
+        "every step proven live but never in one run — drift corrected in run 1, "
+        "delete clean in run 2 (run 1's delete hung on "
+        "[#101](https://github.com/krateo-platformops/oasgen-provider/issues/101)); "
+        "GA needs a single clean end-to-end pass",
     ),
     ("security", "Key"): (
         "experimental",
-        "status mapping corrected to `keyId` after the old `id` mapping orphaned a real "
-        "key; not yet re-run",
+        "`keyId` status mapping corrected, and the orphan no longer occurs — teardown "
+        "is clean — but the CR still reports no upstream id, so observe is unproven",
     ),
     ("security", "Kmip"): (
         "experimental",

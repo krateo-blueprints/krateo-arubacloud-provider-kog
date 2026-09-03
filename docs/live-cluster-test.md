@@ -547,3 +547,19 @@ still hangs. The observe verbs are the ground truth and the code already knows h
 consult them.
 
 `Kms` is **beta**: create, observe and drift are proven, delete is not.
+
+#### Security, second run (corrected mapping)
+
+The orphan is gone: `Kms` created, `Key` failed cleanly, and **teardown removed
+everything with residue 0** — where the first run left a key behind that made its
+parent undeletable. The account was then verified clean across all eight endpoints.
+
+Two things still open:
+
+- `Key` reports **no upstream id** even with `additionalStatusFields: [keyId]`, so
+  observe remains unproven. The mapping fix stopped the orphan without yet making the
+  resource work.
+- `Kms` drift injection returned **400** on this run where it returned 200 on the
+  first, most likely because the KMS was still settling. Every individual step is now
+  proven — drift in run 1, delete in run 2 — but never in a single pass, so it stays
+  **beta**: GA should mean one clean end-to-end run, not a union of partial ones.
