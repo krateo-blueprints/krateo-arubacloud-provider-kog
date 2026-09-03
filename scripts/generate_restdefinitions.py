@@ -167,11 +167,17 @@ OVERRIDES = {
         note=("Grant is name-keyed (create {user, role}); item path segment is "
               "{username}. No update/dedicated id.")),
     "security/keys": dict(
-        metaWrap=False, idField="name", statusId="status.id",
-        note="Key create body is flat {name, algorithm}; item keyed by server id {keyId}."),
+        metaWrap=False, idField="name", statusId="status.keyId", statusField="keyId",
+        note=("Key create body is flat {name, algorithm}. The findby item carries the "
+              "server id as **keyId**, not id -- mapping status.id here produced a CR "
+              "that never went Ready while the key WAS created, and whose delete then "
+              "had an unresolvable path parameter, so RDC released the finalizer "
+              "without calling the API and the key was orphaned. An orphaned key in "
+              "turn blocks deleting its Kms ('Some kms keys are not deleted').")),
     "security/kmip": dict(
-        metaWrap=False, idField="name", statusId="status.id",
-        note="Kmip create body is flat {name}; item keyed by server id {kmipId}."),
+        metaWrap=False, idField="name", statusId="status.kmipId", statusField="kmipId",
+        note=("Kmip create body is flat {name}; the findby item carries the server id "
+              "as **kmipId**, not id -- same orphaning trap as security/keys.")),
 }
 
 # collections that are pure read-only (no create) but still worth exposing as a
@@ -386,7 +392,14 @@ def render(r):
             resource["additionalStatusFields"] = ["metadata.id"]
     elif not r["readonly"]:
         resource["identifiers"] = [ov.get("idField", "name")]
-        if id_target(r) == "status.id":
+        # The status field must be the key the API's own response uses. Assuming "id"
+        # for every flat resource silently breaks the ones that return keyId/kmipId:
+        # status is never populated, so the CR cannot go Ready and its delete cannot
+        # address the resource -- which orphans it. See security/keys.
+        status_field = ov.get("statusField")
+        if status_field:
+            resource["additionalStatusFields"] = [status_field]
+        elif id_target(r) == "status.id":
             resource["additionalStatusFields"] = ["id"]
     else:  # read-only, flat
         resource["identifiers"] = ["name"]

@@ -1,0 +1,43 @@
+# Wave 4 (partial) — security. Kms BILLS (`billingPeriod`), and Key and Kmip are its
+# children, so the whole provider sits behind a paid parent. That correction is why
+# this is not in Wave 2.
+#
+# Only Kms can be drift-tested by the generic mechanism: Key and Kmip have flat
+# name/algorithm specs with no metadata.tags to perturb, so they can reach beta but
+# not GA until a per-resource drift field is declared for them.
+name: security
+vars:
+  PROJECT: 69a55c8d5e6f0e14f14093ff
+  LOCATION: ITBG-Bergamo
+residue:
+  - /projects/${PROJECT}/providers/Aruba.Security/kms
+resources:
+  - kind: Kms
+    name: ga-kms
+    billable: true
+    spec:
+      configurationRef: {name: kms-config, namespace: default}
+      projectId: "${PROJECT}"
+      metadata: {name: ga-kms, location: {value: "${LOCATION}"}, tags: []}
+      properties:
+        billingPeriod: Hour
+    drift: /projects/${PROJECT}/providers/Aruba.Security/kms/${id:self}
+
+  - kind: Key
+    name: ga-key
+    billable: true
+    spec:
+      configurationRef: {name: key-config, namespace: default}
+      projectId: "${PROJECT}"
+      id: "${id:Kms}"
+      name: ga-key
+      algorithm: Aes
+
+  - kind: Kmip
+    name: ga-kmip
+    billable: true
+    spec:
+      configurationRef: {name: kmip-config, namespace: default}
+      projectId: "${PROJECT}"
+      id: "${id:Kms}"
+      name: ga-kmip

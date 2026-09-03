@@ -112,6 +112,21 @@ TIERS = {
         "create/observe/delete proven live as part of the storage chain; drift not "
         "exercised — [live-cluster-test](live-cluster-test.md)",
     ),
+    ("security", "Kms"): (
+        "beta",
+        "create/observe/drift proven live; **delete blocked** — an orphaned child key "
+        "left it undeletable and the CR then hung on a non-404 error "
+        "([#101](https://github.com/krateo-platformops/oasgen-provider/issues/101))",
+    ),
+    ("security", "Key"): (
+        "experimental",
+        "status mapping corrected to `keyId` after the old `id` mapping orphaned a real "
+        "key; not yet re-run",
+    ),
+    ("security", "Kmip"): (
+        "experimental",
+        "same `kmipId` status mapping correction as Key; not yet run",
+    ),
     ("network", "LoadBalancer"): (
         "experimental",
         "unblocked on 0.22.1 — generates a `name` selector and the CR is accepted "

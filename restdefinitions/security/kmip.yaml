@@ -1,5 +1,5 @@
 # Aruba Cloud Kmip (security provider) - generated, no proxy.
-# Kmip create body is flat {name}; item keyed by server id {kmipId}.
+# Kmip create body is flat {name}; the findby item carries the server id as **kmipId**, not id -- same orphaning trap as security/keys.
 apiVersion: ogen.krateo.io/v1alpha1
 kind: RestDefinition
 metadata:
@@ -12,7 +12,7 @@ spec:
     identifiers:
     - name
     additionalStatusFields:
-    - id
+    - kmipId
     excludedSpecFields:
     - kmipId
     verbsDescription:
@@ -24,7 +24,7 @@ spec:
       path: /projects/{projectId}/providers/Aruba.Security/kms/{id}/kmip/{kmipId}
       requestFieldMapping:
       - inPath: kmipId
-        inCustomResource: status.id
+        inCustomResource: status.kmipId
     - action: create
       method: POST
       path: /projects/{projectId}/providers/Aruba.Security/kms/{id}/kmip
@@ -33,13 +33,13 @@ spec:
       path: /projects/{projectId}/providers/Aruba.Security/kms/{id}/kmip/{kmipId}
       requestFieldMapping:
       - inPath: kmipId
-        inCustomResource: status.id
+        inCustomResource: status.kmipId
     - action: delete
       method: DELETE
       path: /projects/{projectId}/providers/Aruba.Security/kms/{id}/kmip/{kmipId}
       requestFieldMapping:
       - inPath: kmipId
-        inCustomResource: status.id
+        inCustomResource: status.kmipId
     configurationFields:
     - fromOpenAPI:
         name: api-version

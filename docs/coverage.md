@@ -19,8 +19,8 @@ A tier states what has actually been *executed* against the live Aruba API, not 
 | Tier | Bar | Count |
 |------|-----|-------|
 | **GA** | full `create → observe → drift → delete` against the live API | 11 |
-| beta | observe verified live; mutation unproven | 2 |
-| experimental | generated, valid, reaches `Ready`, sample admitted | 21 |
+| beta | observe verified live; mutation unproven | 3 |
+| experimental | generated, valid, reaches `Ready`, sample admitted | 20 |
 | **blocked** | known non-functional, reason recorded | 0 |
 
 Only **GA** claims fitness for production use. See [ga-readiness](ga-readiness.md).
@@ -56,9 +56,9 @@ Only **GA** claims fitness for production use. See [ga-readiness](ga-readiness.m
 | schedule | `BackupPolicy` | **GA** | findby,get,create,update,delete | `metadata.name` | full lifecycle live incl. drift correction — [live-cluster-test](live-cluster-test.md) |
 | schedule | `BackupPolicyAssignment` | experimental | findby,get,create,update,delete | `metadata.name` | applies and reaches `Ready`; sample admitted by its CRD |
 | schedule | `Job` | experimental | findby,get,create,update,delete | `metadata.name` | requires exactly one `steps[]` entry bound to an existing resource (`resourceUri` + `actionUri`); lifecycle unproven |
-| security | `Key` | experimental | findby,get,create,update,delete | `name` | applies and reaches `Ready`; sample admitted by its CRD |
-| security | `Kmip` | experimental | findby,get,create,update,delete | `name` | applies and reaches `Ready`; sample admitted by its CRD |
-| security | `Kms` | experimental | findby,get,create,update,delete | `metadata.name` | applies and reaches `Ready`; sample admitted by its CRD |
+| security | `Key` | experimental | findby,get,create,update,delete | `name` | status mapping corrected to `keyId` after the old `id` mapping orphaned a real key; not yet re-run |
+| security | `Kmip` | experimental | findby,get,create,update,delete | `name` | same `kmipId` status mapping correction as Key; not yet run |
+| security | `Kms` | beta | findby,get,create,update,delete | `metadata.name` | create/observe/drift proven live; **delete blocked** — an orphaned child key left it undeletable and the CR then hung on a non-404 error ([#101](https://github.com/krateo-platformops/oasgen-provider/issues/101)) |
 | storage | `Backup` | **GA** | findby,get,create,update,delete | `metadata.name` | full lifecycle live incl. drift correction — **billable** — [live-cluster-test](live-cluster-test.md) |
 | storage | `BlockStorage` | **GA** | findby,get,create,update,delete | `metadata.name` | full lifecycle live incl. drift correction — **billable** (`billingPeriod`), run at 20 GB and deleted immediately — [live-cluster-test](live-cluster-test.md) |
 | storage | `Restore` | beta | findby,get,create,update,delete | `metadata.name` | create/observe/delete proven live as part of the storage chain; drift not exercised — [live-cluster-test](live-cluster-test.md) |

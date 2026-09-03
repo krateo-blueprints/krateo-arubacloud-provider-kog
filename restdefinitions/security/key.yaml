@@ -1,5 +1,5 @@
 # Aruba Cloud Key (security provider) - generated, no proxy.
-# Key create body is flat {name, algorithm}; item keyed by server id {keyId}.
+# Key create body is flat {name, algorithm}. The findby item carries the server id as **keyId**, not id -- mapping status.id here produced a CR that never went Ready while the key WAS created, and whose delete then had an unresolvable path parameter, so RDC released the finalizer without calling the API and the key was orphaned. An orphaned key in turn blocks deleting its Kms ('Some kms keys are not deleted').
 apiVersion: ogen.krateo.io/v1alpha1
 kind: RestDefinition
 metadata:
@@ -12,7 +12,7 @@ spec:
     identifiers:
     - name
     additionalStatusFields:
-    - id
+    - keyId
     excludedSpecFields:
     - keyId
     verbsDescription:
@@ -24,7 +24,7 @@ spec:
       path: /projects/{projectId}/providers/Aruba.Security/kms/{id}/keys/{keyId}
       requestFieldMapping:
       - inPath: keyId
-        inCustomResource: status.id
+        inCustomResource: status.keyId
     - action: create
       method: POST
       path: /projects/{projectId}/providers/Aruba.Security/kms/{id}/keys
@@ -33,13 +33,13 @@ spec:
       path: /projects/{projectId}/providers/Aruba.Security/kms/{id}/keys/{keyId}
       requestFieldMapping:
       - inPath: keyId
-        inCustomResource: status.id
+        inCustomResource: status.keyId
     - action: delete
       method: DELETE
       path: /projects/{projectId}/providers/Aruba.Security/kms/{id}/keys/{keyId}
       requestFieldMapping:
       - inPath: keyId
-        inCustomResource: status.id
+        inCustomResource: status.keyId
     configurationFields:
     - fromOpenAPI:
         name: api-version

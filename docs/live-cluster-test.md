@@ -511,3 +511,39 @@ Three things this wave found:
 That is now four separate cases of Aruba enforcing a constraint its OpenAPI does not
 express — alongside the state enum and the `steps` cardinality rule. Each one is only
 discoverable by sending a request and reading the 400.
+
+### Wave 4 (security) — one defect of mine, one upstream
+
+`Kms` created, observed, and **drift corrected** (`6a99c7c3`). Then the chain broke in
+a way worth recording in full, because the two failures compounded.
+
+**Mine.** The `Key` RestDefinition mapped `status.id`, but Aruba's findby item carries
+the server id as **`keyId`**:
+
+```json
+{"keyId": "ebe348c2…", "name": "ga-key", "algorithm": "Aes", "status": "Active"}
+```
+
+So `status` was never populated and the CR never went Ready — while the key **was
+created**. On teardown its delete path had an unresolvable `{keyId}`, and RDC's
+documented behaviour for that case is to release the finalizer *without calling the
+API* (correctly — nothing can re-derive the identifier). The result is a real key with
+no Kubernetes object left pointing at it.
+
+The generator now takes the status field from the API's own response key
+(`statusField`), so `Key` maps `status.keyId` and `Kmip` maps `status.kmipId`. My
+override table even carried the note *"item keyed by server id {keyId}"* — the fact
+was recorded and the mapping still said `id`.
+
+**Upstream.** The orphaned key then blocked deleting its parent: Aruba refuses with
+`Some kms keys are not deleted`. After I removed the key by hand and the KMS was gone —
+`GET` returning **404** — the controller's `DELETE` kept returning **400** with that
+same stale message, and the CR hung in `Deleting` until the finalizer was stripped.
+
+That is [#101](https://github.com/krateo-platformops/oasgen-provider/issues/101):
+#99 special-cased 404 on DELETE, but the `externalResourceStillExists` check is
+unreachable whenever DELETE errors at all, so a non-404 error for an absent resource
+still hangs. The observe verbs are the ground truth and the code already knows how to
+consult them.
+
+`Kms` is **beta**: create, observe and drift are proven, delete is not.

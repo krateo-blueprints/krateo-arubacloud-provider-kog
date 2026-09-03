@@ -23,7 +23,7 @@ timestamp: 2026-08-19T00:00:00Z
 
 ## Key
 
-> Key create body is flat {name, algorithm}; item keyed by server id {keyId}.
+> Key create body is flat {name, algorithm}. The findby item carries the server id as **keyId**, not id -- mapping status.id here produced a CR that never went Ready while the key WAS created, and whose delete then had an unresolvable path parameter, so RDC released the finalizer without calling the API and the key was orphaned. An orphaned key in turn blocks deleting its Kms ('Some kms keys are not deleted').
 
 | Verb | Method | Path |
 |------|--------|------|
@@ -33,7 +33,7 @@ timestamp: 2026-08-19T00:00:00Z
 | update | PUT | `/projects/{projectId}/providers/Aruba.Security/kms/{id}/keys/{keyId}` |
 | delete | DELETE | `/projects/{projectId}/providers/Aruba.Security/kms/{id}/keys/{keyId}` |
 
-status fields: `id` · excluded from spec: `keyId`
+status fields: `keyId` · excluded from spec: `keyId`
 
 Configuration query params: `api-version, filter, limit, offset, projection, sort`
 
@@ -41,7 +41,7 @@ Sample: [`samples/security/key.yaml`](../../samples/security/key.yaml) · [`key-
 
 ## Kmip
 
-> Kmip create body is flat {name}; item keyed by server id {kmipId}.
+> Kmip create body is flat {name}; the findby item carries the server id as **kmipId**, not id -- same orphaning trap as security/keys.
 
 | Verb | Method | Path |
 |------|--------|------|
@@ -51,7 +51,7 @@ Sample: [`samples/security/key.yaml`](../../samples/security/key.yaml) · [`key-
 | update | PUT | `/projects/{projectId}/providers/Aruba.Security/kms/{id}/kmip/{kmipId}` |
 | delete | DELETE | `/projects/{projectId}/providers/Aruba.Security/kms/{id}/kmip/{kmipId}` |
 
-status fields: `id` · excluded from spec: `kmipId`
+status fields: `kmipId` · excluded from spec: `kmipId`
 
 Configuration query params: `api-version, filter, includeDeleted, limit, offset, projection, sort`
 
