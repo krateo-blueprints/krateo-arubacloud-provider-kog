@@ -27,14 +27,31 @@ MANIFEST="${1:-}"
 KEEP="${2:-}"
 CONTEXT="${KUBE_CONTEXT:-kind-aruba-ga}"
 TOKEN_FILE="${ARUBA_TOKEN_FILE:-/tmp/aruba.token}"
+TOKEN_SECRET="${ARUBA_TOKEN_SECRET:-arubacloud-token}"
+TOKEN_SECRET_NS="${ARUBA_TOKEN_SECRET_NS:-default}"
 API="${ARUBA_API:-https://api.arubacloud.com}"
 TIMEOUT="${TIMEOUT:-300}"
 
 [ -n "$MANIFEST" ] || { echo "usage: $0 <manifest.yaml> [--keep]" >&2; exit 2; }
 [ -f "$MANIFEST" ]  || { echo "no such manifest: $MANIFEST" >&2; exit 2; }
-[ -f "$TOKEN_FILE" ] || { echo "no token at $TOKEN_FILE -- run scripts/get-aruba-token.sh" >&2; exit 2; }
 
 k() { kubectl --context "$CONTEXT" "$@"; }
+
+# Token source: the cluster Secret FIRST, because that is what External Secrets keeps
+# fresh and what the controllers actually authenticate with. /tmp/aruba.token is only
+# a manual-bootstrap fallback, and reading it by preference meant these scripts failed
+# with a 401 against a stale file while the cluster itself was perfectly authenticated.
+read_token() {
+  local t
+  t=$(kubectl --context "$CONTEXT" get secret "$TOKEN_SECRET" -n "$TOKEN_SECRET_NS" \
+        -o jsonpath='{.data.token}' 2>/dev/null | base64 -d 2>/dev/null)
+  if [ -n "$t" ]; then printf '%s' "$t"; return 0; fi
+  [ -f "$TOKEN_FILE" ] && cat "$TOKEN_FILE" && return 0
+  return 1
+}
+
+TOKEN=$(read_token) || { echo "no token: neither ${TOKEN_SECRET_NS}/${TOKEN_SECRET} nor ${TOKEN_FILE}" >&2; exit 2; }
+
 
 KIND=$(awk '/^kind:/{print $2; exit}' "$MANIFEST")
 NAME=$(awk '/^  name:/{print $2; exit}' "$MANIFEST")
@@ -45,7 +62,7 @@ echo "=== ${KIND}/${NAME} in ${NS} (context ${CONTEXT}) ==="
 # A CR can only be created if the token is live; failing here rather than midway
 # keeps a credential problem from being misread as a provider defect.
 code=$(curl -s -o /dev/null -w '%{http_code}' \
-  -H "Authorization: Bearer $(cat "$TOKEN_FILE")" "${API}/projects?api-version=1.0")
+  -H "Authorization: Bearer ${TOKEN}" "${API}/projects?api-version=1.0")
 [ "$code" = "200" ] || { echo "token is not usable (HTTP ${code}) -- refresh it first" >&2; exit 2; }
 echo "token OK"
 

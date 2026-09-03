@@ -448,3 +448,34 @@ All three cross-cutting defects — [#75](https://github.com/krateo-platformops/
 [#77](https://github.com/krateo-platformops/oasgen-provider/issues/77)/[#98](https://github.com/krateo-platformops/oasgen-provider/issues/98)
 — are now fixed and verified against the live API. The storage and database waves are
 no longer gated on an orphan risk.
+
+### Wave 1 complete — dependent network chain, 0.22.2
+
+`scripts/ga-chain-test.sh`, first clean end-to-end run:
+
+```
+vpc-a=6a98b403  vpc-b=6a98b440  sg=6a98b4ec  rule=6a98b57a  peering=6a98b79d
+drift failures: 0
+teardown: all 5 deleted in reverse dependency order
+residue check: 0 — clean on first attempt
+```
+
+Drift was injected **out of band** on each of the three: the object was re-`PUT` with
+`tags: ["drifted-by-hand"]` while the CR declared `tags: []`, and the controller
+removed it. That is deliberately the scenario
+[#76](https://github.com/krateo-platformops/oasgen-provider/issues/76) got wrong — an
+empty list used to match any remote list, so this exact assertion would have passed
+vacuously before 0.22.1. It is now a real test, and it passes.
+
+`SecurityGroup`, `SecurityRule` and `VpcPeering` are promoted to **GA**. `VpcPeering`
+is free: it declares no `billingPlan`, unlike `VpcPeeringRoute`, which stays opt-in.
+
+Two harness defects were fixed to get here, both found by running it:
+
+- **Teardown lost its registry to a subshell.** `VPC_A=$(apply_wait ...)` runs the
+  function in a subshell, so `CREATED+=(...)` was discarded and teardown saw one
+  resource of five. `apply_wait` now sets `LAST_ID` and is never called via `$( )`.
+  This run is the first time the `EXIT` trap has actually done its job.
+- **The scripts read a stale `/tmp/aruba.token`** and aborted with a 401 while the
+  cluster itself was perfectly authenticated. They now read the ESO-managed Secret
+  first, falling back to the file only for a manual bootstrap.

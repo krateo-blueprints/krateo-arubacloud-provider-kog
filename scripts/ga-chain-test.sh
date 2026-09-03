@@ -34,6 +34,8 @@ set -uo pipefail
 
 CONTEXT="${KUBE_CONTEXT:-kind-aruba-ga}"
 TOKEN_FILE="${ARUBA_TOKEN_FILE:-/tmp/aruba.token}"
+TOKEN_SECRET="${ARUBA_TOKEN_SECRET:-arubacloud-token}"
+TOKEN_SECRET_NS="${ARUBA_TOKEN_SECRET_NS:-default}"
 API="${ARUBA_API:-https://api.arubacloud.com}"
 PROJECT="${ARUBA_PROJECT:-69a55c8d5e6f0e14f14093ff}"
 LOCATION="${ARUBA_LOCATION:-ITBG-Bergamo}"
@@ -41,13 +43,28 @@ NS="${NS:-default}"
 GROUP="arubacloud.ogen.krateo.io"
 TIMEOUT="${TIMEOUT:-420}"
 WITH_BILLABLE=0
+DRIFT_FAIL=0
 [ "${1:-}" = "--with-billable" ] && WITH_BILLABLE=1
 
 k() { kubectl --context "$CONTEXT" "$@"; }
+
+# Token source: the cluster Secret FIRST, because that is what External Secrets keeps
+# fresh and what the controllers actually authenticate with. /tmp/aruba.token is only
+# a manual-bootstrap fallback, and reading it by preference meant these scripts failed
+# with a 401 against a stale file while the cluster itself was perfectly authenticated.
+read_token() {
+  local t
+  t=$(kubectl --context "$CONTEXT" get secret "$TOKEN_SECRET" -n "$TOKEN_SECRET_NS" \
+        -o jsonpath='{.data.token}' 2>/dev/null | base64 -d 2>/dev/null)
+  if [ -n "$t" ]; then printf '%s' "$t"; return 0; fi
+  [ -f "$TOKEN_FILE" ] && cat "$TOKEN_FILE" && return 0
+  return 1
+}
+
 CREATED=()   # "kind/name", newest last; torn down in reverse
 
-[ -f "$TOKEN_FILE" ] || { echo "no token at $TOKEN_FILE -- run scripts/get-aruba-token.sh" >&2; exit 2; }
-code=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $(cat "$TOKEN_FILE")" \
+TOKEN=$(read_token) || { echo "no token: neither ${TOKEN_SECRET_NS}/${TOKEN_SECRET} nor ${TOKEN_FILE}" >&2; exit 2; }
+code=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer ${TOKEN}" \
   "${API}/projects?api-version=1.0")
 [ "$code" = "200" ] || { echo "token is not usable (HTTP ${code}) -- refresh it first" >&2; exit 2; }
 echo "token OK, project ${PROJECT}"
@@ -68,7 +85,7 @@ teardown() {
   # debugging round the first time.
   echo
   echo "=== residue check (ground truth, allowing for async deletion) ==="
-  local tok; tok=$(cat "$TOKEN_FILE" 2>/dev/null)
+  local tok; tok=$(read_token)
   for attempt in 1 2 3 4 5 6; do
     local left
     left=$(for prov in vpcs securityGroups; do
@@ -131,6 +148,58 @@ apply_wait() { # apply_wait <kind> <name> <manifest-file>  -> sets LAST_ID
 
 hdr() { printf '%s\n\n' "=== $* ===" >&2; }
 
+# drift_check <kind> <crName> <getUrlPath> — prove the controller converges the real
+# resource back to the CR's spec.
+#
+# The CR declares metadata.tags: []. We set a tag UPSTREAM and require the controller
+# to remove it. That is deliberately the scenario oasgen-provider#76 got wrong: an
+# empty list in the spec used to match any remote list, so this silently passed while
+# the resource stayed diverged. It only became a real assertion in 0.22.1.
+drift_check() {
+  local kind="$1" name="$2" urlpath="$3"
+  local tok; tok=$(read_token)
+  local url="${API}${urlpath}?api-version=1.0"
+
+  local body
+  body=$(curl -s -H "Authorization: Bearer ${tok}" "$url")
+  if ! printf '%s' "$body" | python3 -c "import json,sys; json.load(sys.stdin)" 2>/dev/null; then
+    echo "    drift: cannot read ${kind}/${name} upstream, skipping" >&2; return 1
+  fi
+
+  # Re-PUT the object as fetched, with one tag added: the smallest possible change,
+  # and it avoids hand-building a body this script cannot know the shape of.
+  local drifted
+  drifted=$(printf '%s' "$body" | python3 -c "
+import json,sys
+d=json.load(sys.stdin)
+d.pop('status',None)
+d.setdefault('metadata',{})['tags']=['drifted-by-hand']
+for k in ('id','uri','creationDate','updateDate','createdBy','updatedBy','project','category','version'):
+    d.get('metadata',{}).pop(k,None)
+print(json.dumps(d))")
+
+  local code
+  code=$(curl -s -o /dev/null -w '%{http_code}' -X PUT "$url" \
+    -H "Authorization: Bearer ${tok}" -H "Content-Type: application/json" -d "$drifted")
+  if [ "$code" != "200" ]; then
+    echo "    drift: PUT returned ${code}, cannot inject drift into ${kind}/${name}" >&2; return 1
+  fi
+  echo "    drift injected upstream (tags=[drifted-by-hand]); waiting for correction" >&2
+
+  k annotate "${kind}.${GROUP}" "$name" -n "$NS" drift-probe="$(k get "${kind}.${GROUP}" "$name" -n "$NS" -o jsonpath='{.metadata.resourceVersion}')" --overwrite >/dev/null 2>&1
+  local deadline=$(( $(date +%s) + 300 ))
+  while :; do
+    local tags
+    tags=$(curl -s -H "Authorization: Bearer ${tok}" "$url" \
+      | python3 -c "import json,sys; print(json.load(sys.stdin).get('metadata',{}).get('tags'))" 2>/dev/null)
+    if [ "$tags" = "[]" ]; then echo "    DRIFT CORRECTED for ${kind}/${name}" >&2; return 0; fi
+    if [ "$(date +%s)" -ge "$deadline" ]; then
+      echo "    DRIFT NOT CORRECTED for ${kind}/${name} (still ${tags})" >&2; return 1
+    fi
+    sleep 20
+  done
+}
+
 # ---------------------------------------------------------------- vpc-a, vpc-b
 hdr "1. parent VPCs"
 mkvpc() {
@@ -181,7 +250,13 @@ spec:
     port: "443"
     target: {kind: Ip, value: "0.0.0.0/0"}
 EOF
-apply_wait SecurityRule ga-chain-sr /tmp/ga-sr.yaml || exit 1
+apply_wait SecurityRule ga-chain-sr /tmp/ga-sr.yaml || exit 1; SR="$LAST_ID"
+
+hdr "3b. drift — SecurityGroup and SecurityRule"
+drift_check SecurityGroup ga-chain-sg \
+  "/projects/${PROJECT}/providers/Aruba.Network/vpcs/${VPC_A}/securityGroups/${SG}" || DRIFT_FAIL=1
+drift_check SecurityRule ga-chain-sr \
+  "/projects/${PROJECT}/providers/Aruba.Network/vpcs/${VPC_A}/securityGroups/${SG}/securityRules/${SR}" || DRIFT_FAIL=1
 
 # ---------------------------------------------------------------- vpc peering
 hdr "4. VpcPeering vpc-a -> vpc-b"
@@ -202,6 +277,10 @@ EOF
 apply_wait VpcPeering ga-chain-peering /tmp/ga-peer.yaml || exit 1; PEER="$LAST_ID"
 
 # ---------------------------------------------------------- peering route ($$)
+hdr "4b. drift — VpcPeering"
+drift_check VpcPeering ga-chain-peering \
+  "/projects/${PROJECT}/providers/Aruba.Network/vpcs/${VPC_A}/vpcPeerings/${PEER}" || DRIFT_FAIL=1
+
 if [ "$WITH_BILLABLE" = "1" ]; then
   hdr "5. VpcPeeringRoute (BILLABLE)"
   cat > /tmp/ga-route.yaml <<EOF
@@ -226,6 +305,6 @@ else
 fi
 
 echo
-echo "RESULT: chain created and observed."
+echo "RESULT: chain created and observed. drift failures: ${DRIFT_FAIL}"
 echo "  vpc-a=${VPC_A} vpc-b=${VPC_B} sg=${SG} rule=ok peering=${PEER}"
 echo "Teardown follows; residue is verified after it."

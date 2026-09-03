@@ -66,19 +66,17 @@ TIERS = {
         "neither safe to perturb — [live-cluster-test](live-cluster-test.md)",
     ),
     ("network", "SecurityGroup"): (
-        "beta",
-        "create/observe/delete proven live; drift not yet exercised — "
-        "[live-cluster-test](live-cluster-test.md)",
+        "ga",
+        "full lifecycle live incl. drift correction — [live-cluster-test](live-cluster-test.md)",
     ),
     ("network", "SecurityRule"): (
-        "beta",
-        "create/observe/delete proven live; drift not yet exercised — "
-        "[live-cluster-test](live-cluster-test.md)",
+        "ga",
+        "full lifecycle live incl. drift correction — [live-cluster-test](live-cluster-test.md)",
     ),
     ("network", "VpcPeering"): (
-        "beta",
-        "create/observe/delete proven live (free — no `billingPlan`); drift not yet "
-        "exercised — [live-cluster-test](live-cluster-test.md)",
+        "ga",
+        "full lifecycle live incl. drift correction, free (no `billingPlan`) — "
+        "[live-cluster-test](live-cluster-test.md)",
     ),
     ("network", "VpcPeeringRoute"): (
         "experimental",

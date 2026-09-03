@@ -18,8 +18,8 @@ A tier states what has actually been *executed* against the live Aruba API, not 
 
 | Tier | Bar | Count |
 |------|-----|-------|
-| **GA** | full `create → observe → drift → delete` against the live API | 4 |
-| beta | observe verified live; mutation unproven | 4 |
+| **GA** | full `create → observe → drift → delete` against the live API | 7 |
+| beta | observe verified live; mutation unproven | 1 |
 | experimental | generated, valid, reaches `Ready`, sample admitted | 26 |
 | **blocked** | known non-functional, reason recorded | 0 |
 
@@ -43,11 +43,11 @@ Only **GA** claims fitness for production use. See [ga-readiness](ga-readiness.m
 | metering | `AlertRule` | experimental | findby,get,create,update,delete | `metadata.name` | applies and reaches `Ready`; sample admitted by its CRD |
 | network | `ElasticIp` | experimental | findby,get,create,update,delete | `metadata.name` | applies and reaches `Ready`; sample admitted by its CRD |
 | network | `LoadBalancer` | experimental | findby,get | `name` | unblocked on 0.22.1 — generates a `name` selector and the CR is accepted ([#75](https://github.com/krateo-platformops/oasgen-provider/issues/75) fixed); no load balancer exists in the test account, so a positive match is unproven |
-| network | `SecurityGroup` | beta | findby,get,create,update,delete | `metadata.name` | create/observe/delete proven live; drift not yet exercised — [live-cluster-test](live-cluster-test.md) |
-| network | `SecurityRule` | beta | findby,get,create,update,delete | `metadata.name` | create/observe/delete proven live; drift not yet exercised — [live-cluster-test](live-cluster-test.md) |
+| network | `SecurityGroup` | **GA** | findby,get,create,update,delete | `metadata.name` | full lifecycle live incl. drift correction — [live-cluster-test](live-cluster-test.md) |
+| network | `SecurityRule` | **GA** | findby,get,create,update,delete | `metadata.name` | full lifecycle live incl. drift correction — [live-cluster-test](live-cluster-test.md) |
 | network | `Subnet` | **GA** | findby,get,create,update,delete | `metadata.name` | full lifecycle live — [live-cluster-test](live-cluster-test.md) |
 | network | `Vpc` | **GA** | findby,get,create,update,delete | `metadata.name` | full lifecycle live incl. drift correction — [live-cluster-test](live-cluster-test.md) |
-| network | `VpcPeering` | beta | findby,get,create,update,delete | `metadata.name` | create/observe/delete proven live (free — no `billingPlan`); drift not yet exercised — [live-cluster-test](live-cluster-test.md) |
+| network | `VpcPeering` | **GA** | findby,get,create,update,delete | `metadata.name` | full lifecycle live incl. drift correction, free (no `billingPlan`) — [live-cluster-test](live-cluster-test.md) |
 | network | `VpcPeeringRoute` | experimental | findby,get,create,update,delete | `metadata.name` | **billable** (`properties.billingPlan.billingPeriod`); opt-in behind `ga-chain-test.sh --with-billable`, never executed |
 | network | `VpnRoute` | experimental | findby,get,create,update,delete | `metadata.name` | applies and reaches `Ready`; sample admitted by its CRD |
 | network | `VpnTunnel` | experimental | findby,get,create,update,delete | `metadata.name` | applies and reaches `Ready`; sample admitted by its CRD |
