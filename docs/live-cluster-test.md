@@ -563,3 +563,34 @@ Two things still open:
   first, most likely because the KMS was still settling. Every individual step is now
   proven — drift in run 1, delete in run 2 — but never in a single pass, so it stays
   **beta**: GA should mean one clean end-to-end run, not a union of partial ones.
+
+#### The id-field lesson, in full
+
+Three attempts, three different wrong answers, all from the same provider:
+
+| Resource | Path parameter | **Response field** | What I assumed |
+|----------|----------------|--------------------|----------------|
+| `security/Key` | `{keyId}` | `keyId` | `id` — status never populated, key orphaned |
+| `security/Kmip` | `{kmipId}` | **`id`** | `kmipId` — status never populated, kmip orphaned |
+| `project/Folder` | `{id}` | `id` | `id` — correct by luck |
+
+The first fix replaced "always `id`" with "use the path-parameter name", which fixed
+Key and broke Kmip in exactly the same way. Both guesses were wrong because both were
+guesses: **the findby response schema is the only authority**, and it is right there
+in the OAS.
+
+The generator now derives it (`response_id_field`), preferring a literal `id`, then
+any `*Id` field, and returning **None** when there is none at all — which is what
+distinguishes a name-keyed resource like `Database` or `Grant` from one whose id is
+merely called something else. Conflating those two cases is what sent the mapping to
+`spec.name` for resources that do have a server id.
+
+The failure mode is worth stating plainly because it costs money: a CR whose status is
+never populated cannot address its own resource on delete, so RDC releases the
+finalizer without calling the API — correctly, since nothing can re-derive the
+identifier — and the real resource is left running with no Kubernetes object pointing
+at it. For `security` that also blocks deleting the parent KMS, which is how one bad
+mapping turned into a manual cleanup twice.
+
+All 34 mappings are now derived rather than declared, so this class is closed for
+every resource, not just the two that failed.

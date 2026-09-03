@@ -142,11 +142,29 @@ def wait_ready(kind, name):
         time.sleep(10)
 
 
-def upstream_id(kind, name):
-    for path in ("{.status.metadata.id}", "{.status.id}"):
+def upstream_id(kind, name, id_path=None):
+    """Find the upstream id in status, whatever the API chose to call it.
+
+    Not every resource reports `id`. Aruba returns `keyId` for security/Key and
+    `kmipId` for Kmip, and a runner that only knew metadata.id and id declared those
+    resources broken when they were in fact working perfectly -- the CR was Ready with
+    status.keyId populated. Fall back to any *Id field before giving up.
+    """
+    candidates = [f"{{.status.{id_path}}}"] if id_path else []
+    candidates += ["{.status.metadata.id}", "{.status.id}"]
+    for path in candidates:
         r = kubectl("get", f"{kind}.{GROUP}", name, "-n", NS, "-o", f"jsonpath={path}")
         if r.stdout.strip():
             return r.stdout.strip()
+
+    r = kubectl("get", f"{kind}.{GROUP}", name, "-n", NS, "-o", "jsonpath={.status}")
+    try:
+        st = json.loads(r.stdout or "{}")
+    except Exception:
+        return None
+    for k, v in st.items():
+        if k.lower().endswith("id") and isinstance(v, str) and v:
+            return v
     return None
 
 
@@ -246,7 +264,7 @@ def main():
 
             if not wait_ready(kind, name):
                 raise RuntimeError(f"{kind}/{name} never became Ready")
-            rid = upstream_id(kind, name)
+            rid = upstream_id(kind, name, res.get("idPath"))
             if not rid:
                 raise RuntimeError(f"{kind}/{name} reported no upstream id")
             ids[kind] = rid

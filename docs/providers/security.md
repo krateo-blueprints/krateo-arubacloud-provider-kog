@@ -51,7 +51,7 @@ Sample: [`samples/security/key.yaml`](../../samples/security/key.yaml) · [`key-
 | update | PUT | `/projects/{projectId}/providers/Aruba.Security/kms/{id}/kmip/{kmipId}` |
 | delete | DELETE | `/projects/{projectId}/providers/Aruba.Security/kms/{id}/kmip/{kmipId}` |
 
-status fields: `kmipId` · excluded from spec: `kmipId`
+status fields: `id` · excluded from spec: `kmipId`
 
 Configuration query params: `api-version, filter, includeDeleted, limit, offset, projection, sort`
 

@@ -12,7 +12,7 @@ spec:
     identifiers:
     - name
     additionalStatusFields:
-    - kmipId
+    - id
     excludedSpecFields:
     - kmipId
     verbsDescription:
@@ -24,7 +24,7 @@ spec:
       path: /projects/{projectId}/providers/Aruba.Security/kms/{id}/kmip/{kmipId}
       requestFieldMapping:
       - inPath: kmipId
-        inCustomResource: status.kmipId
+        inCustomResource: status.id
     - action: create
       method: POST
       path: /projects/{projectId}/providers/Aruba.Security/kms/{id}/kmip
@@ -33,13 +33,13 @@ spec:
       path: /projects/{projectId}/providers/Aruba.Security/kms/{id}/kmip/{kmipId}
       requestFieldMapping:
       - inPath: kmipId
-        inCustomResource: status.kmipId
+        inCustomResource: status.id
     - action: delete
       method: DELETE
       path: /projects/{projectId}/providers/Aruba.Security/kms/{id}/kmip/{kmipId}
       requestFieldMapping:
       - inPath: kmipId
-        inCustomResource: status.kmipId
+        inCustomResource: status.id
     configurationFields:
     - fromOpenAPI:
         name: api-version

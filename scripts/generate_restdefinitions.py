@@ -167,7 +167,7 @@ OVERRIDES = {
         note=("Grant is name-keyed (create {user, role}); item path segment is "
               "{username}. No update/dedicated id.")),
     "security/keys": dict(
-        metaWrap=False, idField="name", statusId="status.keyId", statusField="keyId",
+        metaWrap=False, idField="name",
         note=("Key create body is flat {name, algorithm}. The findby item carries the "
               "server id as **keyId**, not id -- mapping status.id here produced a CR "
               "that never went Ready while the key WAS created, and whose delete then "
@@ -175,7 +175,7 @@ OVERRIDES = {
               "without calling the API and the key was orphaned. An orphaned key in "
               "turn blocks deleting its Kms ('Some kms keys are not deleted').")),
     "security/kmip": dict(
-        metaWrap=False, idField="name", statusId="status.kmipId", statusField="kmipId",
+        metaWrap=False, idField="name",
         note=("Kmip create body is flat {name}; the findby item carries the server id "
               "as **kmipId**, not id -- same orphaning trap as security/keys.")),
 }
@@ -291,10 +291,43 @@ def build(provider, spec):
             provider=provider, kind=kind, seg=seg, coll=coll, ov=ov, meta=meta,
             readonly=readonly, has_list=has_list, has_create=has_create,
             get_op=get_op, put_op=put_op, del_op=del_op,
+            respId=response_id_field(spec, coll) if has_list else None,
             get_q=query_params(spec, get_op[0], "get") if get_op else [],
             list_q=query_params(spec, coll, "get") if has_list else [],
         ))
     return results
+
+
+def response_id_field(spec, coll):
+    """The name the findby response actually uses for the server-assigned id.
+
+    Guessing this is how a resource gets orphaned. Two live cases from the same
+    provider disagree: security/keys returns `keyId`, security/kmip returns plain
+    `id` -- even though their path parameters are {keyId} and {kmipId} respectively.
+    Assuming "id" broke Key (status never populated, so delete could not address the
+    real key and it was left behind); assuming the path-parameter name then broke
+    Kmip the same way in the other direction. The response schema is the only
+    authority, so read it.
+    """
+    op = (spec.get("paths", {}).get(coll) or {}).get("get")
+    if not op:
+        return None
+    for cv in ((op.get("responses", {}).get("200") or {}).get("content") or {}).values():
+        sch = deref(spec, cv.get("schema", {}))
+        props, _ = merged_props(spec, sch)
+        item = deref(spec, (props.get("values") or props.get("value") or {}))
+        item = deref(spec, item.get("items", {})) if item.get("type") == "array" else item
+        iprops, _ = merged_props(spec, item)
+        if "id" in iprops:
+            return "id"
+        for k in iprops:
+            if k.lower().endswith("id") and not k.lower().startswith("private"):
+                return k
+        # None, not "id": a name-keyed resource (Database, Grant, DatabaseUser) has no
+        # server id at all, and conflating that with "the id is called id" is what sends
+        # the mapping to spec.<name> for resources that DO have one.
+        return None
+    return None
 
 
 def id_target(r):
@@ -304,6 +337,8 @@ def id_target(r):
         return "status.metadata.id"
     if ov.get("statusId"):
         return ov["statusId"]
+    if r.get("respId"):
+        return f"status.{r['respId']}"
     if ov.get("idField"):
         return f"spec.{ov['idField']}"
     return "status.id"
@@ -396,11 +431,9 @@ def render(r):
         # for every flat resource silently breaks the ones that return keyId/kmipId:
         # status is never populated, so the CR cannot go Ready and its delete cannot
         # address the resource -- which orphans it. See security/keys.
-        status_field = ov.get("statusField")
-        if status_field:
-            resource["additionalStatusFields"] = [status_field]
-        elif id_target(r) == "status.id":
-            resource["additionalStatusFields"] = ["id"]
+        tgt = id_target(r)
+        if tgt.startswith("status."):
+            resource["additionalStatusFields"] = [tgt.split(".", 1)[1]]
     else:  # read-only, flat
         resource["identifiers"] = ["name"]
 
