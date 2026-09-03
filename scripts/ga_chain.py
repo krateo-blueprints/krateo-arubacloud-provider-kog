@@ -142,6 +142,19 @@ def wait_ready(kind, name):
         time.sleep(10)
 
 
+def served_version(kind):
+    """Ask the cluster which version the CRD actually serves.
+
+    Not every resource is v1-0-0. The CRD version derives from the OAS info.version,
+    and metering declares "1.0" rather than "1.0.0", so AlertRule is served at v1-0.
+    Hardcoding a default meant a chain entry for it would be rejected outright.
+    """
+    r = kubectl("get", "crd", "-o",
+                "jsonpath={range .items[?(@.spec.names.kind=='" + kind + "')]}"
+                "{.spec.versions[0].name}{end}")
+    return r.stdout.strip() or None
+
+
 def upstream_id(kind, name, id_path=None):
     """Find the upstream id in status, whatever the API chose to call it.
 
@@ -248,8 +261,9 @@ def main():
                 continue
 
             spec = expand(res["spec"], variables, ids, kind)
+            version = res.get("version") or served_version(kind) or "v1-0-0"
             manifest = {
-                "apiVersion": f"{GROUP}/{res.get('version', 'v1-0-0')}",
+                "apiVersion": f"{GROUP}/{version}",
                 "kind": kind,
                 "metadata": {"name": name, "namespace": NS,
                              "annotations": {"krateo.io/connector-verbose": "true"}},
