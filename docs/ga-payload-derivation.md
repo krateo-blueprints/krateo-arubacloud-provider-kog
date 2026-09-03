@@ -42,20 +42,44 @@ points at a documentation page instead.
 `openapi/baremetal-provider.json` contains **zero delete operations**. The only `hpcs`
 operations are `POST /hpcs`, three `GET`s, and two `PUT`s (`name`, `automaticrenew`).
 
-The consequences are worth stating plainly:
+Verified against Aruba's own published documentation, not just the vendored spec: the
+[`Arubacloud/api`](https://github.com/Arubacloud/api) docs tree contains exactly seven
+baremetal operations — `create-hpc`, `list-hpc`, `get-hpc`, `get-hpc-services`,
+`check-hpc-creation-status`, `rename-hpc`, `set-hpc-automatic-renew`. There is no
+delete, cancel, terminate or decommission operation anywhere.
 
-- **Creating an HPC is irreversible through the API.** `kubectl delete` removes the CR;
-  the bare-metal machine keeps running and keeps billing.
-- The GA bar — `create → observe → delete` for a resource with no update verb — is
-  therefore **unreachable**, not merely untested.
-- Its payload is also underivable: `node.sku`, `node.os`, `network.bandwidth` and
-  `firewall.sku` are bare strings with no enum, and **no SKU, OS or bandwidth value
-  appears anywhere** in the 13 vendored documents, the docs, the samples or the
-  compositions.
+**Correction to an earlier claim.** I first wrote that creating an HPC is
+"irreversible". That is too strong. Deprovisioning exists — it is just not a delete:
 
-This is a decision, not a task: exercising HPC means provisioning bare metal that
-cannot be deprovisioned through the API this provider uses. Recorded here rather than
-attempted.
+```jsonc
+// PUT /projects/{projectId}/providers/Aruba.Baremetal/hpcs/{id}/automaticrenew
+{ "paymentMethodId": string|null,
+  "months": int|null,
+  "activate": boolean,                 // false = stop renewing
+  "actionOnFolder": "RemoveFromFolder" | "DisableSafeFolder" }
+```
+
+Setting `activate: false` stops renewal, so the machine **lapses at the end of its
+paid term** rather than being removed on demand. That is a subscription lifecycle, and
+`months` + `paymentMethodId` in that body confirm it. The create body carries no term
+field at all, so the term is implicit.
+
+What this means concretely:
+
+- The spend is **bounded** (one term), not unbounded — but it is **not recoverable
+  within a test run**, and a chain's teardown cannot return the account to its prior
+  state.
+- The GA bar `create → observe → delete` is **unreachable as written**, because no
+  delete exists. It could honestly be redefined for this resource as
+  `create → observe → disable-renew`, which is what the API actually offers — but that
+  still leaves real bare metal running until the term expires.
+- The payload is **underivable from published sources**: `node.sku`, `node.os`,
+  `network.bandwidth` and `firewall.sku` are bare strings with no enum, and Aruba's
+  metadata page — which does publish CloudServer flavors, KaaS sizes and DBaaS engines
+  — **lists nothing for baremetal at all**. Confirmed by fetching it.
+
+So HPC is blocked on two independent things: values that cannot be sourced, and a
+lifecycle that cannot be closed. Recorded rather than attempted.
 
 ## Fixed as a direct result
 
