@@ -8,9 +8,11 @@ timestamp: 2026-09-01T00:00:00Z
 
 # Completing GA across all 34 resources
 
-Companion to [ga-readiness](ga-readiness.md), which defines the tiers. This is the
-route from **4 GA / 4 beta / 25 experimental / 1 blocked** to a defensible GA claim
-across the whole surface.
+**Goal: every resource at GA.**
+
+Companion to [ga-readiness](ga-readiness.md), which defines the tiers. Standing at the
+time of writing: **11 GA / 3 beta / 20 experimental / 0 blocked**, up from 4 GA when
+live verification began.
 
 ## The bar, restated precisely
 
@@ -165,12 +167,43 @@ that explicitly is better than an indefinite backlog.
 
 ## Definition of done
 
-Not "34 resources GA". That is not achievable honestly while CloudServer is blocked
-upstream and Kaas costs real money per verification. Done is:
+**The goal is every resource at GA.** Not a curated core with the rest documented as
+sharp edges — all 34.
 
-1. No P0 open.
-2. Every resource carries a tier backed by a linked run, or a recorded reason it
-   cannot be promoted.
-3. Free resources are re-verified nightly; billable ones carry a dated run.
-4. The README states the provider's overall status in terms a user can act on:
-   which resources are safe for production, which are sharp, which are known broken.
+That raises the bar on four things previously written off as "document as beta". They
+are now work items:
+
+| Obstacle | What GA requires instead |
+|----------|--------------------------|
+| `CloudServer` RESTActions never executed | Wire `URL_SNOWPLOW`/`URL_AUTHN` into the generated RDC deployment and drive the delegated create/update/delete for real |
+| `Kaas`, `Dbaas`, `Hpc` cost real money per run | Accept the spend, record a dated run per resource, and let CI re-verify only the free set |
+| `DatabaseUser.password` is a plaintext spec field | Fix it before `database` is promoted — a GA resource must not require a secret in its spec |
+| `Key`, `Kmip`, `Restore`, `Folder` have no safe field to perturb | Declare a per-resource drift field in the chain fixture rather than relying on `metadata.tags` |
+
+Done means **all** of:
+
+1. Every one of the 34 has a recorded, reproducible lifecycle against the live API —
+   `create → observe → drift → delete`, or `create → observe → delete` for the eight
+   with no `update` verb.
+2. No P0 open.
+3. The free subset is re-verified nightly; billable resources carry a dated run and a
+   stated re-verification interval.
+4. Every tier in `docs/coverage.md` links to the run that earned it.
+5. The account is provably clean after every run.
+
+### Honest risk register for "everything GA"
+
+Three of these may not be reachable, and saying so now is better than discovering it
+at the end:
+
+- **`Hpc`** is bare metal. Its `async` block has never been observed reaching
+  `Succeeded`, and a single provisioning run is expensive and slow.
+- **`CloudServer`** depends on a snowplow deployment no chart currently produces; that
+  is upstream work, not test work.
+- **`BackupPolicyAssignment`, `Restore`, `Grant`** are action-shaped resources whose
+  "drift" may not be meaningful — there may be nothing to converge. Where that is true,
+  the right answer is to say the GA bar is `create → observe → delete` for them, as it
+  already is for the eight without an update verb, rather than to invent a test.
+
+Anything that turns out genuinely unreachable gets recorded as such, with the reason
+and what would unblock it — not quietly relabelled.
