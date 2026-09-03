@@ -306,10 +306,51 @@ def build(provider, spec):
             readonly=readonly, has_list=has_list, has_create=has_create,
             get_op=get_op, put_op=put_op, del_op=del_op,
             respId=response_id_field(spec, coll) if has_list else None,
+            updatableScope=(needs_updatable_scope(spec, coll, put_op[0])
+                            if (has_create and put_op) else False),
             get_q=query_params(spec, get_op[0], "get") if get_op else [],
             list_q=query_params(spec, coll, "get") if has_list else [],
         ))
     return results
+
+
+def _body_leaves(spec, path, method):
+    op = (spec.get("paths", {}).get(path) or {}).get(method) or {}
+    rb = deref(spec, op.get("requestBody", {}))
+    for cv in (rb.get("content") or {}).values():
+        return set(leaf_paths(spec, cv.get("schema", {})))
+    return set()
+
+
+def leaf_paths(spec, sch, prefix="", depth=0, out=None):
+    out = out if out is not None else []
+    sch = deref(spec, sch)
+    for sub in sch.get("allOf", []) or []:
+        leaf_paths(spec, sub, prefix, depth + 1, out)
+    for k, v in (sch.get("properties") or {}).items():
+        v2 = deref(spec, v)
+        if v2.get("type") == "object" and v2.get("properties") and depth < 5:
+            leaf_paths(spec, v, prefix + k + ".", depth + 1, out)
+        else:
+            out.append(prefix + k)
+    return out
+
+
+def needs_updatable_scope(spec, create_path, update_path):
+    """True when the create body can express fields the update body cannot.
+
+    Those fields are unfixable by definition: the controller sees a difference, calls
+    UPDATE, the update cannot carry the field, and the difference is still there on the
+    next reconcile -- forever, while the resource bills. compareScope: updatable
+    (oasgen-provider#51, shipped in 0.22.1) narrows drift to what the update verb can
+    actually send, which is the only set the controller can converge.
+
+    Fixable drift is unaffected: metadata.tags lives in both bodies, which is why the
+    live drift proofs for SecurityRule and VpcPeering still hold under this scope.
+    """
+    create = _body_leaves(spec, create_path, "post")
+    update = _body_leaves(spec, update_path, "put")
+    return bool(create and update and (create - update))
 
 
 def response_is_meta_wrapped(spec, coll):
@@ -471,6 +512,9 @@ def render(r):
             resource["additionalStatusFields"] = [tgt.split(".", 1)[1]]
     else:  # read-only, flat
         resource["identifiers"] = ["name"]
+
+    if r.get("updatableScope"):
+        resource["compareScope"] = "updatable"
 
     if excluded:
         resource["excludedSpecFields"] = sorted(excluded)

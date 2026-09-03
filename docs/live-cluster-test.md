@@ -631,3 +631,40 @@ Two further notes on AlertRule, both blocking:
 - Its remaining spec fields (`serviceTypology`, `metric`, `rule`, `theshold`, `um`,
   `duration`, `state`) have **no enum in the OAS**, and the verifier's advice was to
   read legal values from a live findby response — which 404 makes impossible.
+
+### `compareScope: updatable` applied where the update body is narrower
+
+Derived, not declared: for every resource with both verbs, the create body's leaf
+paths are compared with the update body's. Where create can express something update
+cannot, that difference is **unfixable** — the controller sees it, calls UPDATE, the
+update cannot carry the field, and the difference is still there next reconcile,
+forever, while the resource bills. That is exactly what
+[oasgen-provider#51](https://github.com/krateo-platformops/oasgen-provider/issues/51)
+added `compareScope: updatable` for, shipped in 0.22.1 and until now unused here.
+
+Eight resources qualify:
+
+| Resource | create → update leaves | fields update cannot fix |
+|---|---|---|
+| `container/Kaas` | 20 → 11 | `autoscalerProfile`, `identity.*`, `nodeCidr.*`, … |
+| `container/Registry` | 11 → 5 | `adminUser.username`, `blockStorage.uri`, `size`, … |
+| `container/KaasBackup` | 6 → 4 | `retentionDays`, `type` |
+| `network/VpcPeering` | 4 → 2 | `metadata.location.value`, `properties` |
+| `network/VpcPeeringRoute` | 4 → 2 | `metadata.location.value`, `properties` |
+| `network/SecurityRule` | 4 → 3 | `properties` |
+| `network/VpnRoute` | 4 → 3 | `properties` |
+| `security/Key` | 2 → 1 | `algorithm` |
+
+**Re-verified rather than assumed.** `SecurityRule` and `VpcPeering` were already GA on
+drift evidence, and narrowing their comparison changes what drift means for them. The
+free network chain was re-run with the new scope live:
+
+```
+DRIFT CORRECTED for SecurityGroup/ga-chain-sg
+DRIFT CORRECTED for SecurityRule/ga-chain-sr
+DRIFT CORRECTED for VpcPeering/ga-chain-peering
+drift failures: 0        residue: 0 — clean
+```
+
+`metadata.tags` lives in both bodies, so fixable drift is still detected; only the
+unfixable comparison is dropped. The GA claims stand on re-executed evidence.

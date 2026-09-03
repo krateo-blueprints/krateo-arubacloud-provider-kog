@@ -12,6 +12,7 @@ spec:
     - metadata.name
     additionalStatusFields:
     - metadata.id
+    compareScope: updatable
     excludedSpecFields:
     - id
     verbsDescription:

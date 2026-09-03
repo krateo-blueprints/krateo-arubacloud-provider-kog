@@ -13,6 +13,7 @@ spec:
     - name
     additionalStatusFields:
     - keyId
+    compareScope: updatable
     excludedSpecFields:
     - keyId
     verbsDescription:
