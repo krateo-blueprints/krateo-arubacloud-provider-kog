@@ -9,9 +9,9 @@ spec:
   resource:
     kind: AlertRule
     identifiers:
-    - metadata.name
+    - name
     additionalStatusFields:
-    - metadata.id
+    - id
     excludedSpecFields:
     - alertRulesId
     verbsDescription:
@@ -23,7 +23,7 @@ spec:
       path: /projects/{projectId}/providers/Aruba.Insight/alertRules/{alertRulesId}
       requestFieldMapping:
       - inPath: alertRulesId
-        inCustomResource: status.metadata.id
+        inCustomResource: status.id
     - action: create
       method: POST
       path: /projects/{projectId}/providers/Aruba.Insight/alertRules
@@ -32,13 +32,13 @@ spec:
       path: /projects/{projectId}/providers/Aruba.Insight/alertRules/{alertRulesId}
       requestFieldMapping:
       - inPath: alertRulesId
-        inCustomResource: status.metadata.id
+        inCustomResource: status.id
     - action: delete
       method: DELETE
       path: /projects/{projectId}/providers/Aruba.Insight/alertRules/{alertRulesId}
       requestFieldMapping:
       - inPath: alertRulesId
-        inCustomResource: status.metadata.id
+        inCustomResource: status.id
     configurationFields:
     - fromOpenAPI:
         name: api-version

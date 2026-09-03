@@ -289,6 +289,17 @@ def build(provider, spec):
                     meta = "metadata" in props
                     break
 
+            # `meta` drives identifiers (metadata.name) and additionalStatusFields
+            # (metadata.id) -- both of which are read from the RESPONSE, so the response
+            # decides, not the create body. metering/AlertRule posts {metadata, properties}
+            # but every read returns a FLAT AlertRulesDto with a root `id` and no metadata
+            # at all. Declaring metadata.name there means findby can never match, so the
+            # controller re-POSTs every reconcile (unbounded duplicate creates against a
+            # live account), and metadata.id never populates, so delete has an
+            # unresolvable path parameter and the resource is orphaned.
+            if meta and has_list and not response_is_meta_wrapped(spec, coll):
+                meta = False
+
         readonly = key in READONLY or not has_create
         results.append(dict(
             provider=provider, kind=kind, seg=seg, coll=coll, ov=ov, meta=meta,
@@ -299,6 +310,27 @@ def build(provider, spec):
             list_q=query_params(spec, coll, "get") if has_list else [],
         ))
     return results
+
+
+def response_is_meta_wrapped(spec, coll):
+    """True when the findby response items carry a `metadata` object.
+
+    Read separately from the create body because the two genuinely disagree: several
+    resources accept {metadata, properties} on POST and return a flat DTO on GET.
+    """
+    op = (spec.get("paths", {}).get(coll) or {}).get("get")
+    if not op:
+        return True                      # unknown -> leave the create-body verdict alone
+    for cv in ((op.get("responses", {}).get("200") or {}).get("content") or {}).values():
+        sch = deref(spec, cv.get("schema", {}))
+        props, _ = merged_props(spec, sch)
+        item = deref(spec, (props.get("values") or props.get("value") or {}))
+        item = deref(spec, item.get("items", {})) if item.get("type") == "array" else item
+        iprops, _ = merged_props(spec, item)
+        if not iprops:
+            return True                  # could not resolve -> do not second-guess
+        return "metadata" in iprops
+    return True
 
 
 def response_id_field(spec, coll):

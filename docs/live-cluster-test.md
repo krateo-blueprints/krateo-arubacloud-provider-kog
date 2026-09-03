@@ -594,3 +594,40 @@ mapping turned into a manual cleanup twice.
 
 All 34 mappings are now derived rather than declared, so this class is closed for
 every resource, not just the two that failed.
+
+### AlertRule: the create body and the read responses disagree
+
+Found by the adversarial derivation, then confirmed straight from `metering.json`:
+
+| | shape |
+|---|---|
+| `POST /alertRules` body | `{metadata, properties}` — metadata-wrapped |
+| `GET /alertRules` items | `{id, alertModel, request, resourceVersion, …}` — **flat** |
+| `GET /alertRules/{id}` | same flat DTO |
+
+The generator derived `meta` from the **create body**, so the RestDefinition declared
+`identifiers: [metadata.name]` and `additionalStatusFields: [metadata.id]`. Neither
+field exists in anything the API returns, which means:
+
+- **findby can never match**, so the controller concludes the resource does not exist
+  and POSTs again — every reconcile, without bound, against a live account.
+- **`status.metadata.id` never populates**, so delete has an unresolvable path
+  parameter and RDC releases the finalizer without calling the API — orphaning
+  whatever was created.
+
+This is the same failure that orphaned `security/Key`, but with a worse first half:
+Key created one resource and lost track of it, whereas this would create resources
+*repeatedly*.
+
+`meta` is now derived from the **response**, because identifiers and status fields are
+read from the response — the create body has no say in it. Only `AlertRule` changed
+across all 34; `KeyPair`, which posts and returns metadata, is untouched and its GA
+evidence stands.
+
+Two further notes on AlertRule, both blocking:
+
+- `Aruba.Insight/alertRules` returns **404** on this account and `Aruba.Metering/…`
+  returns 400, so the resource may not be reachable here at all.
+- Its remaining spec fields (`serviceTypology`, `metric`, `rule`, `theshold`, `um`,
+  `duration`, `state`) have **no enum in the OAS**, and the verifier's advice was to
+  read legal values from a live findby response — which 404 makes impossible.

@@ -16,7 +16,7 @@ timestamp: 2026-08-19T00:00:00Z
 
 | Kind | Verbs | Identifier(s) | Delegation |
 |------|-------|---------------|------------|
-| `AlertRule` | findby, get, create, update, delete | `metadata.name` | — |
+| `AlertRule` | findby, get, create, update, delete | `name` | — |
 
 
 ## AlertRule
@@ -29,7 +29,7 @@ timestamp: 2026-08-19T00:00:00Z
 | update | PUT | `/projects/{projectId}/providers/Aruba.Insight/alertRules/{alertRulesId}` |
 | delete | DELETE | `/projects/{projectId}/providers/Aruba.Insight/alertRules/{alertRulesId}` |
 
-status fields: `metadata.id` · excluded from spec: `alertRulesId`
+status fields: `id` · excluded from spec: `alertRulesId`
 
 Configuration query params: `api-version, filter, limit, offset, projection, serviceName, serviceTypology, sort`
 

@@ -40,7 +40,7 @@ Only **GA** claims fitness for production use. See [ga-readiness](ga-readiness.m
 | database | `DatabaseUser` | experimental | findby,get,create,delete | `username` | applies and reaches `Ready`; sample admitted by its CRD |
 | database | `Dbaas` | experimental | findby,get,create,update,delete | `metadata.name` | applies and reaches `Ready`; sample admitted by its CRD |
 | database | `Grant` | experimental | findby,get,create,delete | `user` | applies and reaches `Ready`; sample admitted by its CRD |
-| metering | `AlertRule` | experimental | findby,get,create,update,delete | `metadata.name` | applies and reaches `Ready`; sample admitted by its CRD |
+| metering | `AlertRule` | experimental | findby,get,create,update,delete | `name` | applies and reaches `Ready`; sample admitted by its CRD |
 | network | `ElasticIp` | experimental | findby,get,create,update,delete | `metadata.name` | applies and reaches `Ready`; sample admitted by its CRD |
 | network | `LoadBalancer` | experimental | findby,get | `name` | unblocked on 0.22.1 — generates a `name` selector and the CR is accepted ([#75](https://github.com/krateo-platformops/oasgen-provider/issues/75) fixed); no load balancer exists in the test account, so a positive match is unproven |
 | network | `SecurityGroup` | **GA** | findby,get,create,update,delete | `metadata.name` | full lifecycle live incl. drift correction — [live-cluster-test](live-cluster-test.md) |
