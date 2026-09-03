@@ -1,0 +1,81 @@
+name: storage
+vars:
+  PROJECT: 69a55c8d5e6f0e14f14093ff
+  LOCATION: ITBG-Bergamo
+residue:
+- /projects/${PROJECT}/providers/Aruba.Storage/blockStorages
+- /projects/${PROJECT}/providers/Aruba.Storage/snapshots
+- /projects/${PROJECT}/providers/Aruba.Storage/backups
+resources:
+- kind: BlockStorage
+  name: ga-blockstorage
+  billable: true
+  spec:
+    configurationRef:
+      name: blockstorage-config
+      namespace: default
+    projectId: ${PROJECT}
+    metadata:
+      name: ga-blockstorage
+      location:
+        value: ${LOCATION}
+      tags: []
+    properties:
+      sizeGb: 20
+      billingPeriod: Hour
+  drift: /projects/${PROJECT}/providers/Aruba.Storage/blockStorages/${id:self}
+- kind: Snapshot
+  name: ga-snapshot
+  billable: true
+  spec:
+    configurationRef:
+      name: snapshot-config
+      namespace: default
+    projectId: ${PROJECT}
+    metadata:
+      name: ga-snapshot
+      location:
+        value: ${LOCATION}
+      tags: []
+    properties:
+      billingPeriod: Hour
+      volume:
+        uri: /projects/${PROJECT}/providers/Aruba.Storage/blockStorages/${id:BlockStorage}
+  drift: /projects/${PROJECT}/providers/Aruba.Storage/snapshots/${id:self}
+- kind: Backup
+  name: ga-backup
+  billable: true
+  spec:
+    configurationRef:
+      name: backup-config
+      namespace: default
+    projectId: ${PROJECT}
+    metadata:
+      name: ga-backup
+      location:
+        value: ${LOCATION}
+      tags: []
+    properties:
+      billingPeriod: Hour
+      retentionDays: 1
+      sourceVolume:
+        uri: /projects/${PROJECT}/providers/Aruba.Storage/blockStorages/${id:BlockStorage}
+      type: Full
+  drift: /projects/${PROJECT}/providers/Aruba.Storage/backups/${id:self}
+- kind: Restore
+  name: ga-restore
+  billable: true
+  spec:
+    configurationRef:
+      name: restore-config
+      namespace: default
+    projectId: ${PROJECT}
+    backupId: ${id:Backup}
+    metadata:
+      name: ga-restore
+      location:
+        value: ${LOCATION}
+      tags: []
+    properties:
+      destinationVolume:
+        uri: /projects/${PROJECT}/providers/Aruba.Storage/blockStorages/${id:BlockStorage}

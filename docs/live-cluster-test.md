@@ -479,3 +479,35 @@ Two harness defects were fixed to get here, both found by running it:
 - **The scripts read a stale `/tmp/aruba.token`** and aborted with a 401 while the
   cluster itself was perfectly authenticated. They now read the ESO-managed Secret
   first, falling back to the file only for a manual bootstrap.
+
+### Wave 3 — storage, on the declarative runner
+
+Every resource in this chain **bills** (all four declare `billingPeriod`), so it was
+run at the minimum size and torn down immediately.
+
+```
+BlockStorage 6a99c2e6  drift corrected
+Snapshot     6a99c3f9  drift corrected
+Backup       6a99c4f7  drift corrected
+Restore      6a99c631  created and observed
+teardown: 4/4 deleted in reverse dependency order
+residue: 0 — verified again independently across all storage endpoints
+```
+
+`BlockStorage`, `Snapshot` and `Backup` are promoted to **GA**. `Restore` stays beta:
+it has an `update` verb, so the GA bar requires drift, and drift was not exercised
+on it.
+
+Three things this wave found:
+
+- **Async updates return 202, not 200.** The drift check treated anything but 200 as
+  a failure and silently *skipped* itself on the first run — reporting SKIPPED rather
+  than a pass, which is the only reason it was noticed. Storage updates are queued.
+- **`Backup.type` is required by the API and optional in the OAS.** `Type is
+  required`, with no enum declared anywhere in the spec.
+- **`BackupPolicy.resourceType` must be exactly `"volume"`.** Also a bare string
+  upstream.
+
+That is now four separate cases of Aruba enforcing a constraint its OpenAPI does not
+express — alongside the state enum and the `steps` cardinality rule. Each one is only
+discoverable by sending a request and reading the 400.

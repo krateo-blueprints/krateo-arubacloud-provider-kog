@@ -171,7 +171,10 @@ def drift_check(kind, name, url, tok):
     md["tags"] = ["drifted-by-hand"]
 
     code, _ = api("PUT", url, tok, desired)
-    if code != 200:
+    # 202 Accepted is a normal answer here: storage updates are asynchronous, and
+    # treating anything but 200 as a failure silently skipped the drift check on every
+    # resource whose update is queued rather than applied inline.
+    if code not in (200, 202, 204):
         print(f"    drift: PUT returned {code} — cannot inject into {kind}/{name}", file=sys.stderr)
         return None
     print(f"    drift injected (tags=[drifted-by-hand]); waiting for correction")

@@ -18,9 +18,9 @@ A tier states what has actually been *executed* against the live Aruba API, not 
 
 | Tier | Bar | Count |
 |------|-----|-------|
-| **GA** | full `create → observe → drift → delete` against the live API | 8 |
-| beta | observe verified live; mutation unproven | 1 |
-| experimental | generated, valid, reaches `Ready`, sample admitted | 25 |
+| **GA** | full `create → observe → drift → delete` against the live API | 11 |
+| beta | observe verified live; mutation unproven | 2 |
+| experimental | generated, valid, reaches `Ready`, sample admitted | 21 |
 | **blocked** | known non-functional, reason recorded | 0 |
 
 Only **GA** claims fitness for production use. See [ga-readiness](ga-readiness.md).
@@ -59,10 +59,10 @@ Only **GA** claims fitness for production use. See [ga-readiness](ga-readiness.m
 | security | `Key` | experimental | findby,get,create,update,delete | `name` | applies and reaches `Ready`; sample admitted by its CRD |
 | security | `Kmip` | experimental | findby,get,create,update,delete | `name` | applies and reaches `Ready`; sample admitted by its CRD |
 | security | `Kms` | experimental | findby,get,create,update,delete | `metadata.name` | applies and reaches `Ready`; sample admitted by its CRD |
-| storage | `Backup` | experimental | findby,get,create,update,delete | `metadata.name` | applies and reaches `Ready`; sample admitted by its CRD |
-| storage | `BlockStorage` | experimental | findby,get,create,update,delete | `metadata.name` | applies and reaches `Ready`; sample admitted by its CRD |
-| storage | `Restore` | experimental | findby,get,create,update,delete | `metadata.name` | applies and reaches `Ready`; sample admitted by its CRD |
-| storage | `Snapshot` | experimental | findby,get,create,update,delete | `metadata.name` | applies and reaches `Ready`; sample admitted by its CRD |
+| storage | `Backup` | **GA** | findby,get,create,update,delete | `metadata.name` | full lifecycle live incl. drift correction — **billable** — [live-cluster-test](live-cluster-test.md) |
+| storage | `BlockStorage` | **GA** | findby,get,create,update,delete | `metadata.name` | full lifecycle live incl. drift correction — **billable** (`billingPeriod`), run at 20 GB and deleted immediately — [live-cluster-test](live-cluster-test.md) |
+| storage | `Restore` | beta | findby,get,create,update,delete | `metadata.name` | create/observe/delete proven live as part of the storage chain; drift not exercised — [live-cluster-test](live-cluster-test.md) |
+| storage | `Snapshot` | **GA** | findby,get,create,update,delete | `metadata.name` | full lifecycle live incl. drift correction — **billable** — [live-cluster-test](live-cluster-test.md) |
 
 ## Not generated (and why)
 

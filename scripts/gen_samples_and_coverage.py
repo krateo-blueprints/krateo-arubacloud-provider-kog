@@ -92,6 +92,26 @@ TIERS = {
         "requires exactly one `steps[]` entry bound to an existing resource "
         "(`resourceUri` + `actionUri`); lifecycle unproven",
     ),
+    ("storage", "BlockStorage"): (
+        "ga",
+        "full lifecycle live incl. drift correction — **billable** (`billingPeriod`), "
+        "run at 20 GB and deleted immediately — [live-cluster-test](live-cluster-test.md)",
+    ),
+    ("storage", "Snapshot"): (
+        "ga",
+        "full lifecycle live incl. drift correction — **billable** — "
+        "[live-cluster-test](live-cluster-test.md)",
+    ),
+    ("storage", "Backup"): (
+        "ga",
+        "full lifecycle live incl. drift correction — **billable** — "
+        "[live-cluster-test](live-cluster-test.md)",
+    ),
+    ("storage", "Restore"): (
+        "beta",
+        "create/observe/delete proven live as part of the storage chain; drift not "
+        "exercised — [live-cluster-test](live-cluster-test.md)",
+    ),
     ("network", "LoadBalancer"): (
         "experimental",
         "unblocked on 0.22.1 — generates a `name` selector and the CR is accepted "
