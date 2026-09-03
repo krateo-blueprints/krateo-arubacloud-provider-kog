@@ -176,8 +176,11 @@ OVERRIDES = {
               "turn blocks deleting its Kms ('Some kms keys are not deleted').")),
     "security/kmip": dict(
         metaWrap=False, idField="name",
-        note=("Kmip create body is flat {name}; the findby item carries the server id "
-              "as **kmipId**, not id -- same orphaning trap as security/keys.")),
+        note=("Kmip create body is flat {name}. Its findby item carries the server id as "
+              "plain **id**, even though the path parameter is {kmipId} -- the opposite "
+              "of security/keys, which uses {keyId} in BOTH. Assuming the path-parameter "
+              "name is a field name orphans this resource exactly as assuming 'id' "
+              "orphaned Key. Both mappings are now derived from the response schema.")),
 }
 
 # collections that are pure read-only (no create) but still worth exposing as a
