@@ -19,8 +19,8 @@ A tier states what has actually been *executed* against the live Aruba API, not 
 | Tier | Bar | Count |
 |------|-----|-------|
 | **GA** | full `create → observe → drift → delete` against the live API | 13 |
-| beta | observe verified live; mutation unproven | 2 |
-| experimental | generated, valid, reaches `Ready`, sample admitted | 19 |
+| beta | observe verified live; mutation unproven | 3 |
+| experimental | generated, valid, reaches `Ready`, sample admitted | 18 |
 | **blocked** | known non-functional, reason recorded | 0 |
 
 Only **GA** claims fitness for production use. See [ga-readiness](ga-readiness.md).
@@ -48,7 +48,7 @@ Only **GA** claims fitness for production use. See [ga-readiness](ga-readiness.m
 | network | `Subnet` | **GA** | findby,get,create,update,delete | `metadata.name` | full lifecycle live — [live-cluster-test](live-cluster-test.md) |
 | network | `Vpc` | **GA** | findby,get,create,update,delete | `metadata.name` | full lifecycle live incl. drift correction — [live-cluster-test](live-cluster-test.md) |
 | network | `VpcPeering` | **GA** | findby,get,create,update,delete | `metadata.name` | full lifecycle live incl. drift correction, free (no `billingPlan`) — [live-cluster-test](live-cluster-test.md) |
-| network | `VpcPeeringRoute` | experimental | findby,get,create,update,delete | `metadata.name` | **billable** (`properties.billingPlan.billingPeriod`); opt-in behind `ga-chain-test.sh --with-billable`, never executed |
+| network | `VpcPeeringRoute` | beta | findby,get,create,update,delete | `metadata.name` | create/observe/delete proven live in a 6-resource chain (two VPCs, two **Advanced** subnets whose CIDRs the route references, a peering); drift not yet exercised — **billable** — [live-cluster-test](live-cluster-test.md) |
 | network | `VpnRoute` | experimental | findby,get,create,update,delete | `metadata.name` | applies and reaches `Ready`; sample admitted by its CRD |
 | network | `VpnTunnel` | experimental | findby,get,create,update,delete | `metadata.name` | applies and reaches `Ready`; sample admitted by its CRD |
 | project | `Folder` | beta | findby,get,create,update,delete | `name` | create/observe/delete proven live; drift **not** exercised — its only mutable spec fields are the identifier itself and an account-wide `default` flag, neither safe to perturb — [live-cluster-test](live-cluster-test.md) |

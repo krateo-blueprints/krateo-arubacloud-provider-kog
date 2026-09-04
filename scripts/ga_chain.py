@@ -27,8 +27,10 @@ Chain format:
         spec: {...}                # ${VAR} and ${id:OtherKind} expanded
         drift: /projects/${PROJECT}/providers/Aruba.Schedule/backupPolicies/${id:self}
 
-`${id:self}` is this resource's own upstream id; `${id:Kind}` is another resource's,
-which is how a child binds to a parent created earlier in the same run.
+`${id:self}` is this resource's own upstream id. `${id:Kind}` is another resource's,
+and `${id:<name>}` selects a specific one by CR name -- required whenever a chain
+contains two resources of the same kind, since `${id:Kind}` resolves to whichever ran
+last.
 """
 
 import atexit
@@ -281,7 +283,13 @@ def main():
             rid = upstream_id(kind, name, res.get("idPath"))
             if not rid:
                 raise RuntimeError(f"{kind}/{name} reported no upstream id")
+            # Keyed by BOTH kind and CR name. Kind alone collides as soon as a chain
+            # holds two of the same kind -- a VPC peering needs two Vpcs, and the
+            # second silently overwrote the first, so ${id:Vpc} meant "whichever ran
+            # last". ${id:<name>} is unambiguous; ${id:Kind} still works for the common
+            # single-instance case.
             ids[kind] = rid
+            ids[name] = rid
             print(f"    Ready, id={rid}")
 
             if res.get("drift"):

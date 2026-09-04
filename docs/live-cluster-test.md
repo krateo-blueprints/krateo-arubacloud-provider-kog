@@ -668,3 +668,31 @@ drift failures: 0        residue: 0 — clean
 
 `metadata.tags` lives in both bodies, so fixable drift is still detected; only the
 unfixable comparison is dropped. The GA claims stand on re-executed evidence.
+
+### VpcPeeringRoute — six resources for one
+
+A peering route cannot be tested alone. Its `localNetworkAddress` and
+`remoteNetworkAddress` are only legal if subnets with **exactly those CIDRs** exist in
+the two peered VPCs, and the subnets must be `type: Advanced` — `Basic` lets the CMP
+assign the address, and the literals would then never match.
+
+```
+Vpc/ga-pr-vpc-a          6a9a52d9
+Vpc/ga-pr-vpc-b          6a9a5316
+Subnet/ga-pr-subnet-a    6a9a53c2   Advanced, 10.100.0.0/24
+Subnet/ga-pr-subnet-b    6a9a5409   Advanced, 10.200.0.0/24
+VpcPeering/ga-pr-peering 6a9a54c0
+VpcPeeringRoute/ga-pr-route 6a9a556c
+teardown: 6/6 in reverse order      residue: 0 — clean
+```
+
+This exposed a real limitation in the runner: ids were keyed by **kind**, so a chain
+with two VPCs silently overwrote the first, and `${id:Vpc}` meant "whichever ran last"
+— which would have peered a VPC with itself. Ids are now keyed by kind **and** CR name,
+so `${id:ga-pr-vpc-b}` is unambiguous. `${id:Kind}` still works for single-instance
+chains.
+
+`VpcPeeringRoute` is **beta**: create, observe and delete are proven; drift was not
+exercised. It is now a candidate for GA on the next run, since `compareScope: updatable`
+makes its `metadata.tags` the only compared field — its update body carries metadata
+only, which is exactly why that scope was applied to it.

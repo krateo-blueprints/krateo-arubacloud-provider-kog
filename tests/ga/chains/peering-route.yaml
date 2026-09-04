@@ -1,0 +1,111 @@
+name: peering-route
+vars:
+  PROJECT: 69a55c8d5e6f0e14f14093ff
+  LOCATION: ITBG-Bergamo
+  CIDR_A: 10.100.0.0/24
+  CIDR_B: 10.200.0.0/24
+residue:
+- /projects/${PROJECT}/providers/Aruba.Network/vpcs
+resources:
+- kind: Vpc
+  name: ga-pr-vpc-a
+  spec:
+    configurationRef:
+      name: vpc-config
+      namespace: default
+    projectId: ${PROJECT}
+    metadata:
+      name: ga-pr-vpc-a
+      location:
+        value: ${LOCATION}
+      tags: []
+    properties:
+      default: false
+      preset: false
+- kind: Vpc
+  name: ga-pr-vpc-b
+  spec:
+    configurationRef:
+      name: vpc-config
+      namespace: default
+    projectId: ${PROJECT}
+    metadata:
+      name: ga-pr-vpc-b
+      location:
+        value: ${LOCATION}
+      tags: []
+    properties:
+      default: false
+      preset: false
+- kind: Subnet
+  name: ga-pr-subnet-a
+  spec:
+    configurationRef:
+      name: subnet-config
+      namespace: default
+    projectId: ${PROJECT}
+    vpcId: ${id:ga-pr-vpc-a}
+    metadata:
+      name: ga-pr-subnet-a
+      location:
+        value: ${LOCATION}
+      tags: []
+    properties:
+      type: Advanced
+      default: false
+      network:
+        address: ${CIDR_A}
+- kind: Subnet
+  name: ga-pr-subnet-b
+  spec:
+    configurationRef:
+      name: subnet-config
+      namespace: default
+    projectId: ${PROJECT}
+    vpcId: ${id:ga-pr-vpc-b}
+    metadata:
+      name: ga-pr-subnet-b
+      location:
+        value: ${LOCATION}
+      tags: []
+    properties:
+      type: Advanced
+      default: false
+      network:
+        address: ${CIDR_B}
+- kind: VpcPeering
+  name: ga-pr-peering
+  spec:
+    configurationRef:
+      name: vpcpeering-config
+      namespace: default
+    projectId: ${PROJECT}
+    vpcId: ${id:ga-pr-vpc-a}
+    metadata:
+      name: ga-pr-peering
+      location:
+        value: ${LOCATION}
+      tags: []
+    properties:
+      remoteVpc:
+        uri: /projects/${PROJECT}/providers/Aruba.Network/vpcs/${id:ga-pr-vpc-b}
+- kind: VpcPeeringRoute
+  name: ga-pr-route
+  billable: true
+  spec:
+    configurationRef:
+      name: vpcpeeringroute-config
+      namespace: default
+    projectId: ${PROJECT}
+    vpcId: ${id:ga-pr-vpc-a}
+    vpcPeeringId: ${id:ga-pr-peering}
+    metadata:
+      name: ga-pr-route
+      location:
+        value: ${LOCATION}
+      tags: []
+    properties:
+      localNetworkAddress: ${CIDR_A}
+      remoteNetworkAddress: ${CIDR_B}
+      billingPlan:
+        billingPeriod: Hour

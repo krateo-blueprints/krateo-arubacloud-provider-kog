@@ -79,9 +79,10 @@ TIERS = {
         "[live-cluster-test](live-cluster-test.md)",
     ),
     ("network", "VpcPeeringRoute"): (
-        "experimental",
-        "**billable** (`properties.billingPlan.billingPeriod`); opt-in behind "
-        "`ga-chain-test.sh --with-billable`, never executed",
+        "beta",
+        "create/observe/delete proven live in a 6-resource chain (two VPCs, two "
+        "**Advanced** subnets whose CIDRs the route references, a peering); drift not "
+        "yet exercised — **billable** — [live-cluster-test](live-cluster-test.md)",
     ),
     ("schedule", "BackupPolicy"): (
         "ga",
