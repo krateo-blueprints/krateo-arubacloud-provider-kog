@@ -777,3 +777,26 @@ never converged to Ready, so observe cannot be claimed.
 
 Teardown was complete, including the security group and node subnet the cluster created
 for itself: only `automatic-sg-01` and `automatic-subnet-01` remain.
+
+### schedule/Job is blocked behind CloudServer
+
+A Job needs exactly one `steps[]` entry, and the API rejected a read-only step outright:
+
+```
+Steps -> All steps must have a correct HttpVerb defined (POST, PUT, PATCH, DELETE).
+Steps -> Not found step typology.
+Steps -> Not found configuration for typology
+```
+
+Aruba's metadata documentation settles what a step may be: **`POST` only**, and *"Only
+`poweron` and `poweroff` are currently supported"*, with `body` required to be null.
+So a Job is a power operation on a `CloudServer` and nothing else.
+
+The account has no cloud servers, and `CloudServer` creation is itself blocked on
+snowplow (P0-3). Job is therefore **blocked**, not merely untested — and no amount of
+payload work changes that.
+
+Worth recording against the earlier derivation: its verifier refuted `actionUri:
+poweroff` as an invented literal. The caution was reasonable, but the value was
+**correct** — it is one of exactly two the API accepts. Adversarial verification is
+worth its cost, and it is not infallible in either direction.

@@ -89,9 +89,11 @@ TIERS = {
         "full lifecycle live incl. drift correction — [live-cluster-test](live-cluster-test.md)",
     ),
     ("schedule", "Job"): (
-        "experimental",
-        "requires exactly one `steps[]` entry bound to an existing resource "
-        "(`resourceUri` + `actionUri`); lifecycle unproven",
+        "blocked",
+        "a step's only supported actions are **`poweron` / `poweroff` via POST** "
+        "(GET is rejected: *All steps must have a correct HttpVerb defined*), so a Job "
+        "requires a `CloudServer` to target — none exists and CloudServer creation is "
+        "itself blocked on snowplow (P0-3)",
     ),
     ("storage", "BlockStorage"): (
         "ga",

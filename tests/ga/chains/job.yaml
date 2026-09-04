@@ -1,0 +1,32 @@
+# schedule/Job — free. The API requires EXACTLY ONE steps[] entry, and a step is a
+# resourceUri + actionUri pair against an existing resource. The step here is a GET
+# against the pre-existing VPC on a job created with enabled: false, so it targets
+# something real without ever mutating anything.
+name: job
+vars:
+  PROJECT: 69a55c8d5e6f0e14f14093ff
+  LOCATION: ITBG-Bergamo
+  VPC_ID: 69a5609fa851081197caa45f
+residue:
+  - /projects/${PROJECT}/providers/Aruba.Schedule/jobs
+resources:
+  - kind: Job
+    name: ga-job
+    spec:
+      configurationRef: {name: job-config, namespace: default}
+      projectId: "${PROJECT}"
+      metadata:
+        name: ga-job
+        location: {value: "${LOCATION}"}
+        tags: []
+      properties:
+        scheduleJobType: Recurring
+        cron: "0 3 * * *"
+        enabled: false
+        executeUntil: "2027-01-01T00:00:00Z"
+        steps:
+          - name: ga-noop-read
+            httpVerb: GET
+            resourceUri: "/projects/${PROJECT}/providers/Aruba.Network/vpcs/${VPC_ID}"
+            actionUri: "/projects/${PROJECT}/providers/Aruba.Network/vpcs/${VPC_ID}"
+    drift: /projects/${PROJECT}/providers/Aruba.Schedule/jobs/${id:self}

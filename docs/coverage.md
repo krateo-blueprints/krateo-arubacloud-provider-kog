@@ -20,8 +20,8 @@ A tier states what has actually been *executed* against the live Aruba API, not 
 |------|-----|-------|
 | **GA** | full `create → observe → drift → delete` against the live API | 13 |
 | beta | observe verified live; mutation unproven | 6 |
-| experimental | generated, valid, reaches `Ready`, sample admitted | 12 |
-| **blocked** | known non-functional, reason recorded | 3 |
+| experimental | generated, valid, reaches `Ready`, sample admitted | 11 |
+| **blocked** | known non-functional, reason recorded | 4 |
 
 Only **GA** claims fitness for production use. See [ga-readiness](ga-readiness.md).
 
@@ -55,7 +55,7 @@ Only **GA** claims fitness for production use. See [ga-readiness](ga-readiness.m
 | project | `Project` | **GA** | findby,get,create,update,delete | `metadata.name` | full lifecycle live incl. drift correction — [live-cluster-test](live-cluster-test.md) |
 | schedule | `BackupPolicy` | **GA** | findby,get,create,update,delete | `metadata.name` | full lifecycle live incl. drift correction — [live-cluster-test](live-cluster-test.md) |
 | schedule | `BackupPolicyAssignment` | experimental | findby,get,create,update,delete | `metadata.name` | applies and reaches `Ready`; sample admitted by its CRD |
-| schedule | `Job` | experimental | findby,get,create,update,delete | `metadata.name` | requires exactly one `steps[]` entry bound to an existing resource (`resourceUri` + `actionUri`); lifecycle unproven |
+| schedule | `Job` | **blocked** | findby,get,create,update,delete | `metadata.name` | a step's only supported actions are **`poweron` / `poweroff` via POST** (GET is rejected: *All steps must have a correct HttpVerb defined*), so a Job requires a `CloudServer` to target — none exists and CloudServer creation is itself blocked on snowplow (P0-3) |
 | security | `Key` | experimental | findby,get,create,update,delete | `name` | `keyId` status mapping corrected, and the orphan no longer occurs — teardown is clean — but the CR still reports no upstream id, so observe is unproven |
 | security | `Kmip` | experimental | findby,get,create,update,delete | `name` | same `kmipId` status mapping correction as Key; not yet run |
 | security | `Kms` | beta | findby,get,create,update,delete | `metadata.name` | every step proven live but never in one run — drift corrected in run 1, delete clean in run 2 (run 1's delete hung on [#101](https://github.com/krateo-platformops/oasgen-provider/issues/101)); GA needs a single clean end-to-end pass |
