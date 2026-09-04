@@ -1,0 +1,48 @@
+name: container
+vars:
+  PROJECT: 69a55c8d5e6f0e14f14093ff
+  LOCATION: ITBG-Bergamo
+  DC: ITBG-1
+  VPC_ID: 69a5609fa851081197caa45f
+  SUBNET_ID: 69a560ce2312085699426c28
+  SG_NAME: automatic-sg-01
+residue:
+- /projects/${PROJECT}/providers/Aruba.Container/kaas
+- /projects/${PROJECT}/providers/Aruba.Container/registries
+resources:
+- kind: Kaas
+  name: ga-kaas
+  billable: true
+  spec:
+    configurationRef:
+      name: kaas-config
+      namespace: default
+    projectId: ${PROJECT}
+    metadata:
+      name: ga-kaas
+      location:
+        value: ${LOCATION}
+      tags: []
+    properties:
+      preset: false
+      ha: false
+      kubernetesVersion:
+        value: 1.33.2
+      billingPlan:
+        billingPeriod: Hour
+      nodePools:
+      - name: ga-pool
+        instance: K2A4
+        dataCenter: ${DC}
+        nodes: 1
+        autoscaling: false
+      vpc:
+        uri: /projects/${PROJECT}/providers/Aruba.Network/vpcs/${VPC_ID}
+      subnet:
+        uri: /projects/${PROJECT}/providers/Aruba.Network/vpcs/${VPC_ID}/subnets/${SUBNET_ID}
+      securityGroup:
+        name: gakaassg
+      nodeCidr:
+        name: ganodecidr
+        address: 192.168.50.0/24
+  drift: /projects/${PROJECT}/providers/Aruba.Container/kaas/${id:self}

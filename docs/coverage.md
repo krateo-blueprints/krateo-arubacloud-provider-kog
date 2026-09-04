@@ -19,8 +19,8 @@ A tier states what has actually been *executed* against the live Aruba API, not 
 | Tier | Bar | Count |
 |------|-----|-------|
 | **GA** | full `create → observe → drift → delete` against the live API | 13 |
-| beta | observe verified live; mutation unproven | 5 |
-| experimental | generated, valid, reaches `Ready`, sample admitted | 14 |
+| beta | observe verified live; mutation unproven | 6 |
+| experimental | generated, valid, reaches `Ready`, sample admitted | 13 |
 | **blocked** | known non-functional, reason recorded | 2 |
 
 Only **GA** claims fitness for production use. See [ga-readiness](ga-readiness.md).
@@ -32,7 +32,7 @@ Only **GA** claims fitness for production use. See [ga-readiness](ga-readiness.m
 | baremetal | `Hpc` | experimental | findby,get,create | `metadata.name` | applies and reaches `Ready`; sample admitted by its CRD |
 | compute | `CloudServer` | experimental | findby,get | `metadata.name` | gained a `metadata.name` selector on 0.22.1; RESTActions still never executed — [P0-3](ga-readiness.md#blockers) |
 | compute | `KeyPair` | **GA** | findby,get,create,delete | `metadata.name` | full lifecycle live — [live-cluster-test](live-cluster-test.md) |
-| container | `Kaas` | experimental | findby,get,create,update,delete | `metadata.name` | applies and reaches `Ready`; sample admitted by its CRD |
+| container | `Kaas` | beta | findby,get,create,update,delete | `metadata.name` | cluster created and reached **Active** upstream (`6a9aa956`, K2A4 / 1.33.2) and deleted cleanly, but the CR never reported `Ready` — **billable** ~EUR 0.076/hr — [live-cluster-test](live-cluster-test.md) |
 | container | `KaasBackup` | experimental | findby,get,create,update,delete | `metadata.name` | applies and reaches `Ready`; sample admitted by its CRD |
 | container | `Registry` | experimental | findby,get,create,update,delete | `metadata.name` | applies and reaches `Ready`; sample admitted by its CRD |
 | database | `Database` | beta | findby,get,create,delete | `name` | create/observe proven live (name-keyed, `status.name = gadb`); deleted with its parent rather than individually — **billable parent** — [live-cluster-test](live-cluster-test.md) |

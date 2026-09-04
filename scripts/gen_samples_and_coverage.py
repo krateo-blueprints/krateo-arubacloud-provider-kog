@@ -132,6 +132,12 @@ TIERS = {
         "experimental",
         "same `kmipId` status mapping correction as Key; not yet run",
     ),
+    ("container", "Kaas"): (
+        "beta",
+        "cluster created and reached **Active** upstream (`6a9aa956`, K2A4 / 1.33.2) "
+        "and deleted cleanly, but the CR never reported `Ready` — "
+        "**billable** ~EUR 0.076/hr — [live-cluster-test](live-cluster-test.md)",
+    ),
     ("database", "Dbaas"): (
         "beta",
         "create/observe/delete proven live (`6a9a846d`, mysql-8.0 / DBO1A2 / 20 GB); "

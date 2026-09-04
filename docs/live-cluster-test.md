@@ -742,3 +742,38 @@ mechanism re-`PUT`s the whole fetched object and the DBaaS update body will not 
 it. So `Dbaas` and `Database` are **beta** — created and observed, not drift-proven.
 
 Account verified clear afterwards: 0 dbaas instances, no CRs.
+
+### Container wave — Kaas created, but the CR never reports Ready
+
+Priced before running, from Aruba's published figures: worker `K2A4` **EUR 0.026/hr**,
+HA master **EUR 0.05/hr** (charged separately, so `ha: false`), Registry Small
+**EUR 0.01233/hr**. The whole wave for an hour is under EUR 0.10 — cheaper than the
+20 GB volume runs already done.
+
+**`K1A2` is not orderable.** Aruba's metadata page lists it as a KaaS node size, but
+the pricing page's smallest flavour is `K2A4`. The derived payload used K1A2 and would
+have failed; this only surfaced because the cost was checked first.
+
+Four undeclared constraints, each costing one attempt:
+
+| Attempt | Error |
+|---|---|
+| `preset: true` | `Preset: Another vpc is already existing in location ITBG-Bergamo` — preset only works when the location has **no** VPC, and `cloudburst-default` exists |
+| wired to existing network | `NodeCidr: Field is required` (plus `.Name`, `.Address`) — the OAS marks none of them required |
+| reused `automatic-sg-01` | `SecurityGroup.Name: Name is not valid` — it wants a **new** name; the cluster creates its own |
+| provisioning | `Status: Invalid status` on every UPDATE while the cluster is `InCreation` |
+
+That last one is a controller behaviour worth naming: **RDC attempts an update while the
+resource is still provisioning**, producing repeated 400s until the cluster goes
+`Active`, at which point `Synced` flips to `True` on its own. Harmless here, but it is
+the same class as the Kmip `invalid status` delete — an API with a state machine needs
+the controller to wait for a stable state, and only `create` has an `async` block for
+that today.
+
+Final state: cluster `6a9aa9566520798027656a3d` reached **Active** upstream, `Synced=True`,
+`status.metadata.id` populated — but `Ready` stayed `False/Creating` for its whole life.
+So `Kaas` is **beta**: create and delete are proven and the id was observed, but the CR
+never converged to Ready, so observe cannot be claimed.
+
+Teardown was complete, including the security group and node subnet the cluster created
+for itself: only `automatic-sg-01` and `automatic-subnet-01` remain.
