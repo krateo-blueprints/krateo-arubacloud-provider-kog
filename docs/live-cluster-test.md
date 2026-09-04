@@ -800,3 +800,32 @@ Worth recording against the earlier derivation: its verifier refuted `actionUri:
 poweroff` as an invented literal. The caution was reasonable, but the value was
 **correct** — it is one of exactly two the API accepts. Adversarial verification is
 worth its cost, and it is not infallible in either direction.
+
+### security/Kms and security/Key reach GA
+
+One clean run, with `Kmip` excluded — its state machine wedges teardown and blocks the
+parent Kms, which is what spoiled the two earlier attempts:
+
+```
+Kms  6a9ae569445ca0a1d0d19a00        drift corrected
+Key  b6ae8eeef24e416b96866c92a...    Ready, status.keyId populated
+teardown 2/2 · residue 0 — clean
+```
+
+`Kms` is **GA**: every step proven, and this time in a single pass rather than as the
+union of two partial runs.
+
+`Key` is **GA** on `create → observe → delete`, and the reason drift is excluded is
+structural rather than an excuse — its update body is:
+
+```json
+{"type": "object", "properties": {"name": {"type": "string"}}, "additionalProperties": false}
+```
+
+`name` is also its identifier. There is no non-identifying field to converge, so drift
+has nothing to act on — the same position as `Restore`, whose update body is empty
+outright. Perturbing the identifier would test rename semantics and risk the controller
+creating a duplicate billable key, which is a different thing entirely.
+
+This also closes out the mapping saga: the `keyId` fix works end to end, the key is
+addressable on delete, and no orphan is left to block the parent.

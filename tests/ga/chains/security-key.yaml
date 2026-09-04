@@ -1,0 +1,34 @@
+name: security-key
+vars:
+  PROJECT: 69a55c8d5e6f0e14f14093ff
+  LOCATION: ITBG-Bergamo
+residue:
+- /projects/${PROJECT}/providers/Aruba.Security/kms
+resources:
+- kind: Kms
+  name: ga-kms
+  billable: true
+  spec:
+    configurationRef:
+      name: kms-config
+      namespace: default
+    projectId: ${PROJECT}
+    metadata:
+      name: ga-kms
+      location:
+        value: ${LOCATION}
+      tags: []
+    properties:
+      billingPeriod: Hour
+  drift: /projects/${PROJECT}/providers/Aruba.Security/kms/${id:self}
+- kind: Key
+  name: ga-key
+  billable: true
+  spec:
+    configurationRef:
+      name: key-config
+      namespace: default
+    projectId: ${PROJECT}
+    id: ${id:Kms}
+    name: ga-key
+    algorithm: Aes

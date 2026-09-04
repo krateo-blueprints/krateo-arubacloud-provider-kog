@@ -119,16 +119,16 @@ TIERS = {
         "[live-cluster-test](live-cluster-test.md)",
     ),
     ("security", "Kms"): (
-        "beta",
-        "every step proven live but never in one run — drift corrected in run 1, "
-        "delete clean in run 2 (run 1's delete hung on "
-        "[#101](https://github.com/krateo-platformops/oasgen-provider/issues/101)); "
-        "GA needs a single clean end-to-end pass",
+        "ga",
+        "full lifecycle in one clean run incl. drift correction (`6a9ae569`) — "
+        "**billable** — [live-cluster-test](live-cluster-test.md)",
     ),
     ("security", "Key"): (
-        "experimental",
-        "`keyId` status mapping corrected, and the orphan no longer occurs — teardown "
-        "is clean — but the CR still reports no upstream id, so observe is unproven",
+        "ga",
+        "create → observe → delete proven live (`b6ae8eee`). Drift is **not "
+        "applicable**: its update body is `{name}` only, and `name` is the identifier, "
+        "so there is no non-identifying field to converge — the same reasoning as "
+        "`Restore` — **billable parent** — [live-cluster-test](live-cluster-test.md)",
     ),
     ("security", "Kmip"): (
         "experimental",
