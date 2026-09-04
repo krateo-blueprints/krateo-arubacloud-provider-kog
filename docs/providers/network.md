@@ -17,7 +17,7 @@ timestamp: 2026-08-19T00:00:00Z
 | Kind | Verbs | Identifier(s) | Delegation |
 |------|-------|---------------|------------|
 | `ElasticIp` | findby, get, create, update, delete | `metadata.name` | — |
-| `LoadBalancer` | findby, get | `name` | — |
+| `LoadBalancer` | findby, get | `metadata.name` | — |
 | `SecurityGroup` | findby, get, create, update, delete | `metadata.name` | — |
 | `SecurityRule` | findby, get, create, update, delete | `metadata.name` | — |
 | `Subnet` | findby, get, create, update, delete | `metadata.name` | — |
@@ -51,7 +51,7 @@ Sample: [`samples/network/elasticip.yaml`](../../samples/network/elasticip.yaml)
 | findby | GET | `/projects/{projectId}/providers/Aruba.Network/loadBalancers` |
 | get | GET | `/projects/{projectId}/providers/Aruba.Network/loadBalancers/{id}` |
 
-excluded from spec: `id`
+status fields: `metadata.id` · excluded from spec: `id`
 
 Configuration query params: `api-version, filter, ignoreDeletedStatus, limit, offset, projection, sort`
 

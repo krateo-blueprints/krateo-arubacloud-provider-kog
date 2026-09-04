@@ -167,10 +167,14 @@ TIERS = {
         "[live-cluster-test](live-cluster-test.md)",
     ),
     ("network", "LoadBalancer"): (
-        "experimental",
-        "unblocked on 0.22.1 — generates a `name` selector and the CR is accepted "
-        "([#75](https://github.com/krateo-platformops/oasgen-provider/issues/75) fixed); "
-        "no load balancer exists in the test account, so a positive match is unproven",
+        "blocked",
+        "identifier corrected to `metadata.name` (its findby items are "
+        "metadata-wrapped), but the generated selector is a **flat** key while RDC "
+        "reads it nested — [oasgen-provider#106]"
+        "(https://github.com/krateo-platformops/oasgen-provider/issues/106) — so "
+        "`findby` cannot match. Separately, no load balancer can be created: the API "
+        "has no create verb, and one exists only as a side effect of a Service of type "
+        "LoadBalancer inside a KaaS cluster",
     ),
     ("compute", "CloudServer"): (
         "experimental",
@@ -399,6 +403,11 @@ def make_cr(spec, prov, doc, apiver):
             # A dotted identifier becomes a FLAT key containing the dot -- oasgen emits
             # `metadata.name` as one property, not a nested metadata object. Nesting it
             # is rejected by strict decoding as `unknown field "spec.metadata"`.
+            #
+            # This mirrors a defect, not a design: RDC reads the identifier NESTED
+            # (spec.metadata.name), so the flat key it is given can never match. Filed
+            # as oasgen-provider#106. When that lands, this must emit a nested object
+            # instead -- and the samples will need regenerating with it.
             spec_body[ident] = "REPLACE_selects_the_existing_object_by_this_value"
     return cr
 

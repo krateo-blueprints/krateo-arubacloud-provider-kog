@@ -308,6 +308,7 @@ def build(provider, spec):
             respId=response_id_field(spec, coll) if has_list else None,
             updatableScope=(needs_updatable_scope(spec, coll, put_op[0])
                             if (has_create and put_op) else False),
+            respMeta=(response_is_meta_wrapped(spec, coll) if has_list else False),
             get_q=query_params(spec, get_op[0], "get") if get_op else [],
             list_q=query_params(spec, coll, "get") if has_list else [],
         ))
@@ -409,7 +410,7 @@ def response_id_field(spec, coll):
 def id_target(r):
     """Where the item {id} path parameter should be sourced from in the CR."""
     ov = r["ov"]
-    if r["meta"]:
+    if r["meta"] or (r["readonly"] and r.get("respMeta")):
         return "status.metadata.id"
     if ov.get("statusId"):
         return ov["statusId"]
@@ -499,7 +500,10 @@ def render(r):
     resource = {"kind": r["kind"]}
     if r["meta"]:
         resource["identifiers"] = ["metadata.name"]
-        if not r["readonly"]:
+        # Also for read-only resources when the response carries metadata: their get
+        # verb binds {id} from status.metadata.id, and without this the field is never
+        # populated, so the mapping is dead config and get can never run.
+        if not r["readonly"] or r.get("respMeta"):
             resource["additionalStatusFields"] = ["metadata.id"]
     elif not r["readonly"]:
         resource["identifiers"] = [ov.get("idField", "name")]
@@ -510,8 +514,18 @@ def render(r):
         tgt = id_target(r)
         if tgt.startswith("status."):
             resource["additionalStatusFields"] = [tgt.split(".", 1)[1]]
-    else:  # read-only, flat
-        resource["identifiers"] = ["name"]
+    else:
+        # Read-only resources have no create body, so `meta` was forced False upstream
+        # and this branch used to assume a flat item. That is wrong whenever the
+        # findby RESPONSE is metadata-wrapped: network/LoadBalancer returns
+        # {metadata:{id,name}, status, properties}, so identifiers: [name] can never
+        # match -- RDC looks for a top-level `name` that does not exist. The response
+        # is the authority here exactly as it is for the id field.
+        if r.get("respMeta"):
+            resource["identifiers"] = ["metadata.name"]
+            resource["additionalStatusFields"] = ["metadata.id"]
+        else:
+            resource["identifiers"] = ["name"]
 
     if r.get("updatableScope"):
         resource["compareScope"] = "updatable"

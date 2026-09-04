@@ -1,0 +1,69 @@
+# Registry needs a public IP, a block-storage volume, and an existing subnet + security
+# group. All billable, all hourly, all small:
+#   Registry Small (20 connections)  EUR 0.01233/hr
+#   ElasticIp                        hourly
+#   BlockStorage 20 GB               hourly
+#
+# `size` is the CONCURRENT CONNECTION COUNT on create ("The number of concurrent
+# connections required by user"), not a tier name — the response field is separately
+# documented as "the id of registry size". Aruba's pricing tiers are 20 / 100 / 1000,
+# so "20" selects Small.
+#
+# preset: false — preset only works when the location has no VPC, and cloudburst-default
+# exists (the same rule that rejected the first Kaas attempt).
+#
+# NOTE: Registry takes securityGroup.URI, whereas Kaas takes securityGroup.NAME.
+name: registry
+vars:
+  PROJECT: 69a55c8d5e6f0e14f14093ff
+  LOCATION: ITBG-Bergamo
+  VPC_ID: 69a5609fa851081197caa45f
+  SUBNET_ID: 69a560ce2312085699426c28
+  SG_ID: 69a560ce2312085699426c2a
+residue:
+  - /projects/${PROJECT}/providers/Aruba.Container/registries
+  - /projects/${PROJECT}/providers/Aruba.Network/elasticIps
+  - /projects/${PROJECT}/providers/Aruba.Storage/blockStorages
+resources:
+  - kind: ElasticIp
+    name: ga-reg-eip
+    billable: true
+    spec:
+      configurationRef: {name: elasticip-config, namespace: default}
+      projectId: "${PROJECT}"
+      metadata: {name: ga-reg-eip, location: {value: "${LOCATION}"}, tags: []}
+      properties:
+        billingPlan: {billingPeriod: Hour}
+
+  - kind: BlockStorage
+    name: ga-reg-vol
+    billable: true
+    spec:
+      configurationRef: {name: blockstorage-config, namespace: default}
+      projectId: "${PROJECT}"
+      metadata: {name: ga-reg-vol, location: {value: "${LOCATION}"}, tags: []}
+      properties:
+        sizeGb: 20
+        billingPeriod: Hour
+
+  - kind: Registry
+    name: ga-registry
+    billable: true
+    spec:
+      configurationRef: {name: registry-config, namespace: default}
+      projectId: "${PROJECT}"
+      metadata: {name: ga-registry, location: {value: "${LOCATION}"}, tags: []}
+      properties:
+        preset: false
+        size: "20"
+        adminUser: {username: gaadmin}
+        billingPlan: {billingPeriod: Hour}
+        subnet:
+          uri: "/projects/${PROJECT}/providers/Aruba.Network/vpcs/${VPC_ID}/subnets/${SUBNET_ID}"
+        securityGroup:
+          uri: "/projects/${PROJECT}/providers/Aruba.Network/vpcs/${VPC_ID}/securityGroups/${SG_ID}"
+        publicIp:
+          uri: "/projects/${PROJECT}/providers/Aruba.Network/elasticIps/${id:ga-reg-eip}"
+        blockStorage:
+          uri: "/projects/${PROJECT}/providers/Aruba.Storage/blockStorages/${id:ga-reg-vol}"
+    drift: /projects/${PROJECT}/providers/Aruba.Container/registries/${id:self}

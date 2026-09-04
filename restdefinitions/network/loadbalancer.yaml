@@ -9,7 +9,9 @@ spec:
   resource:
     kind: LoadBalancer
     identifiers:
-    - name
+    - metadata.name
+    additionalStatusFields:
+    - metadata.id
     excludedSpecFields:
     - id
     verbsDescription:
@@ -21,7 +23,7 @@ spec:
       path: /projects/{projectId}/providers/Aruba.Network/loadBalancers/{id}
       requestFieldMapping:
       - inPath: id
-        inCustomResource: status.id
+        inCustomResource: status.metadata.id
     configurationFields:
     - fromOpenAPI:
         name: api-version

@@ -32,7 +32,7 @@ timestamp: 2026-08-19T00:00:00Z
 | update | *(delegated)* | RESTAction `arubacloud-compute-cloudserver-update` |
 | delete | *(delegated)* | RESTAction `arubacloud-compute-cloudserver-delete` |
 
-excluded from spec: `cloudServerId`
+status fields: `metadata.id` · excluded from spec: `cloudServerId`
 
 Configuration query params: `api-version, filter, limit, offset, projection, sort`
 

@@ -20,8 +20,8 @@ A tier states what has actually been *executed* against the live Aruba API, not 
 |------|-----|-------|
 | **GA** | full `create → observe → drift → delete` against the live API | 13 |
 | beta | observe verified live; mutation unproven | 6 |
-| experimental | generated, valid, reaches `Ready`, sample admitted | 13 |
-| **blocked** | known non-functional, reason recorded | 2 |
+| experimental | generated, valid, reaches `Ready`, sample admitted | 12 |
+| **blocked** | known non-functional, reason recorded | 3 |
 
 Only **GA** claims fitness for production use. See [ga-readiness](ga-readiness.md).
 
@@ -42,7 +42,7 @@ Only **GA** claims fitness for production use. See [ga-readiness](ga-readiness.m
 | database | `Grant` | **blocked** | findby,get,create,delete | `user` | depends on `DatabaseUser`, which cannot be created |
 | metering | `AlertRule` | experimental | findby,get,create,update,delete | `name` | applies and reaches `Ready`; sample admitted by its CRD |
 | network | `ElasticIp` | **GA** | findby,get,create,update,delete | `metadata.name` | full lifecycle live incl. drift correction — **billable** (`billingPlan.billingPeriod`), created and deleted within one hour — [live-cluster-test](live-cluster-test.md) |
-| network | `LoadBalancer` | experimental | findby,get | `name` | unblocked on 0.22.1 — generates a `name` selector and the CR is accepted ([#75](https://github.com/krateo-platformops/oasgen-provider/issues/75) fixed); no load balancer exists in the test account, so a positive match is unproven |
+| network | `LoadBalancer` | **blocked** | findby,get | `metadata.name` | identifier corrected to `metadata.name` (its findby items are metadata-wrapped), but the generated selector is a **flat** key while RDC reads it nested — [oasgen-provider#106](https://github.com/krateo-platformops/oasgen-provider/issues/106) — so `findby` cannot match. Separately, no load balancer can be created: the API has no create verb, and one exists only as a side effect of a Service of type LoadBalancer inside a KaaS cluster |
 | network | `SecurityGroup` | **GA** | findby,get,create,update,delete | `metadata.name` | full lifecycle live incl. drift correction — [live-cluster-test](live-cluster-test.md) |
 | network | `SecurityRule` | **GA** | findby,get,create,update,delete | `metadata.name` | full lifecycle live incl. drift correction — [live-cluster-test](live-cluster-test.md) |
 | network | `Subnet` | **GA** | findby,get,create,update,delete | `metadata.name` | full lifecycle live — [live-cluster-test](live-cluster-test.md) |
