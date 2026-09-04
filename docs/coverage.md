@@ -19,9 +19,9 @@ A tier states what has actually been *executed* against the live Aruba API, not 
 | Tier | Bar | Count |
 |------|-----|-------|
 | **GA** | full `create → observe → drift → delete` against the live API | 13 |
-| beta | observe verified live; mutation unproven | 3 |
-| experimental | generated, valid, reaches `Ready`, sample admitted | 18 |
-| **blocked** | known non-functional, reason recorded | 0 |
+| beta | observe verified live; mutation unproven | 5 |
+| experimental | generated, valid, reaches `Ready`, sample admitted | 14 |
+| **blocked** | known non-functional, reason recorded | 2 |
 
 Only **GA** claims fitness for production use. See [ga-readiness](ga-readiness.md).
 
@@ -35,11 +35,11 @@ Only **GA** claims fitness for production use. See [ga-readiness](ga-readiness.m
 | container | `Kaas` | experimental | findby,get,create,update,delete | `metadata.name` | applies and reaches `Ready`; sample admitted by its CRD |
 | container | `KaasBackup` | experimental | findby,get,create,update,delete | `metadata.name` | applies and reaches `Ready`; sample admitted by its CRD |
 | container | `Registry` | experimental | findby,get,create,update,delete | `metadata.name` | applies and reaches `Ready`; sample admitted by its CRD |
-| database | `Database` | experimental | findby,get,create,delete | `name` | applies and reaches `Ready`; sample admitted by its CRD |
+| database | `Database` | beta | findby,get,create,delete | `name` | create/observe proven live (name-keyed, `status.name = gadb`); deleted with its parent rather than individually — **billable parent** — [live-cluster-test](live-cluster-test.md) |
 | database | `DatabaseBackup` | experimental | findby,create,delete | `metadata.name` | applies and reaches `Ready`; sample admitted by its CRD |
-| database | `DatabaseUser` | experimental | findby,get,create,delete | `username` | applies and reaches `Ready`; sample admitted by its CRD |
-| database | `Dbaas` | experimental | findby,get,create,update,delete | `metadata.name` | applies and reaches `Ready`; sample admitted by its CRD |
-| database | `Grant` | experimental | findby,get,create,delete | `user` | applies and reaches `Ready`; sample admitted by its CRD |
+| database | `DatabaseUser` | **blocked** | findby,get,create,delete | `username` | **password policy is undeclared and unguessable** — the OAS gives `password` no `minLength` or `pattern`, and the API rejects even Aruba's own SDK example value; see [live-cluster-test](live-cluster-test.md) |
+| database | `Dbaas` | beta | findby,get,create,update,delete | `metadata.name` | create/observe/delete proven live (`6a9a846d`, mysql-8.0 / DBO1A2 / 20 GB); drift injection rejected with 400 — its update body will not accept a full re-PUT — **billable** — [live-cluster-test](live-cluster-test.md) |
+| database | `Grant` | **blocked** | findby,get,create,delete | `user` | depends on `DatabaseUser`, which cannot be created |
 | metering | `AlertRule` | experimental | findby,get,create,update,delete | `name` | applies and reaches `Ready`; sample admitted by its CRD |
 | network | `ElasticIp` | **GA** | findby,get,create,update,delete | `metadata.name` | full lifecycle live incl. drift correction — **billable** (`billingPlan.billingPeriod`), created and deleted within one hour — [live-cluster-test](live-cluster-test.md) |
 | network | `LoadBalancer` | experimental | findby,get | `name` | unblocked on 0.22.1 — generates a `name` selector and the CR is accepted ([#75](https://github.com/krateo-platformops/oasgen-provider/issues/75) fixed); no load balancer exists in the test account, so a positive match is unproven |

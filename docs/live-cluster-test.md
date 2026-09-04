@@ -696,3 +696,49 @@ chains.
 exercised. It is now a candidate for GA on the next run, since `compareScope: updatable`
 makes its `metadata.tags` the only compared field — its update body carries metadata
 only, which is exactly why that scope was applied to it.
+
+### Database chain — two proven, two blocked by an unguessable password policy
+
+`Dbaas` provisioned on the pre-existing account network (deliberately: the chain binds
+to `cloudburst-default` rather than creating its own VPC, and its `residue` lists only
+the dbaas endpoint so teardown can never treat the shared VPC as leftover).
+
+```
+Dbaas        6a9a846d752ef81c21ebe520   mysql-8.0 / DBO1A2 / 20 GB   Ready
+Database     gadb                       name-keyed, resolved via idPath: name
+DatabaseUser —                          BLOCKED
+Grant        —                          blocked behind DatabaseUser
+```
+
+**`DatabaseUser` cannot be created from any published information.** The API rejects
+every attempt with:
+
+```
+{"fieldName":"Password","errorMessage":"Password does not match the minimum requirements."}
+```
+
+and the OAS declares `password` as a bare string — no `minLength`, no `pattern`, no
+description beyond "The password to assign to the new database user." Three values
+were tried:
+
+| Value | Length | Result |
+|---|---|---|
+| `Ga!Test123456Ac@` | 16 | rejected |
+| `Xq7#vNb2$wRt5Zk9` | 16 | rejected — no dictionary word, no sequence |
+| `Prova123456789AC@` | 17 | rejected — **Aruba's own SDK example value** |
+
+The third is the decisive one. When the vendor's own documented example fails its own
+validator, the rule cannot be derived from published sources at all, and guessing
+further costs a billable reconcile each time. This is not a payload problem to solve by
+reading harder.
+
+It also sharpens the existing P2. `DatabaseUser.password` being a plaintext spec field
+was already a reason not to promote the `database` provider; that the field's accepted
+values are undocumented makes it doubly unusable — an operator cannot even construct a
+valid one without trial and error against a paid instance.
+
+`Dbaas` drift was also not provable: injection returned **400**, because the generic
+mechanism re-`PUT`s the whole fetched object and the DBaaS update body will not accept
+it. So `Dbaas` and `Database` are **beta** — created and observed, not drift-proven.
+
+Account verified clear afterwards: 0 dbaas instances, no CRs.

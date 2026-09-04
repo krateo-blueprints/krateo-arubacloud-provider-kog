@@ -1,0 +1,84 @@
+# Database chain: Dbaas -> Database -> DatabaseUser -> Grant.
+#
+# EVERY resource here is behind a BILLABLE parent (Dbaas declares billingPlan), and a
+# DBaaS instance takes minutes to provision. Run with a raised timeout:
+#
+#   TIMEOUT=1800 DRIFT_TIMEOUT=600 python3 scripts/ga_chain.py tests/ga/chains/database.yaml --with-billable
+#
+# The networking URIs point at PRE-EXISTING account infrastructure, which this chain
+# deliberately does NOT create and MUST NOT remove:
+#   VPC            cloudburst-default   69a5609fa851081197caa45f
+#   Subnet         automatic-subnet-01  69a560ce2312085699426c28
+#   SecurityGroup  automatic-sg-01      69a560ce2312085699426c2a
+#
+# `residue` therefore lists ONLY the dbaas endpoint. Listing the vpcs endpoint would
+# make the residue check report the shared VPC as leftover from this run.
+name: database
+vars:
+  PROJECT: 69a55c8d5e6f0e14f14093ff
+  LOCATION: ITBG-Bergamo
+  VPC_ID: 69a5609fa851081197caa45f
+  SUBNET_ID: 69a560ce2312085699426c28
+  SG_ID: 69a560ce2312085699426c2a
+residue:
+  - /projects/${PROJECT}/providers/Aruba.Database/dbaas
+resources:
+  - kind: Dbaas
+    name: ga-dbaas
+    billable: true
+    spec:
+      configurationRef: {name: dbaas-config, namespace: default}
+      projectId: "${PROJECT}"
+      metadata:
+        name: ga-dbaas
+        location: {value: "${LOCATION}"}
+        tags: []
+      properties:
+        dataCenter: ITBG-1
+        engine: {id: mysql-8.0}          # sourced: arubacloud.github.io/api/docs/metadata
+        flavor: {name: DBO1A2}           # smallest published flavor
+        storage: {sizeGb: 20}
+        billingPlan: {billingPeriod: Hour}
+        networking:
+          vpcUri: /projects/${PROJECT}/providers/Aruba.Network/vpcs/${VPC_ID}
+          subnetUri: /projects/${PROJECT}/providers/Aruba.Network/vpcs/${VPC_ID}/subnets/${SUBNET_ID}
+          securityGroupUri: /projects/${PROJECT}/providers/Aruba.Network/vpcs/${VPC_ID}/securityGroups/${SG_ID}
+    drift: /projects/${PROJECT}/providers/Aruba.Database/dbaas/${id:self}
+
+  # Name-keyed: no server id, so the runner must be told where the identifier lives.
+  - kind: Database
+    name: ga-database
+    billable: true
+    idPath: name
+    spec:
+      configurationRef: {name: database-config, namespace: default}
+      projectId: "${PROJECT}"
+      dbaasId: "${id:ga-dbaas}"
+      name: gadb
+
+  - kind: DatabaseUser
+    name: ga-dbuser
+    billable: true
+    idPath: username
+    spec:
+      configurationRef: {name: databaseuser-config, namespace: default}
+      projectId: "${PROJECT}"
+      dbaasId: "${id:ga-dbaas}"
+      username: gauser
+      # Plaintext in the spec. This is P2 in docs/ga-plan.md and is why the database
+      # provider must not be promoted on lifecycle evidence alone: a GA resource should
+      # not require a secret in its spec. Value is throwaway and the instance is
+      # destroyed at the end of the run.
+      password: "Ga!Test123456Ac@"
+
+  - kind: Grant
+    name: ga-grant
+    billable: true
+    idPath: user
+    spec:
+      configurationRef: {name: grant-config, namespace: default}
+      projectId: "${PROJECT}"
+      dbaasId: "${id:ga-dbaas}"
+      databaseName: gadb
+      user: {username: gauser}
+      role: {name: ReadOnly}

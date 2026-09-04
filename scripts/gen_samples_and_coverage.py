@@ -132,6 +132,28 @@ TIERS = {
         "experimental",
         "same `kmipId` status mapping correction as Key; not yet run",
     ),
+    ("database", "Dbaas"): (
+        "beta",
+        "create/observe/delete proven live (`6a9a846d`, mysql-8.0 / DBO1A2 / 20 GB); "
+        "drift injection rejected with 400 — its update body will not accept a full "
+        "re-PUT — **billable** — [live-cluster-test](live-cluster-test.md)",
+    ),
+    ("database", "Database"): (
+        "beta",
+        "create/observe proven live (name-keyed, `status.name = gadb`); deleted with "
+        "its parent rather than individually — **billable parent** — "
+        "[live-cluster-test](live-cluster-test.md)",
+    ),
+    ("database", "DatabaseUser"): (
+        "blocked",
+        "**password policy is undeclared and unguessable** — the OAS gives `password` "
+        "no `minLength` or `pattern`, and the API rejects even Aruba's own SDK example "
+        "value; see [live-cluster-test](live-cluster-test.md)",
+    ),
+    ("database", "Grant"): (
+        "blocked",
+        "depends on `DatabaseUser`, which cannot be created",
+    ),
     ("network", "ElasticIp"): (
         "ga",
         "full lifecycle live incl. drift correction — **billable** "
