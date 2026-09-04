@@ -233,7 +233,23 @@ def main():
     if not args:
         raise SystemExit(__doc__)
     chain = yaml.safe_load(open(args[0]))
-    variables = chain.get("vars", {})
+    variables = dict(chain.get("vars", {}))
+
+    # Any var may be overridden from the environment, and a var declared with an empty
+    # value MUST be. That is how a secret reaches a run without being committed: a VPN
+    # pre-shared key belongs in the operator's shell, not in a fixture in git.
+    for k in list(variables) + [k for k in os.environ if k.startswith("GA_")]:
+        env_key = k[3:] if k.startswith("GA_") else k
+        if k in os.environ:
+            variables[k] = os.environ[k]
+        elif ("GA_" + k) in os.environ:
+            variables[k] = os.environ["GA_" + k]
+    missing = [k for k, v in variables.items() if v in (None, "")]
+    if missing:
+        raise SystemExit(
+            f"chain '{chain['name']}' needs these vars supplied from the environment: "
+            + ", ".join(missing) + "\n(declared empty in the fixture precisely so they "
+            "are never committed — export GA_<NAME> or <NAME> before running)")
     tok = token()
 
     code, _ = api("GET", "/projects", tok)

@@ -1,0 +1,105 @@
+name: vpn
+vars:
+  PROJECT: 69a55c8d5e6f0e14f14093ff
+  LOCATION: ITBG-Bergamo
+  PSK_SECRET: ''
+residue:
+- /projects/${PROJECT}/providers/Aruba.Network/vpnTunnels
+- /projects/${PROJECT}/providers/Aruba.Network/elasticIps
+- /projects/${PROJECT}/providers/Aruba.Network/vpcs
+resources:
+- kind: Vpc
+  name: ga-vpn-vpc
+  spec:
+    configurationRef:
+      name: vpc-config
+      namespace: default
+    projectId: ${PROJECT}
+    metadata:
+      name: ga-vpn-vpc
+      location:
+        value: ${LOCATION}
+      tags: []
+    properties:
+      default: false
+      preset: false
+- kind: ElasticIp
+  name: ga-vpn-eip
+  billable: true
+  spec:
+    configurationRef:
+      name: elasticip-config
+      namespace: default
+    projectId: ${PROJECT}
+    metadata:
+      name: ga-vpn-eip
+      location:
+        value: ${LOCATION}
+      tags: []
+    properties:
+      billingPlan:
+        billingPeriod: Hour
+- kind: VpnTunnel
+  name: ga-vpntunnel
+  billable: true
+  spec:
+    configurationRef:
+      name: vpntunnel-config
+      namespace: default
+    projectId: ${PROJECT}
+    metadata:
+      name: ga-vpntunnel
+      location:
+        value: ${LOCATION}
+      tags: []
+    properties:
+      vpnType: Site-To-Site
+      vpnClientProtocol: ikev2
+      billingPlan:
+        billingPeriod: Hour
+      ipConfigurations:
+        vpc:
+          uri: /projects/${PROJECT}/providers/Aruba.Network/vpcs/${id:ga-vpn-vpc}
+        publicIp:
+          uri: /projects/${PROJECT}/providers/Aruba.Network/elasticIps/${id:ga-vpn-eip}
+        subnet:
+          name: ga-vpn-subnet
+          cidr: 192.168.60.0/24
+      vpnClientSettings:
+        peerClientPublicIp: 203.0.113.1
+        ike:
+          encryption: aes256
+          hash: sha256
+          dhGroup: '14'
+          lifetime: 86400
+          dpdAction: restart
+          dpdInterval: 30
+          dpdTimeout: 120
+        esp:
+          encryption: aes256
+          hash: sha256
+          pfs: dh-group14
+          lifetime: 3600
+        psk:
+          cloudSite: cloud-side
+          onPremSite: onprem-side
+          secret: ${PSK_SECRET}
+  drift: /projects/${PROJECT}/providers/Aruba.Network/vpnTunnels/${id:self}
+- kind: VpnRoute
+  name: ga-vpnroute
+  billable: true
+  spec:
+    configurationRef:
+      name: vpnroute-config
+      namespace: default
+    projectId: ${PROJECT}
+    vpnTunnelId: ${id:ga-vpntunnel}
+    metadata:
+      name: ga-vpnroute
+      location:
+        value: ${LOCATION}
+      tags: []
+    properties:
+      cloudSubnet: 192.168.60.0/24
+      onPremSubnet: 203.0.113.0/24
+  drift: /projects/${PROJECT}/providers/Aruba.Network/vpnTunnels/${id:ga-vpntunnel}/vpnRoutes/${id:self}

@@ -857,3 +857,41 @@ on me, not on the provider.
 
 The lesson is the one the runner already encodes and I overrode by hand: tear down in
 reverse dependency order, and when a delete stalls, wait rather than reach past it.
+
+### VpnTunnel proven; VpnRoute blocked on two undeclared fields
+
+`VpnTunnel` created and observed (`6a9b3576`, `Site-To-Site` / `ikev2`) and deleted
+cleanly. Its enum values came from the CRD field descriptions, which spell them out
+verbatim — *"Admissable values: - ikev2"* — one of the few places Aruba does document a
+constrained string. Drift was **skipped**: injection returned 400, because the generic
+mechanism re-`PUT`s the whole fetched object and the tunnel's update body rejects it,
+exactly as with `Dbaas`. So it is **beta**.
+
+The secret was never committed. `PSK_SECRET` is declared empty in the fixture and the
+runner now refuses to start until it is supplied from the environment:
+
+```
+chain 'vpn' needs these vars supplied from the environment: PSK_SECRET
+```
+
+The run used `GA_PSK_SECRET="$(openssl rand -base64 24)"`, and `peerClientPublicIp` is
+`203.0.113.1` — RFC 5737 TEST-NET-3 — so the tunnel could never negotiate with a real
+host.
+
+`VpnRoute` is **blocked**. Every attempt returns:
+
+```
+Properties.CloudSubnet  -> subnet not found
+Properties.OnPremSubnet -> network address is invalid
+```
+
+`cloudSubnet` was given the CIDR of the subnet the tunnel itself created
+(`192.168.60.0/24`, confirmed present in the VPC), and `onPremSubnet` was tried as both
+RFC 5737 documentation space and RFC1918 private space. Both were rejected. The OAS
+describes them only as "Cidr of the cloud subnet" / "Cidr of the onPrem subnet" with no
+pattern, no enum and no note about what "not found" is looking for — a CIDR, a name, or
+a URI. Guessing further costs a billable tunnel per attempt, so it stops here.
+
+Teardown was done in dependency order this time — route, tunnel, elastic IP, VPC — after
+the BackupPolicyAssignment lesson. Account clear afterwards: 0 tunnels, 0 elastic IPs,
+and only the pre-existing `cloudburst-default` VPC.

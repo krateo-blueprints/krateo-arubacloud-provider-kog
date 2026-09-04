@@ -168,6 +168,19 @@ TIERS = {
         "blocked",
         "depends on `DatabaseUser`, which cannot be created",
     ),
+    ("network", "VpnTunnel"): (
+        "beta",
+        "create → observe → delete proven live (`6a9b3576`, Site-To-Site / ikev2); "
+        "drift injection rejected with 400 — its update body will not accept a full "
+        "re-PUT — **billable** — [live-cluster-test](live-cluster-test.md)",
+    ),
+    ("network", "VpnRoute"): (
+        "blocked",
+        "`Properties.CloudSubnet: subnet not found` and `Properties.OnPremSubnet: "
+        "network address is invalid` persist even with the tunnel's own subnet CIDR "
+        "and an RFC1918 peer range; neither field's accepted form is declared anywhere "
+        "in the OAS — [live-cluster-test](live-cluster-test.md)",
+    ),
     ("network", "ElasticIp"): (
         "ga",
         "full lifecycle live incl. drift correction — **billable** "
