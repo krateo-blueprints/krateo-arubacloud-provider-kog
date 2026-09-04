@@ -88,6 +88,12 @@ TIERS = {
         "ga",
         "full lifecycle live incl. drift correction — [live-cluster-test](live-cluster-test.md)",
     ),
+    ("schedule", "BackupPolicyAssignment"): (
+        "beta",
+        "create → observe → **drift corrected** proven live (`6a9aea83`); delete did "
+        "not complete — it entered `Deleting` and stayed there, and further DELETEs "
+        "return 400 `Invalid status` — [live-cluster-test](live-cluster-test.md)",
+    ),
     ("schedule", "Job"): (
         "blocked",
         "a step's only supported actions are **`poweron` / `poweroff` via POST** "

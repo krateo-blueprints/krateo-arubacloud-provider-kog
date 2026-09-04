@@ -1,0 +1,52 @@
+# schedule/BackupPolicyAssignment binds a BackupPolicy to a resource. Both parents are
+# already GA-proven, so this chain is the cheapest remaining: one 20 GB volume (hourly,
+# billable) plus a free policy.
+#
+# The policy's resourceType must be exactly "volume" (undeclared in the OAS, discovered
+# by a 400), which is why the assignable resource here is a BlockStorage.
+name: backup-assignment
+vars:
+  PROJECT: 69a55c8d5e6f0e14f14093ff
+  LOCATION: ITBG-Bergamo
+residue:
+  - /projects/${PROJECT}/providers/Aruba.Schedule/backupPolicies
+  - /projects/${PROJECT}/providers/Aruba.Schedule/backupPolicyAssignments
+  - /projects/${PROJECT}/providers/Aruba.Storage/blockStorages
+resources:
+  - kind: BlockStorage
+    name: ga-bpa-vol
+    billable: true
+    spec:
+      configurationRef: {name: blockstorage-config, namespace: default}
+      projectId: "${PROJECT}"
+      metadata: {name: ga-bpa-vol, location: {value: "${LOCATION}"}, tags: []}
+      properties:
+        sizeGb: 20
+        billingPeriod: Hour
+
+  - kind: BackupPolicy
+    name: ga-bpa-policy
+    spec:
+      configurationRef: {name: backuppolicy-config, namespace: default}
+      projectId: "${PROJECT}"
+      metadata: {name: ga-bpa-policy, tags: []}
+      properties:
+        resourceType: volume
+        schedules:
+          - frequency: Daily
+            backupType: Full
+            retentionDays: 1
+            time: "02:00:00"
+
+  - kind: BackupPolicyAssignment
+    name: ga-bpa
+    spec:
+      configurationRef: {name: backuppolicyassignment-config, namespace: default}
+      projectId: "${PROJECT}"
+      metadata: {name: ga-bpa, location: {value: "${LOCATION}"}, tags: []}
+      properties:
+        backupPolicy:
+          uri: "/projects/${PROJECT}/providers/Aruba.Schedule/backupPolicies/${id:ga-bpa-policy}"
+        resource:
+          uri: "/projects/${PROJECT}/providers/Aruba.Storage/blockStorages/${id:ga-bpa-vol}"
+    drift: /projects/${PROJECT}/providers/Aruba.Schedule/backupPolicyAssignments/${id:self}

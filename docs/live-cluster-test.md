@@ -829,3 +829,31 @@ creating a duplicate billable key, which is a different thing entirely.
 
 This also closes out the mapping saga: the `keyId` fix works end to end, the key is
 addressable on delete, and no orphan is left to block the parent.
+
+### BackupPolicyAssignment — drift proven, delete wedged (and I made it worse)
+
+```
+BlockStorage 6a9ae926   Ready      (billable, 20 GB)
+BackupPolicy 6a9ae9d4   Ready      (free)
+BackupPolicyAssignment 6a9aea83   Ready, DRIFT CORRECTED
+```
+
+Create, observe and drift all pass. **Delete does not.** The first DELETE is accepted —
+the assignment moves to `state: Deleting` — and every subsequent DELETE returns
+`400 Invalid status`, so the finalizer never releases. Same shape as
+[#101](https://github.com/krateo-platformops/oasgen-provider/issues/101): the resource
+is mid-transition, DELETE errors with a non-404, and RDC's existence check is
+unreachable because the error path returns first.
+
+**My own mistake made it permanent.** When teardown stalled I force-deleted the
+`BlockStorage` directly, out of dependency order, while the assignment still referenced
+it. The assignment has been stuck in `Deleting` ever since and does not clear — a
+resource that binds a policy to a volume cannot finish deleting once its volume has
+vanished underneath it. Six further DELETEs all returned 400.
+
+The volume — the only billable member — is gone. The assignment and its policy are
+free, but they are **residue that needs removing from the Aruba console**, and that is
+on me, not on the provider.
+
+The lesson is the one the runner already encodes and I overrode by hand: tear down in
+reverse dependency order, and when a delete stalls, wait rather than reach past it.

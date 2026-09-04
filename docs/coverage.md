@@ -19,8 +19,8 @@ A tier states what has actually been *executed* against the live Aruba API, not 
 | Tier | Bar | Count |
 |------|-----|-------|
 | **GA** | full `create → observe → drift → delete` against the live API | 15 |
-| beta | observe verified live; mutation unproven | 5 |
-| experimental | generated, valid, reaches `Ready`, sample admitted | 10 |
+| beta | observe verified live; mutation unproven | 6 |
+| experimental | generated, valid, reaches `Ready`, sample admitted | 9 |
 | **blocked** | known non-functional, reason recorded | 4 |
 
 Only **GA** claims fitness for production use. See [ga-readiness](ga-readiness.md).
@@ -54,7 +54,7 @@ Only **GA** claims fitness for production use. See [ga-readiness](ga-readiness.m
 | project | `Folder` | beta | findby,get,create,update,delete | `name` | create/observe/delete proven live; drift **not** exercised — its only mutable spec fields are the identifier itself and an account-wide `default` flag, neither safe to perturb — [live-cluster-test](live-cluster-test.md) |
 | project | `Project` | **GA** | findby,get,create,update,delete | `metadata.name` | full lifecycle live incl. drift correction — [live-cluster-test](live-cluster-test.md) |
 | schedule | `BackupPolicy` | **GA** | findby,get,create,update,delete | `metadata.name` | full lifecycle live incl. drift correction — [live-cluster-test](live-cluster-test.md) |
-| schedule | `BackupPolicyAssignment` | experimental | findby,get,create,update,delete | `metadata.name` | applies and reaches `Ready`; sample admitted by its CRD |
+| schedule | `BackupPolicyAssignment` | beta | findby,get,create,update,delete | `metadata.name` | create → observe → **drift corrected** proven live (`6a9aea83`); delete did not complete — it entered `Deleting` and stayed there, and further DELETEs return 400 `Invalid status` — [live-cluster-test](live-cluster-test.md) |
 | schedule | `Job` | **blocked** | findby,get,create,update,delete | `metadata.name` | a step's only supported actions are **`poweron` / `poweroff` via POST** (GET is rejected: *All steps must have a correct HttpVerb defined*), so a Job requires a `CloudServer` to target — none exists and CloudServer creation is itself blocked on snowplow (P0-3) |
 | security | `Key` | **GA** | findby,get,create,update,delete | `name` | create → observe → delete proven live (`b6ae8eee`). Drift is **not applicable**: its update body is `{name}` only, and `name` is the identifier, so there is no non-identifying field to converge — the same reasoning as `Restore` — **billable parent** — [live-cluster-test](live-cluster-test.md) |
 | security | `Kmip` | experimental | findby,get,create,update,delete | `name` | same `kmipId` status mapping correction as Key; not yet run |
