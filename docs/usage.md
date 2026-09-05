@@ -4,14 +4,14 @@ title: krateo-arubacloud-provider-kog — usage
 description: Install the krateo oasgen-provider fork, apply the OAS ConfigMaps and RestDefinitions, manage your first resource end to end, and provision a whole environment through the Composition.
 resource: oci://ghcr.io/krateo-blueprints/charts/aruba-cloudserver-environment
 tags: [usage, install, restdefinition, composition, kubectl]
-timestamp: 2026-08-11T00:00:00Z
+timestamp: 2026-09-05T00:00:00Z
 ---
 
 # Usage
 
 ## Prerequisites
 
-A Kubernetes cluster with the **krateo fork** of oasgen-provider and its
+A Kubernetes cluster with **oasgen-provider** of oasgen-provider and its
 rest-dynamic-controller (RDC). A stock (non-krateo) oasgen-provider does **not**
 have the features these RestDefinitions rely on (nested identifiers,
 `fieldMapping`, `async`, `*ApiRef`).

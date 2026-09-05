@@ -1,5 +1,5 @@
 ---
-type: Reference
+type: Decision
 title: GA readiness
 description: What GA means for this provider, what blocks it, and how each tier is earned.
 tags: [aruba, kog, ga, release]

@@ -1,5 +1,5 @@
 ---
-type: Reference
+type: Decision
 title: Payload derivation for the remaining resources
 description: What a 32-agent adversarial derivation found before any billable run was attempted.
 tags: [aruba, kog, ga, testing]

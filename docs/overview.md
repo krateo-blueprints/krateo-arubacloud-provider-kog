@@ -4,7 +4,7 @@ title: krateo-arubacloud-provider-kog — overview
 description: How the blueprint works — RestDefinition to generated CRD + controller, the nested-metadata identifier pattern that eliminates proxies, *ApiRef delegation for multi-call lifecycles, and the whole-environment Composition.
 resource: oci://ghcr.io/krateo-blueprints/charts/aruba-cloudserver-environment
 tags: [architecture, oasgen-provider, restdefinition, metadata-pattern, apiref]
-timestamp: 2026-08-11T00:00:00Z
+timestamp: 2026-09-05T00:00:00Z
 ---
 
 # Overview
@@ -42,7 +42,7 @@ Almost every Aruba resource nests its name/id in a `metadata` object
 (`metadata.name` on create, `metadata.id` on read). That single fact is why the
 predecessor blueprint needed a Go `subnet-plugin` to flatten the shape. Each
 `RestDefinition` here replaces that plugin declaratively, using features that
-exist only in the **krateo fork** of oasgen-provider and RDC:
+exist only in **oasgen-provider** of oasgen-provider and RDC:
 
 - `identifiers: [metadata.name]` — a **nested identifier**, no flattening proxy.
 - `additionalStatusFields: [metadata.id]` — surfaces the server-assigned id into
@@ -53,7 +53,7 @@ exist only in the **krateo fork** of oasgen-provider and RDC:
 
 The canonical example is `restdefinitions/network/subnet.yaml`, replicated across
 all resources. See [Adversarial review](adversarial-review.md) for the
-verification that each feature actually behaves as claimed against the fork's
+verification that each feature actually behaves as claimed against oasgen-provider's
 executor source, and [oasgen-provider evolution](oasgen-provider-evolution.md) for
 the residual gaps.
 
@@ -64,7 +64,7 @@ The prime case is `compute/CloudServer`, whose provisioning, power state,
 associations and volume attachments are a multi-call, action-driven sequence.
 
 Instead of reviving a proxy, `CloudServer`'s `RestDefinition` **delegates**
-create/update/delete to Snowplow `RESTAction`s via the fork's `createApiRef` /
+create/update/delete to Snowplow `RESTAction`s via oasgen-provider's `createApiRef` /
 `updateApiRef` / `deleteApiRef`, while `get`/`findby` stay native. The RESTActions
 live under `restactions/compute/` and are written to be **idempotent** (a
 `dependsOn.iterator` guard runs a step zero times when the resource already
@@ -74,7 +74,7 @@ reports convergence. See [Lifecycle beyond CRUD](lifecycle-beyond-crud.md).
 ## Async readiness
 
 Some resources (e.g. `baremetal/Hpc`) provision asynchronously. Their
-`RestDefinition` uses the fork's `async` block so the controller itself polls a
+`RestDefinition` uses oasgen-provider's `async` block so the controller itself polls a
 status endpoint and only reports `Ready` when provisioning completes, rather than
 flapping. See [Async readiness](async-readiness.md).
 
@@ -93,7 +93,7 @@ orchestrated together rather than one controller doing many things.
 
 - **Not cluster-tested.** `api.arubacloud.com` is not reachable from the build
   environment, so manifests are validated for shape/consistency against the OAS
-  and the fork's canonical Subnet example (`scripts/validate.py`), not against a
+  and oasgen-provider's canonical Subnet example (`scripts/validate.py`), not against a
   live API. Treat them as a reviewed starting point.
 - The OAS patches (strip `nullable`/`readOnly`, coerce `additionalProperties`)
   change the contract to fit the tool; each is tracked in the evolution report as

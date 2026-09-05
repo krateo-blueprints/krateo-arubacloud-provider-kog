@@ -7,6 +7,11 @@ on:
   pull_request:
     paths:
       - "**"
+  push:
+    # Also on push: this repo is worked on directly against main, and a
+    # pull_request-only trigger meant the docs standard was never enforced there.
+    # Three docs reached main with a frontmatter type outside the OKF registry.
+    branches: [main]
   workflow_dispatch:
 
 jobs:

@@ -3,7 +3,7 @@ type: Component
 title: krateo-arubacloud-provider-kog
 description: Proxy-free Aruba Cloud RestDefinitions for Krateo — doc index.
 tags: [aruba, kog]
-timestamp: 2026-08-19T00:00:00Z
+timestamp: 2026-09-05T00:00:00Z
 ---
 
 # Aruba Cloud Provider KOG — documentation
@@ -64,3 +64,20 @@ python3 scripts/gen_samples_and_coverage.py  # samples/ + docs/coverage.md
 python3 scripts/gen_provider_docs.py         # docs/providers/
 python3 scripts/validate.py                  # static + helm validation
 ```
+
+## Maturity
+
+A resource's tier records what has been **executed against the live Aruba API**, not how
+correct its RestDefinition looks. Every serious defect this project found was invisible
+to review and surfaced only on a cluster.
+
+| Tier | Count | Claim |
+|------|-------|-------|
+| **GA** | 15 | full `create → observe → drift → delete` proven live — fit for production |
+| beta | 7 | created and observed live; drift or delete unproven |
+| experimental | 7 | generated and valid, admitted by its CRD; lifecycle unproven |
+| **blocked** | 5 | known non-functional, each with a recorded reason |
+
+Per-resource tiers with links to the run that earned each one are in
+[coverage](coverage.md); what remains is tracked in [ga-readiness](ga-readiness.md).
+**The provider as a whole is pre-1.0** — see [release](release.md#pre-10).

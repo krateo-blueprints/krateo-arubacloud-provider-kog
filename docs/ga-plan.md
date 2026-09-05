@@ -1,5 +1,5 @@
 ---
-type: Reference
+type: Runbook
 title: GA completion plan
 description: How every resource reaches a GA tier, in what order, and what it costs.
 tags: [aruba, kog, ga, plan]

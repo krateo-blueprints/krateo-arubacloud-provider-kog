@@ -118,7 +118,7 @@ Everything under `openapi/`, `configmaps/`, `restdefinitions/`, `samples/` and
 `docs/coverage.md` is generated. To refresh from updated Aruba specs:
 
 ```sh
-# refresh openapi/*.json from https://api.arubacloud.com/openapi/ (then regenerate
+# refresh openapi/*.json from https://arubacloud.github.io/api/openapi/ (then regenerate
 # openapi/CHECKSUMS.txt), and run:
 python3 scripts/generate_restdefinitions.py  # -> restdefinitions/
 python3 scripts/gen_configmaps.py            # -> configmaps/

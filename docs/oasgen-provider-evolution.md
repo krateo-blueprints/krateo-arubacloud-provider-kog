@@ -10,7 +10,7 @@ timestamp: 2026-08-19T00:00:00Z
 
 This document enumerates every issue found while generating RestDefinitions for
 **all** Aruba Cloud APIs directly from the official OpenAPI specifications
-(`https://api.arubacloud.com/openapi/<provider>.json`, vendored under
+(`https://arubacloud.github.io/api/openapi/<provider>.json`, vendored under
 `openapi/`, byte-for-byte unmodified) with
 [`oasgen-provider`](https://github.com/krateo-platformops/oasgen-provider) and
 **no wrapper/proxy web service**.
