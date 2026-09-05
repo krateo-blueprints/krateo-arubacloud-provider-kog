@@ -29,6 +29,23 @@ whose own multi-call lifecycle is driven by approach 1.
 
 ## 1. Per-resource: RestDefinition + `*ApiRef` → Snowplow RESTAction
 
+> **Correction (2026-09).** This page long claimed CloudServer "has NO single create
+> endpoint". That is wrong, and the mistake was ours. `POST .../Aruba.Compute/cloudServers`
+> exists and is fully specified — but **only in `compute-provider_v1.1.json`**
+> (`info.version: 1.1.0`), a document whose entire content is that one path. Everything
+> else — `findby`, `get`, `delete` and all eight action endpoints — lives in
+> `compute-provider.json` (`1.0.0`).
+>
+> A RestDefinition carries a **single `oasPath`**, so its verbs cannot span two
+> documents. That, not the absence of an endpoint, is why create is delegated here.
+> Worse, the 1.1 document was vendored but never generated into a ConfigMap, so oasgen
+> could not have seen the endpoint even if the API allowed it. That is now fixed
+> (`configmaps/compute11-openapi.yaml`).
+>
+> The create body is complete: `metadata.{name,location,tags}` plus
+> `properties.{flavorName, vpc.uri, subnets, securityGroups, bootVolume.uri,
+> keyPair.uri, elasticIp.uri, dataCenter, userData, vpcPreset}`.
+
 The flagship case is `compute/CloudServer`. Its RestDefinition keeps native
 observe and delegates the mutating verbs:
 

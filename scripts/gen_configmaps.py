@@ -18,6 +18,13 @@ NS = "krateo-system"
 # short provider name -> published filename (consumed UNMODIFIED)
 PROVIDERS = {'network': 'network-provider.json',
              'compute': 'compute-provider.json',
+             # Aruba splits CloudServer across two API versions: everything except
+             # create is in compute-provider.json (1.0.0), and POST .../cloudServers
+             # exists ONLY in compute-provider_v1.1.json (1.1.0). The 1.1 document
+             # contains that single path and nothing else. It is vendored and was never
+             # shipped as a ConfigMap, so oasgen could not see the create endpoint at
+             # all -- which is why this repo concluded CloudServer had none.
+             'compute11': 'compute-provider_v1.1.json',
              'container': 'container-provider.json',
              'database': 'database-provider.json',
              'storage': 'storage-provider.json',
