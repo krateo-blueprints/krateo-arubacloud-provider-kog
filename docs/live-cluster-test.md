@@ -895,3 +895,42 @@ a URI. Guessing further costs a billable tunnel per attempt, so it stops here.
 Teardown was done in dependency order this time — route, tunnel, elastic IP, VPC — after
 the BackupPolicyAssignment lesson. Account clear afterwards: 0 tunnels, 0 elastic IPs,
 and only the pre-existing `cloudburst-default` VPC.
+
+### VpnRoute unblocked by reading Aruba's own code
+
+The two errors that blocked it — `CloudSubnet: subnet not found` and
+`OnPremSubnet: network address is invalid` — are not documented anywhere in the OAS,
+which describes both fields only as "Cidr of the … subnet". They are stated plainly in
+Aruba's CLI end-to-end suite:
+
+> "The VPN route's `--cloud-subnet` must reference an existing VPC subnet CIDR, not the
+> VPN tunnel's own internal provisioning subnet. Create a dedicated VPC subnet for this
+> purpose and tear it down after the test."
+> — `Arubacloud/acloud-cli` `e2e/network/test.sh:1026-1028`
+
+That is exactly what had been tried and rejected: `192.168.60.0/24` was the tunnel's own
+`ipConfigurations.subnet`, which the route lookup does not resolve. `cloudSubnet` is not
+a free CIDR at all — the server dereferences it to a real Subnet resource, which is why
+the response type is an object `{cidr, uri}` while the request is a bare string.
+
+Applied: a dedicated `Advanced` subnet at `10.60.0.0/24`, created before the tunnel so
+it is `Active` in time, plus `onPremSubnet: 192.168.129.0/24` — a literal Aruba's own
+e2e runs against a live tenant.
+
+```
+Vpc          6a9bf5d2
+Subnet       6a9bf67f   Advanced 10.60.0.0/24  (dedicated to the route)
+ElasticIp    6a9bf70d
+VpnTunnel    6a9bf740   keeps its own 192.168.60.0/24
+VpnRoute     6a9bf909   DRIFT CORRECTED
+teardown 5/5 · residue 0 — clean
+```
+
+`VpnRoute` is **GA**. `VpnTunnel` stays beta: its drift injection still returns 400,
+because the generic mechanism re-`PUT`s the whole fetched object.
+
+The lesson generalises. Aruba maintains eight first-party repos that all call this API,
+and the constraints absent from the OpenAPI documents are written down in their SDK
+examples, CLI e2e scripts and operator reconcile logic. Reading those is cheaper than
+discovering the same rules one billable 400 at a time — and it is how this resource went
+from blocked to GA without a single extra guess.

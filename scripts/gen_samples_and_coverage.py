@@ -175,11 +175,11 @@ TIERS = {
         "re-PUT — **billable** — [live-cluster-test](live-cluster-test.md)",
     ),
     ("network", "VpnRoute"): (
-        "blocked",
-        "`Properties.CloudSubnet: subnet not found` and `Properties.OnPremSubnet: "
-        "network address is invalid` persist even with the tunnel's own subnet CIDR "
-        "and an RFC1918 peer range; neither field's accepted form is declared anywhere "
-        "in the OAS — [live-cluster-test](live-cluster-test.md)",
+        "ga",
+        "full lifecycle live incl. drift correction (`6a9bf909`). `cloudSubnet` must be "
+        "the CIDR of a **standalone, Active** subnet in the VPC — never the tunnel's own "
+        "provisioning subnet — a rule found in Aruba's CLI e2e, not in the OAS — "
+        "**billable** — [live-cluster-test](live-cluster-test.md)",
     ),
     ("network", "ElasticIp"): (
         "ga",

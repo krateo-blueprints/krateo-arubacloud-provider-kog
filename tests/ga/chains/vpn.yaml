@@ -7,6 +7,7 @@ residue:
 - /projects/${PROJECT}/providers/Aruba.Network/vpnTunnels
 - /projects/${PROJECT}/providers/Aruba.Network/elasticIps
 - /projects/${PROJECT}/providers/Aruba.Network/vpcs
+- /projects/${PROJECT}/providers/Aruba.Network/vpcs/${id:ga-vpn-vpc}/subnets
 resources:
 - kind: Vpc
   name: ga-vpn-vpc
@@ -23,6 +24,24 @@ resources:
     properties:
       default: false
       preset: false
+- kind: Subnet
+  name: ga-vpnroute-subnet
+  spec:
+    configurationRef:
+      name: subnet-config
+      namespace: default
+    projectId: ${PROJECT}
+    vpcId: ${id:ga-vpn-vpc}
+    metadata:
+      name: ga-vpnroute-subnet
+      location:
+        value: ${LOCATION}
+      tags: []
+    properties:
+      type: Advanced
+      default: false
+      network:
+        address: 10.60.0.0/24
 - kind: ElasticIp
   name: ga-vpn-eip
   billable: true
@@ -100,6 +119,6 @@ resources:
         value: ${LOCATION}
       tags: []
     properties:
-      cloudSubnet: 192.168.60.0/24
-      onPremSubnet: 203.0.113.0/24
+      cloudSubnet: 10.60.0.0/24
+      onPremSubnet: 192.168.129.0/24
   drift: /projects/${PROJECT}/providers/Aruba.Network/vpnTunnels/${id:ga-vpntunnel}/vpnRoutes/${id:self}

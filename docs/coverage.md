@@ -18,10 +18,10 @@ A tier states what has actually been *executed* against the live Aruba API, not 
 
 | Tier | Bar | Count |
 |------|-----|-------|
-| **GA** | full `create → observe → drift → delete` against the live API | 15 |
+| **GA** | full `create → observe → drift → delete` against the live API | 16 |
 | beta | observe verified live; mutation unproven | 7 |
 | experimental | generated, valid, reaches `Ready`, sample admitted | 7 |
-| **blocked** | known non-functional, reason recorded | 5 |
+| **blocked** | known non-functional, reason recorded | 4 |
 
 Only **GA** claims fitness for production use. See [ga-readiness](ga-readiness.md).
 
@@ -49,7 +49,7 @@ Only **GA** claims fitness for production use. See [ga-readiness](ga-readiness.m
 | network | `Vpc` | **GA** | findby,get,create,update,delete | `metadata.name` | full lifecycle live incl. drift correction — [live-cluster-test](live-cluster-test.md) |
 | network | `VpcPeering` | **GA** | findby,get,create,update,delete | `metadata.name` | full lifecycle live incl. drift correction, free (no `billingPlan`) — [live-cluster-test](live-cluster-test.md) |
 | network | `VpcPeeringRoute` | beta | findby,get,create,update,delete | `metadata.name` | create/observe/delete proven live in a 6-resource chain (two VPCs, two **Advanced** subnets whose CIDRs the route references, a peering); drift not yet exercised — **billable** — [live-cluster-test](live-cluster-test.md) |
-| network | `VpnRoute` | **blocked** | findby,get,create,update,delete | `metadata.name` | `Properties.CloudSubnet: subnet not found` and `Properties.OnPremSubnet: network address is invalid` persist even with the tunnel's own subnet CIDR and an RFC1918 peer range; neither field's accepted form is declared anywhere in the OAS — [live-cluster-test](live-cluster-test.md) |
+| network | `VpnRoute` | **GA** | findby,get,create,update,delete | `metadata.name` | full lifecycle live incl. drift correction (`6a9bf909`). `cloudSubnet` must be the CIDR of a **standalone, Active** subnet in the VPC — never the tunnel's own provisioning subnet — a rule found in Aruba's CLI e2e, not in the OAS — **billable** — [live-cluster-test](live-cluster-test.md) |
 | network | `VpnTunnel` | beta | findby,get,create,update,delete | `metadata.name` | create → observe → delete proven live (`6a9b3576`, Site-To-Site / ikev2); drift injection rejected with 400 — its update body will not accept a full re-PUT — **billable** — [live-cluster-test](live-cluster-test.md) |
 | project | `Folder` | beta | findby,get,create,update,delete | `name` | create/observe/delete proven live; drift **not** exercised — its only mutable spec fields are the identifier itself and an account-wide `default` flag, neither safe to perturb — [live-cluster-test](live-cluster-test.md) |
 | project | `Project` | **GA** | findby,get,create,update,delete | `metadata.name` | full lifecycle live incl. drift correction — [live-cluster-test](live-cluster-test.md) |
