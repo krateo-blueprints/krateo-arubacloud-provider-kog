@@ -45,6 +45,32 @@ whose own multi-call lifecycle is driven by approach 1.
 > The create body is complete: `metadata.{name,location,tags}` plus
 > `properties.{flavorName, vpc.uri, subnets, securityGroups, bootVolume.uri,
 > keyPair.uri, elasticIp.uri, dataCenter, userData, vpcPreset}`.
+>
+> **And create really is a single call.** All four of Aruba's first-party
+> implementations — `sdk-go`, the Terraform provider, `arubacloud-resource-operator` and
+> `acloud-cli` — create a server with **one POST** carrying vpc, bootVolume, keyPair,
+> elasticIp, subnets and securityGroups in the body. There is no power-on step, no
+> associate step and no attach step at create time. The action endpoints this page
+> describes are **day-2 operations**, not part of provisioning.
+>
+> Filed upstream as
+> [oasgen-provider#108](https://github.com/krateo-platformops/oasgen-provider/issues/108):
+> allow a verb to override `oasPath`. That is the whole blocker — not the shape of the
+> API.
+>
+> Three preconditions Aruba documents nowhere in the OAS, all found in their own code:
+>
+> - Dependencies must be settled first, and the settled state differs by kind: VPC,
+>   Subnet, SecurityGroup and KeyPair must be `Active`, while an unattached ElasticIp or
+>   BlockStorage must be **`NotUsed`** (`sdk-go` defines `WaitUntilNotUsed` as exactly
+>   that state).
+> - **The boot volume must be created with `bootable: true` and an `image` code.** A
+>   plain `BlockStorage` — which is what this repository's storage wave creates — will
+>   never boot.
+> - Creating before the boot volume or subnets reach a final state does not fail, it
+>   **stalls**. Aruba's own operator requeues instead of POSTing, with
+>   `// TODO: Remove this block once the CMP Infra Team fixes the root cause`. A create
+>   issued too early hangs *and bills*.
 
 The flagship case is `compute/CloudServer`. Its RestDefinition keeps native
 observe and delegates the mutating verbs:
