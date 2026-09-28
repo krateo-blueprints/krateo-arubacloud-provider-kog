@@ -1071,3 +1071,64 @@ update it, failing with `400`. A stuck resource makes its own name unusable.
 **Account state:** the billable members are gone (0 block storages, 0 KMS, 0 keys). A
 free `BackupPolicyAssignment` and its `BackupPolicy` remain wedged in `Deleting` and
 will need clearing from the Aruba console or by support.
+
+### Verifying oasgen-provider #146 (envelope unwrap) — findings that affect this repo
+
+Ran the `fix/110-envelope-unwrap` build against all 34 RestDefinitions on a fresh cluster
+(both images built from source, chart 0.24.0 with each overridden). Three results matter
+here beyond the PR itself.
+
+**Only one resource was ever affected.** The type degradation #110 describes needs the
+status schema to come from the findby *envelope*, which happens only when a resource has
+no `get` verb. 33 of our 34 have one, so their status was always built from the bare item
+and was always correctly typed. The single exception is `database/DatabaseBackup`
+(`findby, create, delete`). With `additionalStatusFields: [metadata.id, metadata.tags]`:
+
+```
+stock 0.24.0   "tags": {"type": "string"}                              <- degraded
+PR #146        "tags": {"type": "array", "items": {"type": "string"}}  <- correct
+```
+
+**A CRD status-type change is survivable, but only because of validation ratcheting.**
+Forcing the upgrade path — stale string in etcd, schema then tightened to array — on
+Kubernetes 1.36.1:
+
+| write | result |
+|---|---|
+| array where schema says string (stock) | **rejected** — so nothing bad ever reaches etcd |
+| stale string still readable after the change | yes |
+| correct array written over it | accepted, replaces cleanly |
+| the *same* stale string written back | **accepted** |
+| a *different* wrongly-typed value | rejected |
+
+The last two identify the mechanism: the API server skips validating a field whose value
+is **unchanged**. Graduation, from `apiextensions-apiserver/pkg/features/kube_features.go`
+across release branches:
+
+```
+1.28  Alpha, off by default
+1.30  Beta,  on by default   <- disableable
+1.33  GA,    LockToDefault: true   <- cannot be disabled
+```
+
+So a status-type change self-corrects on **≥ 1.33** and is merely *likely* to on 1.30–1.32,
+where an operator can turn the gate off. Below 1.30 it does not: RDC's `populateStatusFields`
+merges into existing status and never clears, and `clearStatusFields` is called from Create
+and Update but **not Observe**, so a stale value would be rewritten and rejected on every
+reconcile with nothing to clear it.
+
+**Our API omits declared fields conditionally.** `security/Kmip`, same resource, two reads:
+
+```
+live:        {"id","name","type","status","creationDate"}
+post-delete: {"id","name","type","status","creationDate","deletionDate"}
+```
+
+This matters for any future change to replace-rather-merge status semantics: a conditionally
+present field would blank and un-blank, and `compareScope: updatable` would read that as
+drift — the unfixable-drift shape of
+[#51](https://github.com/krateo-platformops/oasgen-provider/issues/51). Every field we
+currently declare is a core identity field present on every read, so nothing would flap
+today — but that is luck, not design, and it constrains what we may safely declare later.
+
+Tracked upstream as [#152](https://github.com/krateo-platformops/oasgen-provider/issues/152).
