@@ -3,7 +3,7 @@ type: Runbook
 title: Live cluster test
 description: The end-to-end create/observe/drift/delete validation and how to repeat it.
 tags: [aruba, kog]
-timestamp: 2026-08-19T00:00:00Z
+timestamp: 2026-09-28T00:00:00Z
 ---
 
 # Live-cluster test

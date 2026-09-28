@@ -101,7 +101,7 @@ def main():
                f"title: Aruba Cloud {TITLES[prov]} provider",
                f"description: {TITLES[prov]} provider reference — every resource, its verbs, identifiers and uncovered endpoints. Generated.",
                "tags: [providers, aruba, reference]",
-               "timestamp: 2026-08-19T00:00:00Z",
+               "timestamp: 2026-09-28T00:00:00Z",
                "---",
                ""]
         out.append(f"# Aruba Cloud {TITLES[prov]} provider\n")
@@ -175,7 +175,7 @@ def main():
            "title: Provider reference",
            "description: Per-provider index of the Aruba Cloud KOG RestDefinitions. Generated.",
            "tags: [providers, aruba, reference]",
-           "timestamp: 2026-08-19T00:00:00Z",
+           "timestamp: 2026-09-28T00:00:00Z",
            "---",
            "",
            "# Provider reference\n",

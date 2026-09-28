@@ -3,7 +3,7 @@ type: Decision
 title: Payload derivation for the remaining resources
 description: What a 32-agent adversarial derivation found before any billable run was attempted.
 tags: [aruba, kog, ga, testing]
-timestamp: 2026-09-03T00:00:00Z
+timestamp: 2026-09-05T00:00:00Z
 ---
 
 # Deriving the remaining payloads

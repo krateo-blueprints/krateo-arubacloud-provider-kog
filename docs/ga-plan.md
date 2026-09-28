@@ -3,7 +3,7 @@ type: Runbook
 title: GA completion plan
 description: How every resource reaches a GA tier, in what order, and what it costs.
 tags: [aruba, kog, ga, plan]
-timestamp: 2026-09-01T00:00:00Z
+timestamp: 2026-09-05T00:00:00Z
 ---
 
 # Completing GA across all 34 resources

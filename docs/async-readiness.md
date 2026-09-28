@@ -3,7 +3,7 @@ type: Architecture
 title: Async readiness
 description: How long-running Aruba operations map onto async polling and readiness.
 tags: [aruba, kog]
-timestamp: 2026-08-19T00:00:00Z
+timestamp: 2026-08-31T00:00:00Z
 ---
 
 # Async readiness — the controller's home turf

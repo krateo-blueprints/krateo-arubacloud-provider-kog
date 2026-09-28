@@ -3,7 +3,7 @@ type: Decision
 title: oasgen-provider evolution
 description: Generation gaps found against the unmodified specs, and which were fixed upstream.
 tags: [aruba, kog]
-timestamp: 2026-08-19T00:00:00Z
+timestamp: 2026-09-05T00:00:00Z
 ---
 
 # Aruba Cloud KOG — issues that require an oasgen-provider evolution

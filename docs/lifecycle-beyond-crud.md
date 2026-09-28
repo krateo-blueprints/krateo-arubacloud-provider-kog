@@ -3,7 +3,7 @@ type: Architecture
 title: Lifecycle beyond CRUD
 description: Actions that are not create/read/update/delete and how they are modelled.
 tags: [aruba, kog]
-timestamp: 2026-08-19T00:00:00Z
+timestamp: 2026-09-05T00:00:00Z
 ---
 
 # Lifecycle beyond the five CRUD verbs — the proxy-free solution

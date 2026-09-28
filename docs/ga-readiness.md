@@ -3,7 +3,7 @@ type: Decision
 title: GA readiness
 description: What GA means for this provider, what blocks it, and how each tier is earned.
 tags: [aruba, kog, ga, release]
-timestamp: 2026-08-31T00:00:00Z
+timestamp: 2026-09-06T00:00:00Z
 ---
 
 # GA readiness

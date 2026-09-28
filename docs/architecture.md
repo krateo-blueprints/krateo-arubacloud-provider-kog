@@ -3,7 +3,7 @@ type: Architecture
 title: Architecture
 description: How the vendored OAS, RestDefinitions, generated controllers and Configurations fit together.
 tags: [aruba, kog]
-timestamp: 2026-08-19T00:00:00Z
+timestamp: 2026-08-31T00:00:00Z
 ---
 
 # Architecture

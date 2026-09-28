@@ -490,7 +490,7 @@ def main():
             "description: Every provider, resource and verb this repo covers, "
             "generated from the RestDefinitions.\n"
             "tags: [aruba, kog]\n"
-            "timestamp: 2026-08-19T00:00:00Z\n"
+            "timestamp: 2026-09-28T00:00:00Z\n"
             "---\n\n"
         )
         f.write("# Aruba Cloud KOG — resource coverage matrix\n\n")

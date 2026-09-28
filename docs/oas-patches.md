@@ -3,7 +3,7 @@ type: Standard
 title: OAS policy — the specs are not modified
 description: Why the vendored specs stay byte-for-byte, how validate.py enforces it, and what that costs.
 tags: [aruba, kog]
-timestamp: 2026-08-19T00:00:00Z
+timestamp: 2026-08-31T00:00:00Z
 ---
 
 # OAS policy — the specs are **not** modified

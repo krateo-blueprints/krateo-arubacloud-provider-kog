@@ -3,7 +3,7 @@ type: API
 title: Coverage
 description: Every provider, resource and verb this repo covers, generated from the RestDefinitions.
 tags: [aruba, kog]
-timestamp: 2026-08-19T00:00:00Z
+timestamp: 2026-09-28T00:00:00Z
 ---
 
 # Aruba Cloud KOG — resource coverage matrix

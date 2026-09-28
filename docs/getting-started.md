@@ -3,7 +3,7 @@ type: Usage
 title: Getting started
 description: Install the CRD chart, token, ConfigMaps and RestDefinitions, then manage the first resource.
 tags: [aruba, kog]
-timestamp: 2026-08-19T00:00:00Z
+timestamp: 2026-08-31T00:00:00Z
 ---
 
 # Getting started

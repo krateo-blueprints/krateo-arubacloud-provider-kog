@@ -3,7 +3,7 @@ type: Decision
 title: Adversarial review
 description: Claims made by this repo and how each was independently attacked and verified.
 tags: [aruba, kog]
-timestamp: 2026-08-19T00:00:00Z
+timestamp: 2026-08-31T00:00:00Z
 ---
 
 # Adversarial review — generated artifacts vs. the code that executes them
