@@ -7,6 +7,7 @@ vars:
   SG_ID: 69a560ce2312085699426c2a
 residue:
 - /projects/${PROJECT}/providers/Aruba.Database/dbaas
+- /projects/${PROJECT}/providers/Aruba.Database/backups
 resources:
 - kind: Dbaas
   name: ga-dbaas
@@ -85,3 +86,30 @@ resources:
       username: gauser
     role:
       name: ReadOnly
+- kind: DatabaseBackup
+  name: ga-dbbackup
+  billable: true
+  # Placed last so teardown (reverse order) removes the backup before the Dbaas it
+  # points at. No `drift` block: the OAS gives backups no update verb, so the bar is
+  # create -> observe -> delete, as for the other seven immutable resources.
+  #
+  # This is the one resource whose emitted status oasgen#146 changes, which is why it
+  # was added to the chain -- see docs/live-cluster-test.md.
+  spec:
+    configurationRef:
+      name: databasebackup-config
+      namespace: default
+    projectId: ${PROJECT}
+    metadata:
+      name: ga-dbbackup
+      location:
+        value: ${LOCATION}
+      tags: []
+    properties:
+      dataCenter: ITBG-1
+      dbaas:
+        uri: /projects/${PROJECT}/providers/Aruba.Database/dbaas/${id:ga-dbaas}
+      database:
+        name: gadb
+      billingPlan:
+        billingPeriod: Hour

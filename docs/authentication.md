@@ -3,7 +3,7 @@ type: Configuration
 title: Authentication
 description: The short-lived Aruba JWT: how it is minted, stored and rotated.
 tags: [aruba, kog]
-timestamp: 2026-08-19T00:00:00Z
+timestamp: 2026-09-29T00:00:00Z
 ---
 
 # Authentication
@@ -140,49 +140,36 @@ platform concern, and the pieces already compose:
   Configuration's `valuePrefix`, precisely so a rotation path "writes the raw
   credential and never has to know about HTTP framing" (oasgen's own words).
 
-Sketch — ESO's webhook provider performing the client-credentials exchange, with
-the api key/secret held in a separate Secret:
+The manifests live in the repo rather than in this page, because an earlier sketch
+here drifted from what actually works and cost an afternoon:
 
-```yaml
-apiVersion: external-secrets.io/v1beta1
-kind: SecretStore
-metadata: {name: aruba-oauth, namespace: default}
-spec:
-  provider:
-    webhook:
-      url: https://mylogin.aruba.it/auth/realms/cmp-new-apikey/protocol/openid-connect/token
-      method: POST
-      headers: {Content-Type: application/x-www-form-urlencoded}
-      body: "grant_type=client_credentials&client_id={{ .clientId }}&client_secret={{ .clientSecret }}"
-      result: {jsonPath: "$.access_token"}
-      secrets:
-        - name: clientId
-          secretRef: {name: aruba-api-key, key: client_id}
-        - name: clientSecret
-          secretRef: {name: aruba-api-key, key: client_secret}
----
-apiVersion: external-secrets.io/v1beta1
-kind: ExternalSecret
-metadata: {name: arubacloud-token, namespace: default}
-spec:
-  refreshInterval: 30m          # well under the ~1h TTL -- never let it lapse
-  secretStoreRef: {name: aruba-oauth, kind: SecretStore}
-  target: {name: arubacloud-token, creationPolicy: Owner}
-  data:
-    - secretKey: token
-      remoteRef: {key: access_token}
-```
+- `eso/clustersecretstore.yaml` — the webhook generator performing the
+  client-credentials exchange
+- `eso/externalsecret.yaml` — writes `default/arubacloud-token`, key `token`
+- `scripts/eso-bootstrap.sh` — stores the client credential once; this is the only
+  step that needs the client secret, and it prompts on the terminal so the value
+  never reaches your shell history or a process listing
 
-Two things to get right:
+Four details the sketch got wrong, each of which fails without explaining itself:
 
-- **`refreshInterval` comfortably below the TTL.** Recovery after an expired
-  token is delayed by the controller's exponential backoff (measured: 160s after
-  only a few failures). Refreshing early means that window is never entered.
-- **No trailing whitespace in the written value.** A newline in the Secret
-  produces `net/http: invalid header field value for "Authorization"` — see
-  [rdc#45](https://github.com/krateo-platformops/rest-dynamic-controller/issues/45).
-  ESO's `jsonPath` extraction is clean; a hand-written `template` may not be.
+- **`ClusterSecretStore`, not `SecretStore`.** The credential lives in
+  `krateo-system` while the token Secret is written to `default`; a namespaced
+  store cannot cross that boundary.
+- **One `secrets` entry, addressed by field.** Two entries named `clientId` /
+  `clientSecret` make `{{ .clientId }}` render the *whole Secret* as a Go map —
+  `map[client_id:… client_secret:…]` — which Aruba rejects as `invalid_client`.
+  Bind one `creds` entry and reference `{{ .creds.client_id }}`.
+- **`| urlquery` on both values.** A secret containing `+` or `&` otherwise
+  corrupts the form body.
+- **Two mandatory labels on the credential Secret.**
+  `reconcile.external-secrets.io/managed=true` (ESO's informer caches only
+  labelled Secrets, so without it the lookup fails with a bare "not found" while
+  the Secret plainly exists) and `external-secrets.io/type=webhook`. The bootstrap
+  script applies both.
 
-> The manifests above are a **sketch, not a tested artifact** — ESO was not
-> installed on the test cluster. What *is* verified is the premise they depend on:
+> **Verified so far:** on `kind-aruba-110`, ESO installs, both manifests are
+> accepted, and the ExternalSecret reaches `SecretSyncedError: could not get secret
+> data from provider` — the correct failure for a missing credential. The token
+> mint itself is unverified, because that needs the client secret typed at a
+> terminal. What is independently verified is the premise all of this depends on:
 > rotation propagates without a restart.
