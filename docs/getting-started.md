@@ -3,7 +3,7 @@ type: Usage
 title: Getting started
 description: Install the CRD chart, token, ConfigMaps and RestDefinitions, then manage the first resource.
 tags: [aruba, kog]
-timestamp: 2026-08-31T00:00:00Z
+timestamp: 2026-09-29T00:00:00Z
 ---
 
 # Getting started
@@ -13,7 +13,17 @@ This walks through installing the provider and managing your first resource (a
 
 ## Prerequisites
 
-- A Kubernetes cluster (v1.20+).
+- A Kubernetes cluster. **v1.20+** works with the charts released today, but plan
+  for **v1.33+**: the next chart release sets `kubeVersion: ">=1.33.0-0"`
+  ([oasgen#153](https://github.com/krateo-platformops/oasgen-provider/issues/153)),
+  below which Helm refuses to install.
+
+  > The floor is not arbitrary. CRD **validation ratcheting** is what lets a CR
+  > whose stored status no longer matches a tightened schema be rewritten instead of
+  > rejected. It is GA with `LockToDefault: true` only from 1.33; on 1.30–1.32 it is
+  > on by default but an operator can disable it, and below 1.30 it does not exist.
+  > So on an older cluster a status-schema change can wedge existing resources — see
+  > [live-cluster-test](live-cluster-test.md#crd-validation-ratcheting).
 - The Krateo **oasgen-provider** and its rest-dynamic-controller, **≥ 0.21.1**.
 
   > oasgen-provider is a **monorepo**: rest-dynamic-controller and both Helm charts

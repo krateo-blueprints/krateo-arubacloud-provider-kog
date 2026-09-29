@@ -3,7 +3,7 @@ type: Runbook
 title: Live cluster test
 description: The end-to-end create/observe/drift/delete validation and how to repeat it.
 tags: [aruba, kog]
-timestamp: 2026-09-28T00:00:00Z
+timestamp: 2026-09-29T00:00:00Z
 ---
 
 # Live-cluster test
@@ -1088,6 +1088,8 @@ and was always correctly typed. The single exception is `database/DatabaseBackup
 stock 0.24.0   "tags": {"type": "string"}                              <- degraded
 PR #146        "tags": {"type": "array", "items": {"type": "string"}}  <- correct
 ```
+
+#### CRD validation ratcheting
 
 **A CRD status-type change is survivable, but only because of validation ratcheting.**
 Forcing the upgrade path — stale string in etcd, schema then tightened to array — on
