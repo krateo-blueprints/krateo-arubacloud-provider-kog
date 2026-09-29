@@ -143,14 +143,19 @@ def verify_sample_versions(errors, specs):
         prov = f.split(os.sep)[1]
         if prov not in specs:
             continue
-        doc = yaml.safe_load(open(f))
-        if not isinstance(doc, dict) or "apiVersion" not in doc:
-            continue
-        v = (specs[prov].get("info") or {}).get("version") or ""
-        want_res = f"{group}/v{v.replace('.', '-')}" if v else f"{group}/v1alpha1"
-        want = f"{group}/v1alpha1" if doc.get("kind", "").endswith("Configuration") else want_res
-        if doc["apiVersion"] != want:
-            errors.append(f"{f}: apiVersion {doc['apiVersion']} but the cluster serves {want}")
+        # safe_load_all, not safe_load: a sample may carry a companion document -- a
+        # resource whose credential is sourced by the secretRef resolver ships the
+        # Secret alongside the CR, since the field has no spec form to fill in.
+        for doc in yaml.safe_load_all(open(f)):
+            if not isinstance(doc, dict) or "apiVersion" not in doc:
+                continue
+            if not doc["apiVersion"].startswith(group + "/"):
+                continue          # core/v1 companions (Secret) are not group-versioned
+            v = (specs[prov].get("info") or {}).get("version") or ""
+            want_res = f"{group}/v{v.replace('.', '-')}" if v else f"{group}/v1alpha1"
+            want = f"{group}/v1alpha1" if doc.get("kind", "").endswith("Configuration") else want_res
+            if doc["apiVersion"] != want:
+                errors.append(f"{f}: apiVersion {doc['apiVersion']} but the cluster serves {want}")
 
 
 def find_helm():

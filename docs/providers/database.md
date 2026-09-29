@@ -56,7 +56,7 @@ Sample: [`samples/database/databasebackup.yaml`](../../samples/database/database
 
 ## DatabaseUser
 
-> DatabaseUser is name-keyed (create {username, password}). 'password' is a plaintext spec field in the source OAS; sourcing it from a Kubernetes Secret needs the secretRef resolver plus an OAS-declared *SecretRef field - see docs/oasgen-provider-evolution.md. No update verb (password change is a separate PUT .../password sub-endpoint).
+> DatabaseUser is name-keyed (create {username, password}). 'password' is dropped from the spec and sourced from a Secret at create time via the secretRef resolver. The Secret is named after the CR and keyed by the username, both read from the CR itself - which is what makes this work without adding a *SecretRef field the source OAS does not declare, and the OAS is not ours to change. Its VALUE must be the base64 of the password: Aruba requires that and does not document it (their Terraform provider encodes client-side, dbaasuser_resource.go:130), and jq valueMapping cannot do it for us - RDC skips jq on the request direction. No update verb (password change is a separate PUT .../password sub-endpoint).
 
 | Verb | Method | Path |
 |------|--------|------|
@@ -64,6 +64,8 @@ Sample: [`samples/database/databasebackup.yaml`](../../samples/database/database
 | get | GET | `/projects/{projectId}/providers/Aruba.Database/dbaas/{dbaasId}/users/{username}` |
 | create | POST | `/projects/{projectId}/providers/Aruba.Database/dbaas/{dbaasId}/users` |
 | delete | DELETE | `/projects/{projectId}/providers/Aruba.Database/dbaas/{dbaasId}/users/{username}` |
+
+excluded from spec: `password`
 
 Configuration query params: `api-version, filter, limit, offset, projection, sort`
 

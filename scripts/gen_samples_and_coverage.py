@@ -160,10 +160,15 @@ TIERS = {
     ),
     ("database", "DatabaseUser"): (
         "beta",
-        "create/observe proven live (`gauser`). The password must be **base64-encoded** "
-        "— undocumented; a plaintext value is rejected as a policy failure that it is "
-        "not. No update verb, so drift is N/A; delete proven with the chain — "
-        "[live-cluster-test](live-cluster-test.md)",
+        "create/observe proven live (`gauser`). The password is **not a spec field**: "
+        "it is sourced from a Secret named after the CR and keyed by the username, via "
+        "the `secretRef` resolver "
+        "([authentication](authentication.md#a-credential-that-is-not-a-spec-field)). "
+        "Its stored value must be **base64-encoded** — undocumented, which makes a "
+        "plaintext value read as a policy rejection that it is not. No update verb, so "
+        "drift is N/A; delete proven with the chain — "
+        "[live-cluster-test](live-cluster-test.md). The create call has not been "
+        "re-run since the password moved out of the spec",
     ),
     ("database", "Grant"): (
         "beta",
@@ -405,6 +410,13 @@ def make_cr(spec, prov, doc, apiver):
                 spec_body[pp] = "REPLACE"
         props, req = create_body_props(spec, create["path"])
         for name, sch in props.items():
+            # excludedSpecFields applies to BODY properties too, not just path params.
+            # It used to be checked only on the latter, so a field dropped from the CRD
+            # was still emitted here -- the sample then failed strict decoding with
+            # `unknown field`. DatabaseUser.password is the live case: it is sourced
+            # from a Secret and no longer exists in the spec at all.
+            if name in excluded:
+                continue
             schd = deref(spec, sch)
             if name == "metadata":
                 mp, _ = merged_props(spec, schd)
@@ -438,6 +450,27 @@ def make_cr(spec, prov, doc, apiver):
             # instead -- and the samples will need regenerating with it.
             spec_body[ident] = "REPLACE_selects_the_existing_object_by_this_value"
     return cr
+
+
+def secret_docs_for(doc):
+    """Companion Secret samples for every create-body field sourced via a secretRef
+    resolver. Without these the CR sample is unusable: the field is gone from the spec
+    (that is the point) and nothing on the page says where the value comes from.
+
+    The resolver reads the Secret's name and key from JSONPaths into the CR, so the
+    sample can only be written by following those paths -- which is also the clearest
+    way to show the convention to a reader."""
+    res = doc["spec"]["resource"]
+    out = []
+    for v in res.get("verbsDescription", []):
+        for m in v.get("fieldMapping", []) or []:
+            r = (m.get("resolver") or {})
+            if r.get("type") != "secretRef":
+                continue
+            sr = r["secretRef"]
+            out.append((m.get("inBody") or m.get("inPath") or m.get("inQuery"),
+                        sr["nameFromCustomResource"], sr["keyFromCustomResource"]))
+    return out
 
 
 def dump_yaml(obj, path):
@@ -474,7 +507,31 @@ def main():
         dump_yaml(make_configuration(kind, verbs, auth_block(specs[prov]), f"{GROUP}/{CONFIG_VERSION}",
                                      res.get("configurationFields", [])),
                   os.path.join(d, f"{kind.lower()}-configuration.yaml"))
-        dump_yaml(make_cr(specs[prov], prov, doc, apiver), os.path.join(d, f"{kind.lower()}.yaml"))
+        cr_path = os.path.join(d, f"{kind.lower()}.yaml")
+        dump_yaml(make_cr(specs[prov], prov, doc, apiver), cr_path)
+        srefs = secret_docs_for(doc)
+        if srefs:
+            cr = make_cr(specs[prov], prov, doc, apiver)
+            with open(cr_path, "a") as f:
+                for field, name_path, key_path in srefs:
+                    f.write(f"""---
+# Supplies spec-absent field `{field}` at create time. `{field}` is deliberately not a
+# spec field: a credential in a CR spec is readable by anyone who can read the CR.
+#
+# name <- {name_path}   key <- {key_path}
+# Both are JSONPaths into the CR above, and the Secret is always read from the CR's own
+# namespace. Change either value in the CR and the Secret must follow.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: REPLACE_matching_{name_path.replace('.', '_')}
+  namespace: default
+type: Opaque
+stringData:
+  REPLACE_matching_{key_path.replace('.', '_')}: REPLACE_WITH_THE_VALUE
+# The API may want this value in a particular encoding -- check the resource's page
+# under docs/providers/ before assuming it takes the raw value.
+""")
         ids = ",".join(res.get("identifiers", []))
         rows.append((prov, kind, ",".join(verbs), ids))
 

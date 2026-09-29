@@ -121,6 +121,65 @@ Requires oasgen ≥ 0.19.0 and RDC ≥ 0.19.0
 ([#49](https://github.com/krateo-platformops/oasgen-provider/issues/49)); earlier
 versions skipped the `apiKey` scheme silently and generated no auth block at all.
 
+## A credential that is not a spec field
+
+`DatabaseUser` needs a password. The source OAS declares it as a plain body string, and
+a body string becomes a spec field — so the obvious generation puts a credential in the
+CR, where anyone with `get databaseusers` can read it. Base64 does not help: it is an
+encoding, not a protection.
+
+The field is instead **dropped from the CRD** and supplied at create time by oasgen's
+`secretRef` resolver:
+
+```yaml
+excludedSpecFields:
+- password
+verbsDescription:
+- action: create
+  method: POST
+  path: /projects/{projectId}/providers/Aruba.Database/dbaas/{dbaasId}/users
+  fieldMapping:
+  - inBody: password
+    resolver:
+      type: secretRef
+      secretRef:
+        nameFromCustomResource: metadata.name
+        keyFromCustomResource: spec.username
+```
+
+So the Secret is **named after the CR** and **keyed by the username**, and is read from
+the CR's own namespace. Both paths point at fields the CR already has, which is the
+whole trick: the resolver normally wants a `*SecretRef` field to read the name and key
+from, and this OAS declares none — [and the OAS is not ours to
+change](oas-patches.md). Reusing `metadata.name` and `spec.username` needs nothing
+added.
+
+What the pattern buys:
+
+- The plaintext form no longer exists. There is no spec field to fill in by mistake,
+  because the CRD has no such property — `kubectl explain` shows `configurationRef`,
+  `projectId`, `dbaasId`, `username` and nothing else.
+- RDC registers the resolved value as a **sensitive value**, so it is redacted from
+  request logging rather than merely absent from the CR.
+- RBAC is self-provisioned and narrow: RDC grants itself `get` on *that Secret name*,
+  not on Secrets generally.
+
+Two sharp edges, both load-bearing:
+
+- **The stored value must be the base64 of the password**, because Aruba requires
+  base64 and does not document it (their Terraform provider encodes client-side, at
+  `internal/provider/dbaasuser_resource.go:130`). The Secret holds exactly the bytes
+  the API wants.
+- **`valueMapping` cannot do that encoding for you.** A `jq` transform of `@base64`
+  looks like the right answer and is silently discarded: RDC wires `jq` for the
+  response direction only, and on a request it `continue`s past the entry rather than
+  sending an untransformed value. The field would simply be missing from the body.
+
+> **Verified:** the regenerated CRD carries no `password` property, and the
+> RestDefinition reaches `Ready=True` with the resolver attached. **Not yet verified:**
+> the create call actually carrying the resolved value, and the RBAC widening to the
+> Secret's name — both happen after the token is resolved, so they need a live run.
+
 ## RESTAction credentials
 
 The CloudServer RESTActions run under Snowplow's identity and therefore use their

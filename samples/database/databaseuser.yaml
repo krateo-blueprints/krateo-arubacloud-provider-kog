@@ -12,4 +12,20 @@ spec:
   projectId: REPLACE
   dbaasId: REPLACE
   username: REPLACE
-  password: REPLACE
+---
+# Supplies spec-absent field `password` at create time. `password` is deliberately not a
+# spec field: a credential in a CR spec is readable by anyone who can read the CR.
+#
+# name <- metadata.name   key <- spec.username
+# Both are JSONPaths into the CR above, and the Secret is always read from the CR's own
+# namespace. Change either value in the CR and the Secret must follow.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: REPLACE_matching_metadata_name
+  namespace: default
+type: Opaque
+stringData:
+  REPLACE_matching_spec_username: REPLACE_WITH_THE_VALUE
+# The API may want this value in a particular encoding -- check the resource's page
+# under docs/providers/ before assuming it takes the raw value.

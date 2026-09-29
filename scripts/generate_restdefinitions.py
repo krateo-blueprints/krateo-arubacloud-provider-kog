@@ -157,11 +157,19 @@ OVERRIDES = {
               "{databaseName} while DELETE uses {name} for the same path segment.")),
     "database/users": dict(
         metaWrap=False, idField="username", statusId="",
-        note=("DatabaseUser is name-keyed (create {username, password}). 'password' is a "
-              "plaintext spec field in the source OAS; sourcing it from a Kubernetes "
-              "Secret needs the secretRef resolver plus an OAS-declared *SecretRef field "
-              "- see docs/oasgen-provider-evolution.md. No update verb (password change "
-              "is a separate PUT .../password sub-endpoint).")),
+        secretFields=[dict(inBody="password", nameFrom="metadata.name",
+                           keyFrom="spec.username")],
+        note=("DatabaseUser is name-keyed (create {username, password}). 'password' is "
+              "dropped from the spec and sourced from a Secret at create time via the "
+              "secretRef resolver. The Secret is named after the CR and keyed by the "
+              "username, both read from the CR itself - which is what makes this work "
+              "without adding a *SecretRef field the source OAS does not declare, and "
+              "the OAS is not ours to change. Its VALUE must be the base64 of the "
+              "password: Aruba requires that and does not document it (their Terraform "
+              "provider encodes client-side, dbaasuser_resource.go:130), and jq "
+              "valueMapping cannot do it for us - RDC skips jq on the request "
+              "direction. No update verb (password change is a separate PUT "
+              ".../password sub-endpoint).")),
     "database/grants": dict(
         metaWrap=False, idField="user.username", statusId="",
         note=("Grant is name-keyed. The create body nests the name as {user:{username}} "
@@ -469,7 +477,21 @@ def render(r):
         elif idp != ov["idField"]:
             excluded.add(idp)
     if r["has_create"]:
-        verbs.append({"action": "create", "method": "POST", "path": r["coll"]})
+        create = {"action": "create", "method": "POST", "path": r["coll"]}
+        # Body fields sourced from a Secret rather than from the spec. The field is
+        # dropped from the CRD entirely, so there is no plaintext-in-spec form of it
+        # left to use by mistake -- the resolver is the only way to supply it.
+        for sf in ov.get("secretFields", []):
+            create.setdefault("fieldMapping", []).append({
+                "inBody": sf["inBody"],
+                "resolver": {
+                    "type": "secretRef",
+                    "secretRef": {"nameFromCustomResource": sf["nameFrom"],
+                                  "keyFromCustomResource": sf["keyFrom"]},
+                },
+            })
+            excluded.add(sf["inBody"])
+        verbs.append(create)
     if r["put_op"]:
         path, idp = r["put_op"]
         verbs.append({"action": "update", "method": "PUT", "path": path,

@@ -59,18 +59,26 @@ resources:
     projectId: ${PROJECT}
     dbaasId: ${id:ga-dbaas}
     username: gauser
-    # BASE64, and this is NOT documented anywhere in the OAS. A plaintext password is
-    # rejected with "Password does not match the minimum requirements", which reads as a
-    # policy failure and is not one -- every plaintext value fails, including Aruba's own
-    # SDK example. Their Terraform provider encodes client-side:
-    #   internal/provider/dbaasuser_resource.go:130
-    #   passwordBase64 := base64.StdEncoding.EncodeToString([]byte(...))
-    # Decoded value here: Prova123456789AC@
-    #
-    # The same error is ALSO returned while the DBaaS user API is still initialising,
-    # even with a correct password -- the provider polls GET on a non-existent user until
-    # it 404s to prove the API is up. Two unrelated causes, one misleading message.
-    password: UHJvdmExMjM0NTY3ODlBQ0A=
+  # password is NOT a spec field any more -- it is sourced from this Secret by the
+  # secretRef resolver on the create call. name comes from metadata.name and key from
+  # spec.username, both read out of the CR, which is what lets this work without a
+  # *SecretRef field the source OAS does not declare.
+  #
+  # The VALUE is BASE64, and that is NOT documented anywhere in the OAS. A plaintext
+  # password is rejected with "Password does not match the minimum requirements", which
+  # reads as a policy failure and is not one -- every plaintext value fails, including
+  # Aruba's own SDK example. Their Terraform provider encodes client-side:
+  #   internal/provider/dbaasuser_resource.go:130
+  #   passwordBase64 := base64.StdEncoding.EncodeToString([]byte(...))
+  # Decoded value here: Prova123456789AC@
+  #
+  # The same error is ALSO returned while the DBaaS user API is still initialising,
+  # even with a correct password -- the provider polls GET on a non-existent user until
+  # it 404s to prove the API is up. Two unrelated causes, one misleading message.
+  secret:
+    name: ga-dbuser
+    key: gauser
+    value: UHJvdmExMjM0NTY3ODlBQ0A=
 - kind: Grant
   name: ga-grant
   billable: true

@@ -258,6 +258,7 @@ def main():
     print(f"token OK — chain '{chain['name']}'")
 
     ids, created, drift_results = {}, [], {}
+    secrets_created = []
 
     # SIGTERM (a CI timeout, an impatient operator, a harness limit) does not raise in
     # Python, so `finally` never runs and the teardown is skipped -- which already left
@@ -287,6 +288,27 @@ def main():
                              "annotations": {"krateo.io/connector-verbose": "true"}},
                 "spec": spec,
             }
+            # A field sourced through the secretRef resolver has no spec form at all,
+            # so the chain must place the Secret itself. Created BEFORE the CR: the
+            # controller resolves it on the create call, and a Secret arriving second
+            # would make the first attempt fail for a reason that looks like the API
+            # rejecting the value.
+            sec = res.get("secret")
+            if sec:
+                sname = expand(sec["name"], variables, ids, kind)
+                skey = expand(sec["key"], variables, ids, kind)
+                svalue = expand(sec["value"], variables, ids, kind)
+                print(f"--- creating Secret/{sname} (key {skey}) for {kind}/{name}")
+                r = kubectl("create", "secret", "generic", sname, "-n", NS,
+                            f"--from-literal={skey}={svalue}",
+                            "--dry-run=client", "-o", "yaml")
+                if r.returncode != 0:
+                    raise RuntimeError(f"secret render failed: {r.stderr.strip()[:200]}")
+                secrets_created.append(sname)     # registered BEFORE applying
+                r = kubectl("apply", "-f", "-", stdin=r.stdout)
+                if r.returncode != 0:
+                    raise RuntimeError(f"secret apply failed: {r.stderr.strip()[:200]}")
+
             print(f"--- creating {kind}/{name}")
             r = kubectl("apply", "-f", "-", stdin=yaml.safe_dump(manifest))
             if r.returncode != 0:
@@ -323,6 +345,16 @@ def main():
             # exception that was propagating, turning a failed run into a silent pass.
             print("\n--keep: leaving resources in place; they may bill")
             created = []
+            secrets_created = []
+
+        # Deleted after the CRs, and unconditionally: a Secret left behind holds a
+        # credential, so it is removed even on the paths where the CR teardown is
+        # skipped or fails.
+        def _drop_secrets():
+            for sname in secrets_created:
+                kubectl("delete", "secret", sname, "-n", NS, "--ignore-not-found")
+            if secrets_created:
+                print(f"    removed {len(secrets_created)} chain Secret(s)")
 
         if created:
             print("\n=== teardown (reverse dependency order) ===")
@@ -351,6 +383,8 @@ def main():
                 time.sleep(20)
             else:
                 print("    WARNING: resources may remain — check the Aruba console", file=sys.stderr)
+
+        _drop_secrets()
 
 
 if __name__ == "__main__":
