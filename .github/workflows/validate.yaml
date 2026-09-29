@@ -80,6 +80,13 @@ jobs:
         uses: helm/kind-action@v1
         with:
           cluster_name: aruba-ci
+          # Pinned, for the same reason OASGEN_VERSION is: an unpinned node image
+          # means the Kubernetes version this 34-resource smoke actually proves
+          # drifts with whatever helm/kind-action defaults to that week. 1.33 is the
+          # floor the charts adopt in oasgen#153, and the version from which CRD
+          # validation ratcheting is GA with LockToDefault -- so proving the smoke on
+          # 1.33 proves it at the floor, which is the interesting end of the range.
+          node_image: kindest/node:v1.33.12
 
       - name: Install Helm
         uses: azure/setup-helm@v4
