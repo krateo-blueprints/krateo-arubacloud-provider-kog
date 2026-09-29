@@ -170,10 +170,27 @@ Two sharp edges, both load-bearing:
   base64 and does not document it (their Terraform provider encodes client-side, at
   `internal/provider/dbaasuser_resource.go:130`). The Secret holds exactly the bytes
   the API wants.
-- **`valueMapping` cannot do that encoding for you.** A `jq` transform of `@base64`
-  looks like the right answer and is silently discarded: RDC wires `jq` for the
-  response direction only, and on a request it `continue`s past the entry rather than
-  sending an untransformed value. The field would simply be missing from the body.
+- **`valueMapping` cannot do that encoding for you — on the version we pin.** A `jq`
+  transform of `@base64` looks like the right answer and is silently discarded on RDC
+  ≤ 0.24.0: it wires `jq` for the response direction only, and on a request it
+  `continue`s past the entry rather than sending an untransformed value, so the field
+  is simply missing from the body. You then debug the password, because what Aruba
+  reports is a password-policy error.
+
+  [oasgen#148](https://github.com/krateo-platformops/oasgen-provider/pull/148)
+  implements the request direction for `inPath`, `inQuery` and `inBody`. **Once that
+  ships, this Secret could hold the plaintext password** and the RestDefinition could
+  encode it — which is the better shape, since the operator then stores the value they
+  actually chose. Two things to check before making that switch:
+
+  - **The RDC version must carry the fix for the redaction leak that #148 opened.**
+    With a resolver *and* a transform, the resolved value is registered as sensitive
+    but the *transformed* value — the one that goes on the wire — was not, so request
+    logging would redact the raw credential and print its base64. Worse than no
+    redaction, because the log looks audited. Fixed on that branch in `3184958`, for
+    `jq` and `alias` both; unreleased at the time of writing.
+  - The base64 requirement itself is Aruba's and does not go away. It only moves from
+    the Secret's value into the RestDefinition.
 
 > **Verified:** the regenerated CRD carries no `password` property, and the
 > RestDefinition reaches `Ready=True` with the resolver attached. **Not yet verified:**

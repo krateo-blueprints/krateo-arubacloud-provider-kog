@@ -166,10 +166,13 @@ OVERRIDES = {
               "without adding a *SecretRef field the source OAS does not declare, and "
               "the OAS is not ours to change. Its VALUE must be the base64 of the "
               "password: Aruba requires that and does not document it (their Terraform "
-              "provider encodes client-side, dbaasuser_resource.go:130), and jq "
-              "valueMapping cannot do it for us - RDC skips jq on the request "
-              "direction. No update verb (password change is a separate PUT "
-              ".../password sub-endpoint).")),
+              "provider encodes client-side, dbaasuser_resource.go:130). A jq "
+              "valueMapping of @base64 cannot do that encoding for us on RDC <= "
+              "0.24.0, which runs jq on the response direction only and silently "
+              "skips it on a request; oasgen#148 implements the request direction, "
+              "so once it ships this could hold the plaintext instead - see "
+              "docs/authentication.md before switching. No update verb (password "
+              "change is a separate PUT .../password sub-endpoint).")),
     "database/grants": dict(
         metaWrap=False, idField="user.username", statusId="",
         note=("Grant is name-keyed. The create body nests the name as {user:{username}} "
