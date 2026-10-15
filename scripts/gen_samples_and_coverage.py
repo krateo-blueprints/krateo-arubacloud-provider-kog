@@ -440,14 +440,26 @@ def make_cr(spec, prov, doc, apiver):
         for ident in res.get("identifiers", []):
             if ident in excluded or ident in spec_body:
                 continue
-            # A dotted identifier becomes a FLAT key containing the dot -- oasgen emits
-            # `metadata.name` as one property, not a nested metadata object. Nesting it
-            # is rejected by strict decoding as `unknown field "spec.metadata"`.
+            # A dotted identifier becomes a FLAT key containing the dot, because that
+            # is what oasgen 0.22.2 -- the version we pin -- emits: `metadata.name` as
+            # one property, not a nested metadata object.
             #
-            # This mirrors a defect, not a design: RDC reads the identifier NESTED
-            # (spec.metadata.name), so the flat key it is given can never match. Filed
-            # as oasgen-provider#106. When that lands, this must emit a nested object
-            # instead -- and the samples will need regenerating with it.
+            # That was a defect, not a design: RDC reads the identifier NESTED
+            # (spec.metadata.name), so the flat key could never match. Filed as
+            # oasgen-provider#106, CLOSED COMPLETED 2026-09-09, and the fix is shipped.
+            #
+            # MEASURED, so the bump does not have to rediscover it:
+            #   oasgen 0.22.2  flat is correct    (CI green at this pin)
+            #   oasgen 0.24.0  NESTED is correct  (kind-aruba-110)
+            #   oasgen 0.30.0  NESTED is correct  (kind-aruba-030)
+            # Above 0.22.x the flat form is refused as `unknown field
+            # "spec.metadata.name"` -- a message that reads identically whether the key
+            # was flat or nested, which is exactly how it could be inverted by someone
+            # reading only the error.
+            #
+            # So RAISING OASGEN_VERSION MUST FLIP THIS to a nested object in the same
+            # commit, and regenerate. The two affected samples are network/loadbalancer
+            # and compute/cloudserver -- the only resources whose selector is dotted.
             spec_body[ident] = "REPLACE_selects_the_existing_object_by_this_value"
     return cr
 

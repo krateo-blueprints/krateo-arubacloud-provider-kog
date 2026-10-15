@@ -3,7 +3,7 @@ type: Runbook
 title: Live cluster test
 description: The end-to-end create/observe/drift/delete validation and how to repeat it.
 tags: [aruba, kog]
-timestamp: 2026-09-29T00:00:00Z
+timestamp: 2026-10-15T00:00:00Z
 ---
 
 # Live-cluster test
@@ -1071,6 +1071,66 @@ update it, failing with `400`. A stuck resource makes its own name unusable.
 **Account state:** the billable members are gone (0 block storages, 0 KMS, 0 keys). A
 free `BackupPolicyAssignment` and its `BackupPolicy` remain wedged in `Deleting` and
 will need clearing from the Aruba console or by support.
+
+### Forward-compatibility: the 34 on oasgen 0.30.0 (2026-10-15)
+
+We pin **0.22.2**; upstream is at **0.30.0**, eight minor versions ahead. Run on a
+fresh `kind-aruba-030` at Kubernetes **1.36.4** (the floor 0.28.0 now demands), charts
+`oasgen-provider-crds` and `oasgen-provider` both 0.30.0:
+
+| check | result |
+|-------|--------|
+| RestDefinitions `Ready=True` | **34 / 34**, in ~180s |
+| generated controller deployments | **35 / 35** at `1/1` (34 + the provider) |
+| `oasgen-provider` error/fatal log lines | **0** |
+| served CRD versions | unchanged — `v1-0` ×1 (`AlertRule`), `v1-0-0` ×33, `v1alpha1` ×34 |
+| samples accepted by strict decoding | **66 / 68** |
+| RestDefinition schema shape | identical: same `spec` keys, same `resource` keys, same `required` |
+
+**The 34 RestDefinitions need no change to run on 0.30.0.** Stage 3's "retire served
+versions nothing is using" did not touch ours, and `fix(api): refuse a per-verb oasPath`
+does not apply — all 34 use a single `spec.oasPath`.
+
+#### The one coupled change: dotted selectors flip from flat to nested
+
+The two failures are `network/loadbalancer` and `compute/cloudserver`, the only
+resources whose identifier is dotted, and they fail **identically on 0.24.0**, so this
+is not a 0.30.0 regression. It is [oasgen#106](https://github.com/krateo-platformops/oasgen-provider/issues/106)
+— ours, filed when a flat `metadata.name` selector could never match because RDC reads
+it nested — **closed COMPLETED on 2026-09-09 and shipped.**
+
+Measured, so the bump does not rediscover it:
+
+```
+oasgen 0.22.2   flat  `metadata.name: x`        correct   (CI is green at this pin)
+oasgen 0.24.0   NESTED `metadata: {name: x}`    correct   (kind-aruba-110)
+oasgen 0.30.0   NESTED `metadata: {name: x}`    correct   (kind-aruba-030)
+```
+
+Above 0.22.x the flat form is refused as:
+
+```
+unknown field "spec.metadata.name"
+```
+
+Worth noting how that message misleads: it reads the same whether the rejected key was
+flat (`metadata.name`) or nested (`metadata` → `name`). Someone debugging it from the
+error alone can conclude the opposite of the truth and "fix" it in the wrong direction.
+The CRD's own property list is the authority — `['configurationRef', 'metadata',
+'projectId']` says nested, unambiguously.
+
+#### What a bump to 0.30.0 therefore requires
+
+1. `OASGEN_VERSION` **and** `node_image: kindest/node:v1.36.x` in the same commit —
+   0.28.0's chart floor is `>=1.36.0-0`, so on 1.33 Helm refuses and the job fails for
+   a reason unrelated to the 34.
+2. Flip the dotted selector to nested in `gen_samples_and_coverage.py` and regenerate.
+3. Optionally move `DatabaseUser.password` out of base64: request-direction `jq` shipped
+   in 0.26.1, along with the redaction fix it needed — see
+   [authentication](authentication.md#a-credential-that-is-not-a-spec-field).
+
+**Not covered by this run:** anything requiring the Aruba API. This proves generation,
+CRD shape and controller rollout, not a single live reconcile.
 
 ### Verifying oasgen-provider #146 (envelope unwrap) — findings that affect this repo
 
