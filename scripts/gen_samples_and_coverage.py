@@ -536,7 +536,7 @@ def main():
 apiVersion: v1
 kind: Secret
 metadata:
-  name: REPLACE_matching_{name_path.replace('.', '_')}
+  name: replace-matching-{name_path.replace('.', '-').lower()}
   namespace: default
 type: Opaque
 stringData:

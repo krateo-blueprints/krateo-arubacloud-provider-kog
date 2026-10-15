@@ -22,7 +22,7 @@ spec:
 apiVersion: v1
 kind: Secret
 metadata:
-  name: REPLACE_matching_metadata_name
+  name: replace-matching-metadata-name
   namespace: default
 type: Opaque
 stringData:
