@@ -167,11 +167,12 @@ OVERRIDES = {
               "the OAS is not ours to change. Its VALUE must be the base64 of the "
               "password: Aruba requires that and does not document it (their Terraform "
               "provider encodes client-side, dbaasuser_resource.go:130). A jq "
-              "valueMapping of @base64 cannot do that encoding for us on RDC <= "
-              "0.24.0, which runs jq on the response direction only and silently "
-              "skips it on a request; oasgen#148 implements the request direction, "
-              "so once it ships this could hold the plaintext instead - see "
-              "docs/authentication.md before switching. No update verb (password "
+              "valueMapping of @base64 cannot do that encoding for us on the 0.22.2 "
+              "we pin, which runs jq on the response direction only and silently "
+              "skips it on a request. oasgen#148 implements the request direction and "
+              "shipped in 0.26.1, so on a bump this Secret could hold the plaintext "
+              "instead - see docs/authentication.md, which records why that is the "
+              "better shape and why it waits for the bump. No update verb (password "
               "change is a separate PUT .../password sub-endpoint).")),
     "database/grants": dict(
         metaWrap=False, idField="user.username", statusId="",

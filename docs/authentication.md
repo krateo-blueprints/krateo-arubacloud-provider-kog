@@ -3,7 +3,7 @@ type: Configuration
 title: Authentication
 description: The short-lived Aruba JWT: how it is minted, stored and rotated.
 tags: [aruba, kog]
-timestamp: 2026-09-29T00:00:00Z
+timestamp: 2026-10-15T00:00:00Z
 ---
 
 # Authentication
@@ -178,19 +178,26 @@ Two sharp edges, both load-bearing:
   reports is a password-policy error.
 
   [oasgen#148](https://github.com/krateo-platformops/oasgen-provider/pull/148)
-  implements the request direction for `inPath`, `inQuery` and `inBody`. **Once that
-  ships, this Secret could hold the plaintext password** and the RestDefinition could
-  encode it — which is the better shape, since the operator then stores the value they
-  actually chose. Two things to check before making that switch:
+  implements the request direction for `inPath`, `inQuery` and `inBody`, and **shipped
+  in 0.26.1**. So on 0.26.1 or later this Secret could hold the plaintext password and
+  the RestDefinition could encode it — the better shape, since the operator then stores
+  the value they actually chose.
 
-  - **The RDC version must carry the fix for the redaction leak that #148 opened.**
-    With a resolver *and* a transform, the resolved value is registered as sensitive
-    but the *transformed* value — the one that goes on the wire — was not, so request
-    logging would redact the raw credential and print its base64. Worse than no
-    redaction, because the log looks audited. Fixed on that branch in `3184958`, for
-    `jq` and `alias` both; unreleased at the time of writing.
-  - The base64 requirement itself is Aruba's and does not go away. It only moves from
-    the Secret's value into the RestDefinition.
+  Both preconditions for that switch are now met, which was not true when this was
+  first written:
+
+  - **The redaction leak #148 opened is fixed and released.** With a resolver *and* a
+    transform, the resolved value was registered as sensitive but the *transformed*
+    value — the one that goes on the wire — was not, so request logging would redact
+    the raw credential and print its base64. Worse than no redaction, because the log
+    reads as audited. Fixed in `3184958`, which merged inside #148 and is therefore in
+    0.26.1 as well.
+  - Aruba's base64 requirement does not go away. It moves from the Secret's value into
+    the RestDefinition.
+
+  **We have not made that switch**, because this repo pins 0.22.2 and the generated
+  RestDefinitions must work on the version we pin. It is the right change to make at
+  the same time as that bump, not before it.
 
 > **Verified:** the regenerated CRD carries no `password` property, and the
 > RestDefinition reaches `Ready=True` with the resolver attached. **Not yet verified:**
