@@ -87,6 +87,9 @@ PROVIDERS = {
 #   statusId     - JSONPath in status holding the server id ("" = none)
 #   metaWrap     - True if the create body wraps name in a metadata object
 #   secretFields - body fields to source from a Kubernetes Secret via secretRef
+#   metaIdent    - identifier for a metadata-wrapped resource, when metadata.name
+#                  is not usable (e.g. the server assigns the name itself)
+#   compareScope - drift comparison scope, when the default would never converge
 #   note         - short rationale, echoed into the generated file header
 OVERRIDES = {
     "compute/cloudServers": dict(
@@ -155,6 +158,26 @@ OVERRIDES = {
         note=("Database is name-keyed: create body {name}; there is no server id and "
               "no update verb. NOTE the source OAS is inconsistent - GET uses "
               "{databaseName} while DELETE uses {name} for the same path segment.")),
+    "database/backups": dict(
+        metaIdent="metadata.id", compareScope="identifiersAndStatus",
+        note=("Aruba names a backup itself: a create asking for 'ga-dbbackup' produces "
+              "'mysql_<database>_<UTC timestamp>'. The requested name is accepted and "
+              "discarded, and the OAS does not say so. With the default identifier "
+              "metadata.name the spec can therefore never equal the response, so every "
+              "reconcile reads as drift and the controller requests an update -- and "
+              "there is no update verb to call, because Aruba exposes only DELETE on "
+              "/backups/{id}. Observed live: one create, then 'API action update not "
+              "found' once per reconcile while the CR sat at Ready=False/Creating, "
+              "with the backup Active on Aruba twelve seconds after creation. "
+              "metadata.id is the server-assigned key the delete verb already takes; "
+              "findby matches it through isInResource's status fallback, exactly as it "
+              "matched the renamed metadata.name before. compareScope must move with "
+              "it: identifiersAndStatus restricts drift to identifiers plus "
+              "additionalStatusFields, and every other spec field here is create-only "
+              "(projectId, properties.dbaas, properties.database, billingPlan, "
+              "dataCenter). 'updatable' is the closer fit in spirit but is refused by "
+              "CEL without an update verb. Both keys are needed: identifiersAndStatus "
+              "alone still compares metadata.name and still reports drift forever.")),
     "database/users": dict(
         metaWrap=False, idField="username", statusId="",
         secretFields=[dict(inBody="password", nameFrom="metadata.name",
@@ -530,7 +553,7 @@ def render(r):
 
     resource = {"kind": r["kind"]}
     if r["meta"]:
-        resource["identifiers"] = ["metadata.name"]
+        resource["identifiers"] = [ov.get("metaIdent", "metadata.name")]
         # Also for read-only resources when the response carries metadata: their get
         # verb binds {id} from status.metadata.id, and without this the field is never
         # populated, so the mapping is dead config and get can never run.
@@ -558,7 +581,11 @@ def render(r):
         else:
             resource["identifiers"] = ["name"]
 
-    if r.get("updatableScope"):
+    if ov.get("compareScope"):
+        # An explicit scope is a statement about an API the derivation cannot see --
+        # e.g. a server-assigned name that makes fullSpec diverge forever. It wins.
+        resource["compareScope"] = ov["compareScope"]
+    elif r.get("updatableScope"):
         resource["compareScope"] = "updatable"
 
     if excluded:
