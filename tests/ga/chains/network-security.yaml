@@ -1,4 +1,4 @@
-# SecurityGroup and SecurityRule, under the same runner as every other chain.
+# Vpc, Subnet, SecurityGroup and SecurityRule, all drift-tested, under the main runner.
 #
 # Both were already GA on live evidence, but that evidence came from
 # scripts/ga-chain-test.sh -- a second, older harness that duplicates this one's
@@ -7,11 +7,17 @@
 # all while carrying a defect that made Ready unreachable. The payloads here are the
 # ones that harness used, unchanged, so this is a port and not a new claim.
 #
-# Free: VPCs, security groups and rules do not bill. No --with-billable needed.
+# Vpc and Subnet are GA on drift evidence that lived only in scripts/ga-chain-test.sh
+# (Vpc) or in prose (Subnet), so neither was re-verifiable on demand. Both now carry a
+# drift block here. The Subnet is `type: Advanced` with an explicit CIDR: `Basic` lets
+# the CMP assign the address, which makes the declared value unmatchable.
+#
+# Free: VPCs, subnets, security groups and rules do not bill. No --with-billable.
 name: network-security
 vars:
   PROJECT: 69a55c8d5e6f0e14f14093ff
   LOCATION: ITBG-Bergamo
+  CIDR: 10.120.0.0/24
 residue:
 - /projects/${PROJECT}/providers/Aruba.Network/vpcs
 resources:
@@ -30,6 +36,26 @@ resources:
     properties:
       default: false
       preset: false
+  drift: /projects/${PROJECT}/providers/Aruba.Network/vpcs/${id:self}
+- kind: Subnet
+  name: ga-ns-subnet
+  spec:
+    configurationRef:
+      name: subnet-config
+      namespace: default
+    projectId: ${PROJECT}
+    vpcId: ${id:ga-ns-vpc}
+    metadata:
+      name: ga-ns-subnet
+      location:
+        value: ${LOCATION}
+      tags: []
+    properties:
+      type: Advanced
+      default: false
+      network:
+        address: ${CIDR}
+  drift: /projects/${PROJECT}/providers/Aruba.Network/vpcs/${id:ga-ns-vpc}/subnets/${id:self}
 - kind: SecurityGroup
   name: ga-ns-sg
   spec:

@@ -1,0 +1,36 @@
+# KeyPair under the main runner, so its GA claim is re-verifiable on demand.
+#
+# It was GA on a manual live run recorded in prose (tests/ga/keypair.yaml, applied by
+# hand), while carrying two shapes that have each produced a real defect here:
+#
+#   create with no update verb and comparison at fullSpec -- the DatabaseBackup class,
+#     where any spec/response divergence loops forever on a verb that does not exist
+#   a provisioning state with no async gate -- the Dbaas class, Ready before usable
+#
+# Neither has been observed on KeyPair. The point of this chain is that a regression
+# into either would now be caught instead of assumed absent. KeyPair does have a real
+# get verb, so observation does not lean on findby matching the way DatabaseBackup's
+# does.
+#
+# No drift block: there is no update verb, so there is nothing for the controller to
+# converge and the probe would have nothing to PUT to. Free -- key pairs do not bill.
+name: compute-keypair
+vars:
+  PROJECT: 69a55c8d5e6f0e14f14093ff
+  LOCATION: ITBG-Bergamo
+residue:
+- /projects/${PROJECT}/providers/Aruba.Compute/keyPairs
+resources:
+- kind: KeyPair
+  name: ga-chain-keypair
+  spec:
+    configurationRef:
+      name: keypair-config
+      namespace: default
+    projectId: ${PROJECT}
+    metadata:
+      name: ga-chain-keypair
+      location:
+        value: ${LOCATION}
+    properties:
+      value: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFfU/yv4pvyTyEB0lIzcD3GjyP/T1ZqfHV0ppmdLwjdJ ga-lifecycle"

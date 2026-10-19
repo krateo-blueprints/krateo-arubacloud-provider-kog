@@ -183,7 +183,7 @@ def upstream_id(kind, name, id_path=None):
     return None
 
 
-def drift_check(kind, name, url, tok):
+def drift_check(kind, name, url, tok, spec=None):
     """Set a tag upstream and require the controller to remove it.
 
     Deliberately the scenario oasgen-provider#76 got wrong: the CR declares
@@ -195,12 +195,34 @@ def drift_check(kind, name, url, tok):
         print(f"    drift: cannot read {kind}/{name} (HTTP {code}) — skipped", file=sys.stderr)
         return None
 
-    desired = json.loads(json.dumps(body))
-    desired.pop("status", None)
+    # Build the PUT body from the DECLARED SPEC where we have one, not from the GET
+    # response. A response is not necessarily a valid request: Dbaas returns
+    # properties.networking as {vpc:{uri}, subnet:{uri}, securityGroup:{uri}} while the
+    # update accepts {vpcUri, subnetUri, securityGroupUri}. Echoing the response back
+    # therefore reads as setting Vpc to null, and Aruba answers
+    #
+    #   400 "The field 'Vpc' cannot be modified after the DBaaS has been created."
+    #
+    # for Vpc, SecurityGroup and Subnet at once -- a create-only-field error for fields
+    # the caller never meant to touch. Omitting `networking` does not help (same error,
+    # it reads as nulling them) and metadata alone returns 500. Sending the spec's own
+    # networking block, which is already in request shape, returns 200 and the
+    # controller then converges the tag. Confirmed by hand against a live Active Dbaas.
+    #
+    # This probe injects drift, so it must send something the API accepts; the declared
+    # spec is the only thing guaranteed to be in request shape, being what create sent.
+    # The response echo stays as the fallback for resources a chain declares no spec for.
+    if spec and ("metadata" in spec or "properties" in spec):
+        desired = {k: json.loads(json.dumps(v)) for k, v in spec.items()
+                   if k in ("metadata", "properties")}
+    else:
+        desired = json.loads(json.dumps(body))
+        desired.pop("status", None)
+        md = desired.setdefault("metadata", {})
+        for k in ("id", "uri", "creationDate", "updateDate", "createdBy",
+                  "updatedBy", "project", "category", "version"):
+            md.pop(k, None)
     md = desired.setdefault("metadata", {})
-    for k in ("id", "uri", "creationDate", "updateDate", "createdBy",
-              "updatedBy", "project", "category", "version"):
-        md.pop(k, None)
     md["tags"] = ["drifted-by-hand"]
 
     code, _ = api("PUT", url, tok, desired)
@@ -332,7 +354,7 @@ def main():
 
             if res.get("drift"):
                 url = expand(res["drift"], variables, ids, kind)
-                drift_results[f"{kind}/{name}"] = drift_check(kind, name, url, tok)
+                drift_results[f"{kind}/{name}"] = drift_check(kind, name, url, tok, spec)
 
         print(f"\nRESULT: {len(created)} resources created and observed")
         for k, v in drift_results.items():
