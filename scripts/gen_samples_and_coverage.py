@@ -149,8 +149,11 @@ TIERS = {
     ("database", "Dbaas"): (
         "beta",
         "create/observe/delete proven live (`6a9a846d`, mysql-8.0 / DBO1A2 / 20 GB); "
-        "drift injection rejected with 400 — its update body will not accept a full "
-        "re-PUT — **billable** — [live-cluster-test](live-cluster-test.md)",
+        "drift not yet exercised — the 400 was `DBaaS.Read.InvalidStatus`, i.e. the "
+        "resource was still `InCreation`, not a rejected body; an earlier note here "
+        "blamed the update body and was wrong. Ready is now gated on `status.state: "
+        "Active`, which is what makes the drift test reachable at all "
+        "— **billable** — [live-cluster-test](live-cluster-test.md)",
     ),
     ("database", "Database"): (
         "beta",
@@ -180,8 +183,11 @@ TIERS = {
     ("network", "VpnTunnel"): (
         "beta",
         "create → observe → delete proven live (`6a9b3576`, Site-To-Site / ikev2); "
-        "drift injection rejected with 400 — its update body will not accept a full "
-        "re-PUT — **billable** — [live-cluster-test](live-cluster-test.md)",
+        "drift injection rejected with 400, cause NOT established — the identical "
+        "inference for Dbaas (\"the update body will not accept a full re-PUT\") "
+        "turned out to be wrong, the real cause being a provisioning-state refusal, "
+        "so this one needs re-testing rather than trusting the same reasoning "
+        "— **billable** — [live-cluster-test](live-cluster-test.md)",
     ),
     ("network", "VpnRoute"): (
         "ga",
