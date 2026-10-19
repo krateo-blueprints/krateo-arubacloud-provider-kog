@@ -212,27 +212,47 @@ def drift_check(kind, name, url, tok, spec=None):
     # This probe injects drift, so it must send something the API accepts; the declared
     # spec is the only thing guaranteed to be in request shape, being what create sent.
     # The response echo stays as the fallback for resources a chain declares no spec for.
+    # Neither shape is universally correct, so try both. Dbaas accepts only the spec
+    # shape; SecurityRule accepts only the echo (its declared spec omits fields the
+    # update requires, and sending just metadata+properties is a 400). Picking one
+    # would silently stop testing drift on whichever resources disagree -- which is
+    # exactly how Dbaas drift sat SKIPPED for the whole campaign while reading like a
+    # resource limitation rather than a probe bug.
+    candidates = []
     if spec and ("metadata" in spec or "properties" in spec):
-        desired = {k: json.loads(json.dumps(v)) for k, v in spec.items()
-                   if k in ("metadata", "properties")}
-    else:
-        desired = json.loads(json.dumps(body))
-        desired.pop("status", None)
-        md = desired.setdefault("metadata", {})
-        for k in ("id", "uri", "creationDate", "updateDate", "createdBy",
-                  "updatedBy", "project", "category", "version"):
-            md.pop(k, None)
-    md = desired.setdefault("metadata", {})
-    md["tags"] = ["drifted-by-hand"]
+        candidates.append(("declared spec",
+                           {k: json.loads(json.dumps(v)) for k, v in spec.items()
+                            if k in ("metadata", "properties")}))
+    echo = json.loads(json.dumps(body))
+    echo.pop("status", None)
+    emd = echo.setdefault("metadata", {})
+    for k in ("id", "uri", "creationDate", "updateDate", "createdBy",
+              "updatedBy", "project", "category", "version"):
+        emd.pop(k, None)
+    candidates.append(("response echo", echo))
+    for _, cand in candidates:
+        cand.setdefault("metadata", {})["tags"] = ["drifted-by-hand"]
 
-    code, _ = api("PUT", url, tok, desired)
     # 202 Accepted is a normal answer here: storage updates are asynchronous, and
     # treating anything but 200 as a failure silently skipped the drift check on every
     # resource whose update is queued rather than applied inline.
-    if code not in (200, 202, 204):
-        print(f"    drift: PUT returned {code} — cannot inject into {kind}/{name}", file=sys.stderr)
+    shape, code, detail = None, None, None
+    for label, cand in candidates:
+        code, resp = api("PUT", url, tok, cand)
+        if code in (200, 202, 204):
+            shape = label
+            break
+        detail = resp
+    if shape is None:
+        errs = ""
+        if isinstance(detail, dict) and detail.get("errors"):
+            errs = " — " + "; ".join(
+                f"{e.get('fieldName')}: {e.get('errorMessage')}" for e in detail["errors"][:3])
+        tried = ", ".join(l for l, _ in candidates)
+        print(f"    drift: PUT returned {code} for every body shape tried ({tried})"
+              f"{errs} — cannot inject into {kind}/{name}", file=sys.stderr)
         return None
-    print(f"    drift injected (tags=[drifted-by-hand]); waiting for correction")
+    print(f"    drift injected via {shape} (tags=[drifted-by-hand]); waiting for correction")
 
     kubectl("annotate", f"{kind}.{GROUP}", name, "-n", NS,
             f"drift-probe={int(time.time())}", "--overwrite")
