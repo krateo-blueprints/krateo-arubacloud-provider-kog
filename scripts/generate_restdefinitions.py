@@ -158,6 +158,49 @@ OVERRIDES = {
         note=("Database is name-keyed: create body {name}; there is no server id and "
               "no update verb. NOTE the source OAS is inconsistent - GET uses "
               "{databaseName} while DELETE uses {name} for the same path segment.")),
+    "database/dbaas": dict(
+        # Dbaas provisioning is asynchronous and the OAS does not say so: create
+        # returns the object immediately, findby resolves it immediately, and the CR
+        # therefore reported Ready within seconds. Measured live: the resource stayed
+        # status.state = "InCreation" for over fourteen minutes after the CR said
+        # Ready, and every PUT in that window is refused with
+        # 400 DBaaS.Read.InvalidStatus, "DBaaS has an invalid status: InCreation".
+        # Ready that does not mean usable is worse than slow: it is the signal every
+        # dependent step keys off.
+        #
+        # The poll targets the resource's own item path -- there is no monitor
+        # endpoint here, unlike baremetal/hpcs -- with the handle taken from the
+        # create response's metadata.id.
+        #
+        # The state vocabulary is NOT declared in database-provider.json. It is taken
+        # from security-provider.json, which declares the same platform-wide set
+        # (Active, InCreation, Deleting, Deleted, Failed) for an analogous resource.
+        # "Active" and "Failed" are both confirmed present there; "Active" and
+        # "InCreation" are additionally confirmed by live observation. If Aruba has a
+        # database-specific terminal failure state outside that set, a failed
+        # provisioning polls until maxAttempts instead of failing fast -- which is the
+        # safe direction to be wrong in, but it is a guess the OAS cannot settle.
+        async_=dict(
+            action="create",
+            mode="requeue",
+            operationRef=dict(In="body", path="metadata.id"),
+            poll=dict(
+                method="GET",
+                path="/projects/{projectId}/providers/Aruba.Database/dbaas/{id}",
+                handleParam="id",
+                statusPath="status.state",
+                successValues=["Active"],
+                failureValues=["Failed"],
+                intervalSeconds=15, maxAttempts=120),
+            postGet=True),
+        note=("Dbaas creation is asynchronous: the API returns the object while "
+              "status.state is still InCreation, and refuses every update until it "
+              "reaches Active (400 DBaaS.Read.InvalidStatus). Without the async block "
+              "the CR reports Ready in seconds for a resource that is unusable for a "
+              "quarter of an hour. Polls its own item path, since this provider "
+              "publishes no monitor endpoint. State values come from "
+              "security-provider.json, which declares the vocabulary the database "
+              "spec omits.")),
     "database/backups": dict(
         metaIdent="metadata.id", compareScope="identifiersAndStatus",
         note=("Aruba names a backup itself: a create asking for 'ga-dbbackup' produces "
