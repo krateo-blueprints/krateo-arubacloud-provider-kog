@@ -139,3 +139,50 @@ is why `baremetal/Hpc` is wired with no hand-entered value set.
 Readiness waiting is exactly what controllers are for. See
 [oasgen-provider-evolution §C2](oasgen-provider-evolution.md) for the one residual
 ergonomic gap (the open-string `status.state` above).
+
+## A changed RestDefinition does not restart its controller
+
+Adding the async block to `Dbaas` appeared to do nothing. The RestDefinition applied
+cleanly, oasgen reported `Ready=True` within six seconds, the block was visibly
+present in-cluster on the create verb — and a full chain run behaved exactly as
+before: `Ready` in seconds, drift refused with `400 DBaaS.Read.InvalidStatus`.
+
+The controller pod was thirteen days old. Applying the RestDefinition does not roll
+the generated deployment, so the running process kept serving the configuration it
+started with. After `kubectl rollout restart`, the same unchanged RestDefinition
+produced the intended behaviour immediately:
+
+```
+t=10s … t=120s   Ready=False/Pending
+                 krateo.io/async-operation-id: 6ad689bae40e2c610d13ef9a
+```
+
+The failure mode is quiet in the worst way: every surface you would check says the
+change landed. `kubectl apply` reports `configured`, the RestDefinition reports Ready,
+and `kubectl get restdefinition -o yaml` shows the new block. Only the behaviour is
+stale, and nothing logs a reason.
+
+**After changing a RestDefinition's verb configuration, restart its controller:**
+
+```
+kubectl rollout restart deploy <provider>-<resource>-controller -n krateo-system
+```
+
+This applies to verb-level configuration — `async`, `fieldMapping`, `compareScope`.
+A change to `identifiers` is a separate matter: those are immutable once the CRD
+exists, so the RestDefinition must be deleted and recreated, which replaces the
+deployment anyway and does not need this.
+
+## Deletion is refused mid-provision too
+
+`DBaaS.Read.InvalidStatus` has a delete counterpart, `DBaaS.Delete.InvalidStatus`,
+with the same cause and the same wording. A Dbaas cannot be deleted while it is
+`InCreation`; the controller retries and succeeds once the resource reaches `Active`.
+
+A teardown that gives up after a fixed interval will therefore leave a billable
+resource behind — observed with a 180s timeout against a provisioning window that has
+measured anywhere from 7.5 to 14+ minutes. `scripts/ga_chain.py` allows for async
+deletion and re-checks residue against the API rather than trusting the delete call,
+which is the behaviour to copy. Do not clear the finalizer to force it: that removes
+the controller's delete path and orphans the remote resource, which has happened here
+before.
