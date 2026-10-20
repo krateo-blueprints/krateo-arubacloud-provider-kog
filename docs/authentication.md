@@ -195,14 +195,20 @@ Two sharp edges, both load-bearing:
   - Aruba's base64 requirement does not go away. It moves from the Secret's value into
     the RestDefinition.
 
-  **We have not made that switch**, because this repo pins 0.22.2 and the generated
-  RestDefinitions must work on the version we pin. It is the right change to make at
-  the same time as that bump, not before it.
+  **We still have not made that switch**, but the reason has changed. It used to be
+  that the pin (0.22.2) predated #148 and the generated RestDefinitions must work on
+  the version we pin. The pin is now 0.27.1, which carries it — so the blocker is
+  gone and only the work remains. It is deliberately not bundled into the bump
+  commit: moving the base64 from the Secret's value into the RestDefinition changes
+  what every existing DatabaseUser Secret must contain, and that deserves its own
+  commit and its own live run rather than riding along with a version change.
 
-> **Verified:** the regenerated CRD carries no `password` property, and the
-> RestDefinition reaches `Ready=True` with the resolver attached. **Not yet verified:**
-> the create call actually carrying the resolved value, and the RBAC widening to the
-> Secret's name — both happen after the token is resolved, so they need a live run.
+> **Verified live:** the regenerated CRD carries no `password` property, the
+> RestDefinition reaches `Ready=True` with the resolver attached, and the create call
+> carries the resolved value — `DatabaseUser/ga-dbuser` reached `Ready` with
+> `id=gauser` on four consecutive runs of `tests/ga/chains/database.yaml`, which also
+> exercises the RBAC widening to the Secret's name, since the create could not have
+> succeeded without it.
 
 ## RESTAction credentials
 

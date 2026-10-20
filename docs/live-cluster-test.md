@@ -1074,7 +1074,8 @@ will need clearing from the Aruba console or by support.
 
 ### Forward-compatibility: the 34 on oasgen 0.30.0 (2026-10-15)
 
-We pin **0.22.2**; upstream is at **0.30.0**, eight minor versions ahead. Run on a
+At the time of this run we pinned **0.22.2**; upstream was at **0.30.0**, eight minor
+versions ahead. (The pin is now **0.27.1** — see "The bump, taken" below.) Run on a
 fresh `kind-aruba-030` at Kubernetes **1.36.4** (the floor 0.28.0 now demands), charts
 `oasgen-provider-crds` and `oasgen-provider` both 0.30.0:
 
@@ -1102,8 +1103,9 @@ it nested — **closed COMPLETED on 2026-09-09 and shipped.**
 Measured, so the bump does not rediscover it:
 
 ```
-oasgen 0.22.2   flat  `metadata.name: x`        correct   (CI is green at this pin)
+oasgen 0.22.2   flat  `metadata.name: x`        correct   (the old pin)
 oasgen 0.24.0   NESTED `metadata: {name: x}`    correct   (kind-aruba-110)
+oasgen 0.27.1   NESTED `metadata: {name: x}`    correct   (the pin now)
 oasgen 0.30.0   NESTED `metadata: {name: x}`    correct   (kind-aruba-030)
 ```
 
@@ -1128,6 +1130,70 @@ The CRD's own property list is the authority — `['configurationRef', 'metadata
 3. Optionally move `DatabaseUser.password` out of base64: request-direction `jq` shipped
    in 0.26.1, along with the redaction fix it needed — see
    [authentication](authentication.md#a-credential-that-is-not-a-spec-field).
+
+### The bump, taken — 0.22.2 → 0.27.1
+
+Not to 0.30.0. 0.28.0's chart floor is `>=1.36.0-0`, so taking it drags the node image
+with it; **0.27.1 is the top of the range that still installs on 1.33**, and both
+charts publish it (`helm show chart` on each, `kubeVersion: '>=1.33.0-0'`). What it
+buys over 0.22.2: nested dotted selectors (#109, 0.23.0), envelope unwrapping (#146,
+0.25.0), jq-shaped request bodies (#148, 0.26.0) and credential-header redaction
+(#166, first tagged in 0.26.1 — which is why the bump does not stop at 0.25.1).
+
+Steps 1 and 2 above were done in one commit: `OASGEN_VERSION: "0.27.1"`, the selector
+flipped to nested in `gen_samples_and_coverage.py`, and all 34 pairs regenerated. The
+node image stays at `v1.33.12`, deliberately — 0.27.1 does not demand 1.36, and moving
+both at once would confuse two independent failure modes if CI went red.
+
+Only two files changed in the regeneration, `samples/network/loadbalancer.yaml` and
+`samples/compute/cloudserver.yaml`, which is the expected blast radius: they are the
+only resources with a dotted identifier.
+
+Step 3 was deliberately **not** bundled in: moving the base64 out of the Secret's
+value changes what every existing DatabaseUser Secret must contain, which deserves its
+own commit and its own live run.
+
+#### Proven by mirroring the CI job locally, not by the static validator
+
+Fresh `kind-aruba-0271` at `kindest/node:v1.33.12`, both charts at 0.27.1, the same
+two apply steps and the same checks the workflow runs:
+
+| check | result |
+|-------|--------|
+| RestDefinitions `Ready=True` | **34 / 34**, inside ~4.5 min |
+| deployments at `1/1` in `krateo-system` | **35 / 35** (34 controllers + the provider) |
+| `oasgen-provider` error/fatal log lines | **0** |
+| samples under **strict** server-side decoding | **69 / 69** |
+
+The two dotted-selector samples are accepted, and the old flat form is refused on the
+same cluster:
+
+```
+unknown field "spec.metadata.name"
+```
+
+which is the point: the flip is required by the bump, not cosmetic.
+
+#### The smoke was proving the wrong namespace
+
+Running it locally turned up something the workflow could not have told us. The step
+was:
+
+```
+kubectl apply -n krateo-system -f configmaps/
+kubectl apply -R -f restdefinitions/     # <- no -n
+```
+
+The manifests declare no namespace, so the second line put all 34 in `default`, and
+**oasgen deploys each generated controller into its RestDefinition's own namespace** —
+so the 34 controllers went to `default` too. The readiness check counts with `-A`, so
+the job was green throughout while proving a layout nobody installs: `docs/usage.md`,
+the chart and every live cluster here put these in `krateo-system`.
+
+It surfaced only because the local mirror counted *in krateo-system* and answered
+`0/34`. A smoke that asserts "34 are Ready" without asserting where they are is
+weaker than it looks. Fixed in the same commit, and the table above is from the run
+with the fix, with all 35 deployments in `krateo-system`.
 
 **Not covered by this run:** anything requiring the Aruba API. This proves generation,
 CRD shape and controller rollout, not a single live reconcile.
@@ -1194,3 +1260,36 @@ currently declare is a core identity field present on every read, so nothing wou
 today — but that is luck, not design, and it constrains what we may safely declare later.
 
 Tracked upstream as [#152](https://github.com/krateo-platformops/oasgen-provider/issues/152).
+
+### VpnTunnel drift, on the fourth explanation (2026-10-20)
+
+`tests/ga/chains/vpn.yaml --with-billable`, five resources, oasgen 0.24.0 on
+`kind-aruba-110`:
+
+```
+Vpc ... Ready          Subnet ... Ready          ElasticIp ... Ready
+VpnTunnel ... Ready, id=6ad70b7bab21a33c1f53b2b3
+    drift: 6ad70b7bab21a33c1f53b2b3 still InCreation after 240s
+    drift injected via declared spec (tags=[drifted-by-hand])
+    DRIFT CORRECTED for VpnTunnel/ga-vpntunnel
+VpnRoute  ... Ready, id=6ad70d7eab21a33c1f53b2cc
+    DRIFT CORRECTED for VpnRoute/ga-vpnroute
+```
+
+**Nothing about the resource needed changing.** The 400 that held this at beta was the
+state refusal documented in
+[async-readiness](async-readiness.md#every-write-is-refused-mid-transition-not-just-dbaass),
+and the fix was in the probe: wait for a settled state, and retry a refusal that names
+the `Status` field instead of concluding the body is wrong.
+
+Note the second line. This tunnel is still `InCreation` past the probe's 240s settle
+wait, so the wait alone would not have been enough — the **retry** is what got the
+write through. A probe that waits but does not retry would have reported this as a
+rejected body all over again, which is worth remembering before anyone "simplifies"
+that loop away.
+
+Three wrong explanations preceded this, all of them reasoned from a status code rather
+than from the error body: "the update body will not accept a full re-PUT" (twice, for
+two different resources), then a provisioning-state refusal that was real but was
+masking the Dbaas shape bug. The error array was sitting in the response the whole
+time; the probe was reading the wrong keys for it.

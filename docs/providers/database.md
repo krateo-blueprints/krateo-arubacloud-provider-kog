@@ -17,7 +17,7 @@ timestamp: 2026-09-28T00:00:00Z
 | Kind | Verbs | Identifier(s) | Delegation |
 |------|-------|---------------|------------|
 | `Database` | findby, get, create, delete | `name` | — |
-| `DatabaseBackup` | findby, create, delete | `metadata.name` | — |
+| `DatabaseBackup` | findby, create, delete | `metadata.id` | — |
 | `DatabaseUser` | findby, get, create, delete | `username` | — |
 | `Dbaas` | findby, get, create, update, delete | `metadata.name` | — |
 | `Grant` | findby, get, create, delete | `user.username` | — |
@@ -42,6 +42,8 @@ Sample: [`samples/database/database.yaml`](../../samples/database/database.yaml)
 
 ## DatabaseBackup
 
+> Aruba names a backup itself: a create asking for 'ga-dbbackup' produces 'mysql_<database>_<UTC timestamp>'. The requested name is accepted and discarded, and the OAS does not say so. With the default identifier metadata.name the spec can therefore never equal the response, so every reconcile reads as drift and the controller requests an update -- and there is no update verb to call, because Aruba exposes only DELETE on /backups/{id}. Observed live: one create, then 'API action update not found' once per reconcile while the CR sat at Ready=False/Creating, with the backup Active on Aruba twelve seconds after creation. metadata.id is the server-assigned key the delete verb already takes; findby matches it through isInResource's status fallback, exactly as it matched the renamed metadata.name before. compareScope must move with it: identifiersAndStatus restricts drift to identifiers plus additionalStatusFields, and every other spec field here is create-only (projectId, properties.dbaas, properties.database, billingPlan, dataCenter). 'updatable' is the closer fit in spirit but is refused by CEL without an update verb. Both keys are needed: identifiersAndStatus alone still compares metadata.name and still reports drift forever.
+
 | Verb | Method | Path |
 |------|--------|------|
 | findby | GET | `/projects/{projectId}/providers/Aruba.Database/backups` |
@@ -56,7 +58,7 @@ Sample: [`samples/database/databasebackup.yaml`](../../samples/database/database
 
 ## DatabaseUser
 
-> DatabaseUser is name-keyed (create {username, password}). 'password' is dropped from the spec and sourced from a Secret at create time via the secretRef resolver. The Secret is named after the CR and keyed by the username, both read from the CR itself - which is what makes this work without adding a *SecretRef field the source OAS does not declare, and the OAS is not ours to change. Its VALUE must be the base64 of the password: Aruba requires that and does not document it (their Terraform provider encodes client-side, dbaasuser_resource.go:130). A jq valueMapping of @base64 cannot do that encoding for us on the 0.22.2 we pin, which runs jq on the response direction only and silently skips it on a request. oasgen#148 implements the request direction and shipped in 0.26.1, so on a bump this Secret could hold the plaintext instead - see docs/authentication.md, which records why that is the better shape and why it waits for the bump. No update verb (password change is a separate PUT .../password sub-endpoint).
+> DatabaseUser is name-keyed (create {username, password}). 'password' is dropped from the spec and sourced from a Secret at create time via the secretRef resolver. The Secret is named after the CR and keyed by the username, both read from the CR itself - which is what makes this work without adding a *SecretRef field the source OAS does not declare, and the OAS is not ours to change. Its VALUE must be the base64 of the password: Aruba requires that and does not document it (their Terraform provider encodes client-side, dbaasuser_resource.go:130). A jq valueMapping of @base64 could not do that encoding for us on 0.22.2, which ran jq on the response direction only and silently skipped it on a request. oasgen#148 implements the request direction and shipped in 0.26.0, so the 0.27.1 we now pin CAN do it and this Secret could hold the plaintext instead. It still does not: that change alters what every existing DatabaseUser Secret must contain, so it gets its own commit and its own live run rather than riding along with the version bump - see docs/authentication.md. No update verb (password change is a separate PUT .../password sub-endpoint).
 
 | Verb | Method | Path |
 |------|--------|------|
@@ -72,6 +74,8 @@ Configuration query params: `api-version, filter, limit, offset, projection, sor
 Sample: [`samples/database/databaseuser.yaml`](../../samples/database/databaseuser.yaml) · [`databaseuser-configuration.yaml`](../../samples/database/databaseuser-configuration.yaml)
 
 ## Dbaas
+
+> Dbaas creation is asynchronous: the API returns the object while status.state is still InCreation, and refuses every update until it reaches Active (400 DBaaS.Read.InvalidStatus). Without the async block the CR reports Ready in seconds for a resource that is unusable for a quarter of an hour. Polls its own item path, since this provider publishes no monitor endpoint. State values come from security-provider.json, which declares the vocabulary the database spec omits.
 
 | Verb | Method | Path |
 |------|--------|------|

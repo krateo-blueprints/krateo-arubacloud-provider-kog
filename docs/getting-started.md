@@ -37,8 +37,10 @@ This walks through installing the provider and managing your first resource (a
   green while reconciling no instance at all. Upstream's own framing, which is the right
   one: a refused install is the better failure.
 
-  > So **1.36+ for anything current**. We pin 0.22.2, which has no floor and is why this
-  > repo still verifies on 1.33 in CI — see the note on `node_image` in
+  > So **1.36+ for anything current**. We pin 0.27.1, whose charts declare
+  > `kubeVersion: '>=1.33.0-0'`, which is why this repo still verifies on 1.33 in CI.
+  > 0.28.0 is where the 1.36 floor lands, so taking it means raising `node_image` in
+  > the same commit — see the note on `node_image` in
   > `.github/workflows/validate.yaml`.
 
 - The Krateo **oasgen-provider** and its rest-dynamic-controller, **≥ 0.21.1**.

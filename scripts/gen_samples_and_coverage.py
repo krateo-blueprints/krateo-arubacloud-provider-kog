@@ -212,17 +212,16 @@ TIERS = {
         "[live-cluster-test](live-cluster-test.md)",
     ),
     ("network", "VpnTunnel"): (
-        "beta",
-        "create → observe → delete proven live (`6a9b3576`, Site-To-Site / ikev2); "
-        "drift injection rejected with 400, cause NOT established for this resource. "
-        "Two causes are now known to produce exactly this 400 elsewhere — a write "
-        "refused while the resource is still settling (`{\"field\": \"Status\", "
-        "\"message\": \"invalid status\"}`, which is what SecurityRule's was) and a "
-        "response-shaped body where the API wants a request-shaped one (Dbaas) — and "
-        "the probe now handles both. The identical inference drawn for Dbaas (\"the "
-        "update body will not accept a full re-PUT\") turned out to be wrong twice "
-        "over, so this stays unproven until it is re-run rather than reasoned about "
-        "a third time — **billable** — [live-cluster-test](live-cluster-test.md)",
+        "ga",
+        "full lifecycle live incl. drift correction (Site-To-Site / ikev2), under "
+        "`tests/ga/chains/vpn.yaml`. Its drift injection used to be rejected with a "
+        "400 and three successive explanations were offered for it, two of them wrong. "
+        "The cause was the same state refusal as SecurityRule's: this tunnel is still "
+        "`InCreation` for longer than the probe's settle wait, so the write has to be "
+        "retried rather than reinterpreted "
+        "([async-readiness](async-readiness.md#every-write-is-refused-mid-transition-not-just-dbaass)). "
+        "Nothing about the resource or its body needed changing — **billable** — "
+        "[live-cluster-test](live-cluster-test.md)",
     ),
     ("network", "VpnRoute"): (
         "ga",
@@ -240,11 +239,13 @@ TIERS = {
     ("network", "LoadBalancer"): (
         "blocked",
         "identifier corrected to `metadata.name` (its findby items are "
-        "metadata-wrapped), but the generated selector is a **flat** key while RDC "
-        "reads it nested — [oasgen-provider#106]"
-        "(https://github.com/krateo-platformops/oasgen-provider/issues/106) — so "
-        "`findby` cannot match. Separately, no load balancer can be created: the API "
-        "has no create verb, and one exists only as a side effect of a Service of type "
+        "metadata-wrapped). The selector half of this is **fixed**: it used to be "
+        "emitted as a flat key while RDC reads it nested "
+        "([oasgen-provider#106](https://github.com/krateo-platformops/oasgen-provider/issues/106), "
+        "shipped in 0.23.0), and since the pin moved to 0.27.1 the sample emits "
+        "`metadata: {name: ...}` and can match. Still blocked on the other half, which "
+        "no version fixes: no load balancer can be created, because the API has no "
+        "create verb and one exists only as a side effect of a Service of type "
         "LoadBalancer inside a KaaS cluster",
     ),
     ("compute", "CloudServer"): (
@@ -479,29 +480,44 @@ def make_cr(spec, prov, doc, apiver):
         # the sample applies cleanly and matches nothing. oasgen 0.22.1 generates the
         # selector field (#75); this makes the sample actually use it.
         for ident in res.get("identifiers", []):
-            if ident in excluded or ident in spec_body:
+            # Nested-aware presence test: now that `metadata.name` is written as a
+            # nested object, `ident in spec_body` would never see an existing one and
+            # the selector would overwrite a real value with the placeholder.
+            node = spec_body
+            for part in ident.split("."):
+                node = node.get(part) if isinstance(node, dict) else None
+            if ident in excluded or node is not None:
                 continue
-            # A dotted identifier becomes a FLAT key containing the dot, because that
-            # is what oasgen 0.22.2 -- the version we pin -- emits: `metadata.name` as
-            # one property, not a nested metadata object.
+            # A dotted identifier becomes a NESTED object: `metadata.name` is written
+            # as `metadata: {name: ...}`, which is how RDC has always read it
+            # (spec.metadata.name).
             #
-            # That was a defect, not a design: RDC reads the identifier NESTED
-            # (spec.metadata.name), so the flat key could never match. Filed as
-            # oasgen-provider#106, CLOSED COMPLETED 2026-09-09, and the fix is shipped.
+            # It used to be emitted FLAT -- one property whose name contains a dot --
+            # because that is what oasgen 0.22.2 emitted, and that was a defect, not a
+            # design: the flat key could never match. Filed as oasgen-provider#106,
+            # CLOSED COMPLETED 2026-09-09, fix shipped in 0.23.0 (c306d86).
             #
-            # MEASURED, so the bump does not have to rediscover it:
-            #   oasgen 0.22.2  flat is correct    (CI green at this pin)
+            # MEASURED, so nobody has to rediscover it:
+            #   oasgen 0.22.2  flat is correct    (the old pin)
             #   oasgen 0.24.0  NESTED is correct  (kind-aruba-110)
+            #   oasgen 0.27.1  NESTED is correct  (the pin now)
             #   oasgen 0.30.0  NESTED is correct  (kind-aruba-030)
             # Above 0.22.x the flat form is refused as `unknown field
             # "spec.metadata.name"` -- a message that reads identically whether the key
             # was flat or nested, which is exactly how it could be inverted by someone
-            # reading only the error.
+            # reading only the error. So LOWERING the pin back under 0.23.0 means
+            # flipping this back, in the same commit, and regenerating.
             #
-            # So RAISING OASGEN_VERSION MUST FLIP THIS to a nested object in the same
-            # commit, and regenerate. The two affected samples are network/loadbalancer
-            # and compute/cloudserver -- the only resources whose selector is dotted.
-            spec_body[ident] = "REPLACE_selects_the_existing_object_by_this_value"
+            # The two affected samples are network/loadbalancer and compute/cloudserver
+            # -- the only resources whose selector is dotted.
+            sel = "REPLACE_selects_the_existing_object_by_this_value"
+            node, parts = spec_body, ident.split(".")
+            for part in parts[:-1]:
+                node = node.setdefault(part, {})
+                if not isinstance(node, dict):
+                    break
+            if isinstance(node, dict):
+                node[parts[-1]] = sel
     return cr
 
 

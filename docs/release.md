@@ -105,15 +105,27 @@ patched OAS, every `requestFieldMapping.inPath` against the path parameters, eve
 
 ## Compatibility
 
-These manifests require **oasgen-provider ≥ 0.22.2** (see
-[Usage](usage.md#prerequisites)). It is no longer a fork: rest-dynamic-controller and
-both charts live in the oasgen-provider monorepo, and the chart derives the RDC image
-tag from its own `appVersion`, so the two cannot drift apart.
+These manifests require **oasgen-provider ≥ 0.23.0**, and are validated against
+**0.27.1** (see [Usage](usage.md#prerequisites)). It is no longer a fork:
+rest-dynamic-controller and both charts live in the oasgen-provider monorepo, and the
+chart derives the RDC image tag from its own `appVersion`, so the two cannot drift
+apart.
 
-0.22.2 is the floor because it carries three fixes this repository found and verified
-live — read-only identifiers (#75), empty-array drift (#76) and delete verification
-(#77, plus the #98 regression fix that made it usable). Below that, resources are
-silently unenforceable or undeletable.
+0.22.2 used to be the floor, for three fixes this repository found and verified live —
+read-only identifiers (#75), empty-array drift (#76) and delete verification (#77,
+plus the #98 regression fix that made it usable). Below that, resources are silently
+unenforceable or undeletable.
+
+The floor is now **0.23.0**, because the samples emit dotted identifiers as nested
+objects (`metadata: {name: ...}`), which is what RDC reads and what #109 made the
+generator produce. On 0.22.x those samples are refused as `unknown field
+"spec.metadata.name"`. Only the two resources with a dotted selector are affected,
+LoadBalancer and CloudServer, but a sample that cannot be applied is not a sample.
+
+0.27.1 is what CI validates against: it is the top of the range that still installs
+on Kubernetes 1.33, and it adds envelope unwrapping (#146), jq-shaped request bodies
+(#148) and credential-header redaction (#166) over the old pin. 0.28.0 raises the
+chart floor to 1.36 (#178).
 
 **A release must state the provider version it was validated against.** The CI gate
 pins it in one place (`OASGEN_VERSION` in `.github/workflows/validate.yaml`) and the
