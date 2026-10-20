@@ -1411,7 +1411,7 @@ Two operational notes:
 - a `Failed` registry needs its **DELETE issued twice**. The first returns 202 and
   leaves the resource in place.
 
-### Why Kaas never reports Ready — request shape vs response shape, in the vendor's spec (2026-10-20)
+### Why Kaas never reported Ready — and the one-line fix (2026-10-20)
 
 `Ready` comes from one thing only: RDC's drift comparison passing. When it fails, the
 reason is computed, written to the condition **in memory**, and never persisted — so
@@ -1433,20 +1433,32 @@ Active, Updating, Active, Updating, Active, Updating, Active, Updating, Deleting
 healthy cluster every three minutes, forever**, and each accepted PUT drives it out of
 `Active` into `Updating`, which is what refuses the next one.
 
-#### The field that can never match
+#### The two fields that can never match
 
 No debug build was needed: the verbose dump carries the PUT body and the GET response,
 and the comparison is just those two. Of the leaves present on **both** sides, 11 of 11
-are equal. The drift is entirely in fields the response does not echo *in the shape the
-request used* — and all three mismatches are declared that way in
+are equal.
+
+**The comparison walks the CR's keys and skips any key absent from the response** —
+that is what stops `configurationRef` counting as drift. So only a key present on
+*both* sides with a differing value can cause drift, which narrows four candidate
+mismatches to two. All four are declared this way in
 `openapi/container-provider.json` itself:
 
-| CR / request | response | mechanism |
-|---|---|---|
-| `properties.nodeCidr.{name,address}` | `properties.`**`nodecidr`**`.{address,uri}` | **casing** — `KaasInsertPropertiesDto` says `nodeCidr`, `KaasPropertiesResponseDto` says `nodecidr`; `name` is never echoed |
-| `nodePools[0].instance: "K2A4"` | `instance: {ram,price,cpu,name,diskSizeGb}` | **type** — string in `NodePoolsDto`, object in `NodePoolsResponseDto` |
-| `nodePools[0].dataCenter: "ITBG-1"` | `dataCenter: {name: "ITBG-1"}` | **type** — same |
-| `securityGroup.{name}` | `securityGroup.{uri}` | **different key** — Aruba creates its own group and returns a uri |
+| CR / request | response | mechanism | drifts? |
+|---|---|---|---|
+| `properties.nodeCidr.{name,address}` | `properties.`**`nodecidr`**`.{address,uri}` | casing — `KaasInsertPropertiesDto` says `nodeCidr`, `KaasPropertiesResponseDto` says `nodecidr` | **no** — key absent, skipped |
+| `securityGroup.{name}` | `securityGroup.{uri}` | different key — Aruba makes its own group | **no** — key absent, skipped |
+| `kubernetesVersion.{value}` | `{value,sellStartDate,recommended}` | response superset | **no** — the CR's only key matches |
+| `nodePools[0].instance: "K2A4"` | `{ram,price,cpu,name,diskSizeGb}` | **type** — string in `NodePoolsDto`, object in `NodePoolsResponseDto` | **YES** |
+| `nodePools[0].dataCenter: "ITBG-1"` | `{name: "ITBG-1"}` | **type** — same | **YES** |
+
+An earlier version of this section claimed all four mismatches caused the drift. That
+was wrong, and the evidence for it was already in the diff that produced it: the tool
+printed `nodeCidr` and `securityGroup.name` under "fields the response does not
+contain (skipped by the comparison)", and the prose then called them causes. Flattening
+to leaf paths hid the only distinction that matters — *key absent* versus *key present
+with a different type*.
 
 **`compareScope: updatable` cannot fix this, and that is the interesting part.**
 `KaasUpdatePropertiesDto` declares exactly one property, `nodePools`, so narrowing the
@@ -1457,11 +1469,46 @@ one field the update can carry. [oasgen#51](https://github.com/krateo-platformop
 assumed "a field the update body can express" is the same as "a field the API will
 echo back comparably"; Kaas is the counterexample.
 
-Nothing here is fixable from this repository. The OAS is Aruba's and is not ours to
-change, the four fields are required at create, and `compareScope:
-identifiersAndStatus` would stop the loop only by stopping drift detection — which for
-a repo whose GA bar *is* drift enforcement is worse than an honest beta. So `Kaas`
-stays **beta**, with the cause recorded rather than guessed.
+#### Fixed, without waiting for upstream
+
+`responseTransform` is a whole-document gojq program applied to the response **before**
+per-field mapping, status population and the drift comparison — present in the
+installed CRD and available since 0.20.0, so the pin already has it. It states what
+the vendor's two shapes have in common, which is a true statement about the API rather
+than a way of silencing the comparison: the scalar a write sends is the `name` of the
+object a read returns.
+
+```yaml
+- action: get
+  responseTransform:
+    inline: |
+      if (.properties.nodePools | type) == "array" then
+        .properties.nodePools |= map(
+          (if (.instance | type) == "object" then .instance = .instance.name else . end)
+          | (if (.dataCenter | type) == "object" then .dataCenter = .dataCenter.name else . end)
+        )
+      else . end
+```
+
+Guarded on type, so it is idempotent and cannot corrupt a body that is already
+request-shaped or has no node pools. Deliberately **no** lines for `nodeCidr` or
+`securityGroup`: those keys are skipped, and handling them would be inventing a fix
+for drift that does not occur.
+
+Verified before the cluster was touched — the program was run against the captured
+response, and the comparison rule above was reimplemented over the transformed body,
+predicting a pass. Then live, end to end:
+
+```
+Kaas/ga-kaas  Ready, id=6ad786908e35c4ce7d3379df
+DRIFT CORRECTED for Kaas/ga-kaas
+drift Kaas/ga-kaas: ok      teardown clean, leftovers = 0
+```
+
+So `Kaas` is **GA**, and the write loop is gone with it. `compareScope:
+identifiersAndStatus` was considered and rejected: it would have stopped the loop only
+by stopping drift detection, which for a repo whose GA bar *is* drift enforcement
+would be worse than an honest beta.
 
 #### A note on getting the reason out, for anyone who tries
 

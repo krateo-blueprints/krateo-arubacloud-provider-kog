@@ -201,6 +201,49 @@ OVERRIDES = {
               "publishes no monitor endpoint. State values come from "
               "security-provider.json, which declares the vocabulary the database "
               "spec omits.")),
+    "container/kaas": dict(
+        # Kaas could never reach Ready, and the cause is in Aruba's spec, not ours:
+        # the node pool's `instance` and `dataCenter` are STRINGS in
+        # NodePoolsDto (what create and update send) and OBJECTS in
+        # NodePoolsResponseDto (what every read returns). RDC's drift comparison
+        # walks the CR's keys, so a key present on both sides with a different type
+        # is drift -- and no compareScope helps, because KaasUpdatePropertiesDto
+        # declares exactly one property, nodePools, which is the field that differs.
+        #
+        # Measured consequence before this fix: the controller PUT a healthy cluster
+        # every 180s forever, each accepted write driving it from Active into
+        # Updating, which then refused the next one. Not merely a stuck condition --
+        # a live resource being rewritten indefinitely. See oasgen#213.
+        #
+        # The transform states what the two shapes have in common, which is a true
+        # statement about the API rather than a way of silencing the comparison:
+        # the scalar the request sends is the `name` of the object the response
+        # returns. Guarded on type so it is idempotent and cannot corrupt a body
+        # that is already request-shaped, or one with no node pools at all.
+        #
+        # NOT included, because they are already tolerated: properties.nodeCidr
+        # (the response spells it `nodecidr`, so the key is absent from the response
+        # and the comparison skips it) and securityGroup.name (the response carries
+        # only `uri`). Adding them would be inventing drift fixes for drift that
+        # does not occur.
+        responseTransform={"get": (
+            'if (.properties.nodePools | type) == "array" then\n'
+            '  .properties.nodePools |= map(\n'
+            '    (if (.instance | type) == "object" then .instance = .instance.name\n'
+            '     else . end)\n'
+            '    | (if (.dataCenter | type) == "object"\n'
+            '       then .dataCenter = .dataCenter.name else . end)\n'
+            '  )\n'
+            'else . end\n')},
+        note=("Kaas reads return a different shape than its writes accept: "
+              "nodePools[].instance and nodePools[].dataCenter are strings in "
+              "NodePoolsDto and objects in NodePoolsResponseDto. RDC compares the "
+              "CR's keys against the response, so those two are permanent drift, and "
+              "no compareScope avoids them because KaasUpdatePropertiesDto declares "
+              "only nodePools. A responseTransform on the get verb folds each object "
+              "back to its .name before the comparison runs. nodeCidr (returned as "
+              "`nodecidr`) and securityGroup.name (returned as `uri`) need no "
+              "handling: those keys are absent from the response and are skipped.")),
     "container/registries": dict(
         # Same defect as database/dbaas, found the same way: the CR reported Ready
         # while Aruba still had the registry at status.state = InCreation, and every
@@ -646,6 +689,14 @@ def render(r):
         for v in verbs:
             if v["action"] == a["action"]:
                 v["async"] = async_cfg
+
+    # Whole-document gojq applied to a response BEFORE drift comparison. This is the
+    # declarative answer to an API that returns a different shape than it accepts:
+    # without it the comparison is unsatisfiable and the controller updates forever.
+    for action, program in (ov.get("responseTransform") or {}).items():
+        for v in verbs:
+            if v["action"] == action:
+                v["responseTransform"] = {"inline": program}
 
     resource = {"kind": r["kind"]}
     if r["meta"]:
