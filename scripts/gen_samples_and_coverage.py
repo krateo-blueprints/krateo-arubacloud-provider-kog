@@ -277,12 +277,28 @@ TIERS = {
         "LoadBalancer inside a KaaS cluster",
     ),
     ("compute", "CloudServer"): (
-        "experimental",
-        "its create is **proven working** — a single `POST` at `api-version=1.1` "
-        "returned 201 (`6a9d9c29`) with vpc/subnets/securityGroups/bootVolume/elasticIp "
-        "in one call. It cannot be driven by a RestDefinition because that create lives "
-        "in a second OAS document — [oasgen-provider#108]"
-        "(https://github.com/krateo-platformops/oasgen-provider/issues/108)",
+        "beta",
+        "**observe proven live** (2026-10-20): a server was created directly over the "
+        "API and the CR converged on it, reporting back the same id the POST returned "
+        "(`6ad732b8`), which exercises the only two verbs it declares — `findby` and "
+        "`get`. Before this the sample had only ever been applied against an empty "
+        "collection, which proves nothing. Run it with "
+        "`scripts/ga_cloudserver_observe.py`.\n\n"
+        "Its create is **proven working** but not reachable from a RestDefinition: a "
+        "single `POST` at `api-version=1.1` returns 201 with "
+        "vpc/subnets/securityGroups/bootVolume/elasticIp in one call, and that "
+        "document is a second OAS — "
+        "[oasgen-provider#108](https://github.com/krateo-platformops/oasgen-provider/issues/108). "
+        "Undeclared constraints the OAS does not state: the boot volume must be "
+        "`bootable: true` **with** an image, and `securityGroups` is **required** "
+        "(`GenericResource: securityGroup cannot be null`) though the request schema "
+        "marks nothing required.\n\n"
+        "**Delete needs Snowplow.** This RestDefinition routes delete through a "
+        "RESTAction (`deleteApiRef`), so on a cluster without a Snowplow client the "
+        "CR cannot be deleted at all — every attempt logs `no snowplow client is "
+        "configured` and the CR wedges on its finalizer while the remote server is "
+        "long gone. That is why this is beta and not GA — **billable** — "
+        "[live-cluster-test](live-cluster-test.md)",
     ),
 }
 

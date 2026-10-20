@@ -19,8 +19,8 @@ A tier states what has actually been *executed* against the live Aruba API, not 
 | Tier | Bar | Count |
 |------|-----|-------|
 | **GA** | full `create → observe → drift → delete` against the live API | 18 |
-| beta | observe verified live; mutation unproven | 9 |
-| experimental | generated, valid, reaches `Ready`, sample admitted | 6 |
+| beta | observe verified live; mutation unproven | 10 |
+| experimental | generated, valid, reaches `Ready`, sample admitted | 5 |
 | **blocked** | known non-functional, reason recorded | 1 |
 
 Only **GA** claims fitness for production use. See [ga-readiness](ga-readiness.md).
@@ -30,7 +30,11 @@ Only **GA** claims fitness for production use. See [ga-readiness](ga-readiness.m
 | Provider | Kind | Tier | Verbs | Identifier(s) | Evidence |
 |----------|------|------|-------|---------------|----------|
 | baremetal | `Hpc` | experimental | findby,get,create | `metadata.name` | **cannot be exercised on this account**: `GET /projects/{id}/providers/Aruba.Baremetal/hpcs` returns **404** (verified 2026-10-20, api-version 1.0 and 1.1), so the provider is not enabled here. Two reasons nothing was created to find out more: the OAS declares **no DELETE for hpcs at all** — only `post`, `get`, and PUTs for `name` and `automaticrenew` — so a bare-metal cluster created through this RestDefinition could not be removed through it, and bare metal is the one resource class here where an accident is not measured in cents |
-| compute | `CloudServer` | experimental | findby,get | `metadata.name` | its create is **proven working** — a single `POST` at `api-version=1.1` returned 201 (`6a9d9c29`) with vpc/subnets/securityGroups/bootVolume/elasticIp in one call. It cannot be driven by a RestDefinition because that create lives in a second OAS document — [oasgen-provider#108](https://github.com/krateo-platformops/oasgen-provider/issues/108) |
+| compute | `CloudServer` | beta | findby,get | `metadata.name` | **observe proven live** (2026-10-20): a server was created directly over the API and the CR converged on it, reporting back the same id the POST returned (`6ad732b8`), which exercises the only two verbs it declares — `findby` and `get`. Before this the sample had only ever been applied against an empty collection, which proves nothing. Run it with `scripts/ga_cloudserver_observe.py`.
+
+Its create is **proven working** but not reachable from a RestDefinition: a single `POST` at `api-version=1.1` returns 201 with vpc/subnets/securityGroups/bootVolume/elasticIp in one call, and that document is a second OAS — [oasgen-provider#108](https://github.com/krateo-platformops/oasgen-provider/issues/108). Undeclared constraints the OAS does not state: the boot volume must be `bootable: true` **with** an image, and `securityGroups` is **required** (`GenericResource: securityGroup cannot be null`) though the request schema marks nothing required.
+
+**Delete needs Snowplow.** This RestDefinition routes delete through a RESTAction (`deleteApiRef`), so on a cluster without a Snowplow client the CR cannot be deleted at all — every attempt logs `no snowplow client is configured` and the CR wedges on its finalizer while the remote server is long gone. That is why this is beta and not GA — **billable** — [live-cluster-test](live-cluster-test.md) |
 | compute | `KeyPair` | **GA** | findby,get,create,delete | `metadata.name` | full lifecycle live, re-runnable on demand under `tests/ga/chains/compute-keypair.yaml`. No update verb, so drift is N/A; the GA claim had previously rested on prose rather than on a chain anything runs — [live-cluster-test](live-cluster-test.md) |
 | container | `Kaas` | beta | findby,get,create,update,delete | `metadata.name` | cluster created and reached **Active** upstream (`6a9aa956`, K2A4 / 1.33.2) and deleted cleanly, but the CR never reported `Ready` — **billable** ~EUR 0.076/hr — [live-cluster-test](live-cluster-test.md) |
 | container | `KaasBackup` | experimental | findby,get,create,update,delete | `metadata.name` | applies and reaches `Ready`; sample admitted by its CRD |

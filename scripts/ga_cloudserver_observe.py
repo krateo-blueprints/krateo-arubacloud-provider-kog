@@ -37,6 +37,10 @@ LOCATION = os.environ.get("LOCATION", "ITBG-Bergamo")
 DC = os.environ.get("DC", "ITBG-1")
 VPC_ID = os.environ.get("VPC_ID", "69a5609fa851081197caa45f")
 SUBNET_ID = os.environ.get("SUBNET_ID", "69a560ce2312085699426c28")
+# Undeclared, like most of what this API actually enforces: the 1.1 create refuses a
+# body without securityGroups -- `GenericResource: securityGroup cannot be null` --
+# while the OAS marks no property required anywhere in the request schema.
+SG_ID = os.environ.get("SG_ID", "69a560ce2312085699426c2a")
 FLAVOR = os.environ.get("FLAVOR", "CSO1A2")
 IMAGE = os.environ.get("IMAGE", "LU22-001")
 NAME = os.environ.get("NAME", "ga-cs-observe")
@@ -171,6 +175,8 @@ def main():
                                     f"/subnets/{SUBNET_ID}"}],
                 "elasticIp": {"uri": f"{BASE}/Aruba.Network/elasticIps/{eip_id}"},
                 "bootVolume": {"uri": f"{BASE}/Aruba.Storage/blockStorages/{vol_id}"},
+                "securityGroups": [{"uri": f"{BASE}/Aruba.Network/vpcs/{VPC_ID}"
+                                           f"/securityGroups/{SG_ID}"}],
             },
         }
         code, b = api("POST", f"{BASE}/Aruba.Compute/cloudServers", srv_body,

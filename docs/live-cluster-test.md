@@ -1293,3 +1293,58 @@ than from the error body: "the update body will not accept a full re-PUT" (twice
 two different resources), then a provisioning-state refusal that was real but was
 masking the Dbaas shape bug. The error array was sitting in the response the whole
 time; the probe was reading the wrong keys for it.
+
+### CloudServer observed for the first time, and a delete that cannot run (2026-10-20)
+
+`scripts/ga_cloudserver_observe.py`. CloudServer's create is unreachable from a
+RestDefinition, so its `findby` and `get` had only ever been applied against an empty
+collection — which proves nothing at all. This creates the server over the API and
+makes the controller find it:
+
+```
+boot volume 6ad7326b (bootable, LU22-001) -> NotUsed
+elastic ip  6ad732a0                      -> NotUsed
+cloud server 6ad732b8 created at api-version=1.1 -> Active
+CR Ready — observed id=6ad732b8503f218a2d6969f6
+RESULT {"server_active": true, "observed_id": "6ad732b8...", "cr_ready": true} leftovers=0
+```
+
+The observed id is the one the POST returned, so the CR converged on *that* server
+rather than on anything incidental.
+
+**`securityGroups` is required and the OAS does not say so.** The first attempt was
+refused with `GenericResource: securityGroup cannot be null`, from a request schema
+that marks no property required anywhere. That is the fourth undeclared constraint of
+this kind recorded here, after Kaas's three.
+
+**The error nearly went unread.** The first failure printed `None: None`, because the
+1.1 compute endpoint does not use the `errors: [{field, message}]` envelope the
+network and storage providers use — the same class of mistake that cost three wrong
+explanations earlier in this campaign, one layer further down. The probe now renders
+whatever arrives and dumps the body when it recognises nothing.
+
+#### Delete routes through a RESTAction, and wedges without Snowplow
+
+Teardown timed out, and the controller said why, every few seconds, forever:
+
+```
+Cannot delete external resource
+err: resource declares deleteApiRef krateo-system/arubacloud-compute-cloudserver-delete
+     but no snowplow client is configured (set the snowplow/authn URLs)
+```
+
+CloudServer's delete is a RESTAction, not a native verb, so **on a cluster without a
+Snowplow client the CR cannot be deleted at all**. It sits with
+`composition.krateo.io/finalizer`, `Ready=False/Deleting`, `Synced=False/ReconcileError`,
+while the remote server is already gone.
+
+This is a deployment prerequisite that nothing in the install path states, and it is
+why CloudServer is beta rather than anything higher: the resource can be observed, but
+a CR created on a Snowplow-less cluster is undeletable through Kubernetes.
+
+The finalizer was cleared by hand here — **after** confirming the remote was genuinely
+gone (`GET .../cloudServers` returned `total: 0` and the id returned 404). That check
+is the whole difference between tidying up and orphaning a billable resource, which is
+the general rule recorded elsewhere in this file and still stands: clearing a finalizer
+removes the controller's delete path. It is safe only when there is demonstrably
+nothing left for it to delete.
