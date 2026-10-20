@@ -1520,3 +1520,71 @@ HTTP dump that made this diagnosis possible comes from the CR's
 — and on anything below 0.26.1 it prints your bearer token). Note also that the
 provider owns those generated ConfigMaps: applying a RestDefinition regenerates them
 and silently drops a hand-added key.
+
+### KaasBackup, and three values the spec cannot give you (2026-10-20)
+
+KaasBackup was unreachable for the whole campaign: it hangs off a Kaas, and no chain
+could get past a Kaas that never reported `Ready`. With that fixed it runs:
+
+```
+Kaas/ga-kaas             Ready, id=6ad7ad3c...   DRIFT CORRECTED
+KaasBackup/ga-kaasbackup Ready, id=6ad7aea9...
+drift Kaas/ga-kaas: ok
+```
+
+That is also Kaas's **second** consecutive drift pass, so its GA rests on two runs.
+
+**`type` accepts only `Full`.** The OAS declares it a bare string with no enum. The
+API will tell you, if you read the error body — and note which field it blames:
+
+```
+('RetentionDays', 'Type is not valid. Allowed values are Full')
+('Kaas',          'There is another backup in creation')
+```
+
+The complaint about `type` arrives attached to `RetentionDays`. The second line is a
+second undeclared rule: **only one backup may be in creation at a time**, so backups
+cannot be created in parallel.
+
+**`billingPeriod` is not validated.** This was found by accident, and the accident is
+the point. The probe sent `billingPeriod: "NotAPeriod"` deliberately, as a guarantee
+that the call could not succeed — the same trick that safely probed Registry's `size`,
+where an invalid volume uri *is* checked. Aruba accepted it, created the backup, and
+persisted the string verbatim:
+
+```json
+"properties": {"billingPeriod": "NotAPeriod", "type": "Full", "retentionDays": 7}
+```
+
+So the probe created a real billable resource it was designed not to create. **A
+deliberately-invalid field is only a safety net if that field is validated, and which
+fields are validated is not knowable in advance** — only a field whose rejection you
+have already observed can be used that way.
+
+That backup then went `InCreation` → `Failed`, which looked like a KaasBackup defect
+and was not: the same resource with `billingPeriod: Hour` provisions normally. The
+invalid value was almost certainly the cause. Worth recording as a near miss — one
+more confident note about a resource that does not work, drawn from input only this
+probe would ever send.
+
+#### The residue check earned its keep, then got sharper
+
+The run ended with the check **refusing to call itself clean**:
+
+```
+UNVERIFIED: .../kaas/${id:ga-kaas}/backups returned HTTP 404
+no leftovers among the endpoints that answered, but at least one could not be read
+```
+
+Correct, and in this case explainable: backups live under their cluster, and the
+cluster was already gone. Two fixes followed. The message now prints the **expanded**
+URL rather than the template — the output above cannot be pasted into anything. And a
+404 on a child collection whose parent *this chain just deleted* is now reported as
+the deletion being confirmed rather than as a failed reading, since a backup cannot
+outlive its cluster. Every other failure, including a 404 on a path with no deleted
+parent in it, still refuses the clean bill.
+
+The decision table was tested offline rather than by provisioning another cluster, and
+one gap is stated in the code rather than hidden: a **misspelled** path that still
+contains a deleted parent's id is excused. Closing that would mean teaching the chain
+which collections exist, which is the OAS's job.

@@ -184,6 +184,22 @@ TIERS = {
         "experimental",
         "same `kmipId` status mapping correction as Key; not yet run",
     ),
+    ("container", "KaasBackup"): (
+        "beta",
+        "create/observe/delete proven live under `tests/ga/chains/container.yaml` "
+        "(`Ready, id=6ad7aea9`), which only became reachable once Kaas itself could "
+        "report Ready. Two values the OAS cannot give you, both measured 2026-10-20: "
+        "`type` accepts **only `Full`** — the API says so in an error attached to the "
+        "wrong field, `('RetentionDays', 'Type is not valid. Allowed values are "
+        "Full')` — and only **one backup may be in creation at a time** (`There is "
+        "another backup in creation`), so backups cannot be created in parallel. "
+        "**`billingPeriod` is not validated**: a probe created a backup with "
+        "`billingPeriod: \"NotAPeriod\"` and the API persisted that string, then the "
+        "backup went to `Failed` — almost certainly because of it, since the same "
+        "resource with `Hour` provisions normally. Not GA: it has an `update` verb, so "
+        "drift is testable in principle, but the chain carries no drift block for it "
+        "yet — **billable** — [live-cluster-test](live-cluster-test.md)",
+    ),
     ("container", "Registry"): (
         "experimental",
         "create is **accepted** (201) with `size: Small` — and `size` is why no "

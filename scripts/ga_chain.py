@@ -490,14 +490,36 @@ def main():
             for attempt in range(1, 7):
                 left = []
                 for ep in chain.get("residue", []):
-                    code, body = api("GET", expand(ep, variables, ids), tok)
+                    url = expand(ep, variables, ids)
+                    code, body = api("GET", url, tok)
                     if code != 200 or not isinstance(body, dict):
                         # Do NOT pass silently. An endpoint that cannot be read proves
                         # nothing, and counting it as zero leftovers turns a dead token
                         # or a typo'd path into a clean bill of health for billable
                         # resources that are still running.
-                        print(f"    UNVERIFIED: {ep} returned HTTP {code}", file=sys.stderr)
-                        unverified = True
+                        #
+                        # One exception, and only one: a 404 on a CHILD collection
+                        # whose parent this chain just deleted. A backup cannot outlive
+                        # the cluster it hangs off, so that 404 is the deletion being
+                        # confirmed, not a reading that failed. Anything else -- a
+                        # different status, or a 404 on a path with no deleted parent in
+                        # it (a typo, say) -- still refuses to call the run clean.
+                        #
+                        # Known gap, stated rather than hidden: a MISSPELLED path that
+                        # still contains a deleted parent's id is excused by this rule.
+                        # Narrowing it would mean teaching the chain which collections
+                        # exist, which is the OAS's job; the residue check is a
+                        # backstop, not a schema validator.
+                        parent_gone = code == 404 and any(
+                            rid and f"/{rid}" in url for name, rid in ids.items()
+                            if name in names)
+                        if parent_gone:
+                            print(f"    {url}: 404 — parent deleted, nothing can "
+                                  f"remain under it")
+                        else:
+                            print(f"    UNVERIFIED: {url} returned HTTP {code}",
+                                  file=sys.stderr)
+                            unverified = True
                         continue
                     vals = body.get("values") or body.get("value") or []
                     left += [v for v in vals
