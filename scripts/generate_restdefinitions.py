@@ -216,11 +216,17 @@ OVERRIDES = {
         # status"). Anything matching on those strings must handle both.
         #
         # Polls its own item path; this provider publishes no monitor endpoint.
-        # "Active" is confirmed by live observation, "InCreation" likewise. "Failed"
-        # is taken from the platform-wide vocabulary in security-provider.json, as
-        # for dbaas -- if the container service has its own terminal failure state,
-        # a failed provisioning polls to maxAttempts rather than failing fast, which
-        # is the safe direction to be wrong in.
+        # "InCreation" and "Failed" are both CONFIRMED by live observation, and the
+        # guess that the platform-wide vocabulary applies here turned out right:
+        # measured 2026-10-20, a registry sits InCreation for 1818s and then goes
+        # straight to Failed. So failureValues is doing real work -- without it the
+        # gate would poll a dead registry for its full 30 minutes.
+        #
+        # "Active" is NOT confirmed for this resource. No registry has reached it on
+        # this account; see the coverage note. maxAttempts stays at 120 (30 minutes)
+        # rather than being trimmed to the observed failure time, because a slower
+        # account that does succeed must not be cut off by a bound derived from a
+        # failure here.
         async_=dict(
             action="create",
             mode="requeue",
@@ -236,9 +242,12 @@ OVERRIDES = {
             postGet=True),
         note=("Registry creation is asynchronous and the OAS does not say so: the "
               "create returns the object while status.state is still InCreation, and "
-              "both update and delete are refused until it reaches Active with 400 "
+              "both update and delete are refused until it leaves that state with 400 "
               "{fieldName: Status, errorMessage: Invalid status}. Without the async "
               "block the CR reports Ready for a registry nothing can use yet. "
+              "Measured: InCreation for 1818s, then Failed -- no registry has reached "
+              "Active on this account, so the gate's value here is failing fast "
+              "rather than gating Ready. "
               "Separately: properties.size takes Small, Medium or HighPerf, "
               "case-sensitive -- measured, because the OAS describes it as a "
               "connection count and its RegistrySize catalogue is referenced by no "

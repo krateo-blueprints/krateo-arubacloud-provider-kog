@@ -184,6 +184,28 @@ TIERS = {
         "experimental",
         "same `kmipId` status mapping correction as Key; not yet run",
     ),
+    ("container", "Registry"): (
+        "experimental",
+        "create is **accepted** (201) with `size: Small` — and `size` is why no "
+        "Registry had ever been created here: the chain sent `\"20\"`, refused with "
+        "`'20' is not a valid size`. Measured 2026-10-20, the legal values are "
+        "`Small`, `Medium`, `HighPerf`, case-sensitive, established by POSTing each "
+        "candidate with a deliberately nonexistent volume uri so nothing could be "
+        "created. The OAS cannot tell you this: the create DTO describes the field as "
+        "a connection count, the response DTO as \"the id of registry size\", and the "
+        "`RegistrySize` catalogue it defines is referenced by no path. "
+        "**It still does not provision**: the registry sits `InCreation` for 1818s "
+        "and then goes to `Failed`, and the status carries no `failureReason` or "
+        "`error` — the API says only `Failed`. The account is a TRIAL "
+        "(`legacy_profilename: TRIAL`), the obvious suspect, but that is **not** "
+        "established: `Kaas` is the same container provider and did reach `Active` on "
+        "this same account, so \"container is unavailable on trial\" is contradicted "
+        "by evidence. Cause unestablished. It carries the async gate anyway, which is "
+        "what makes the failure legible instead of a 30-minute hang — "
+        "`failureValues: [Failed]` is now confirmed live. A `Failed` registry also "
+        "needs its DELETE issued **twice**; the first returns 202 and leaves it in "
+        "place — **billable** — [live-cluster-test](live-cluster-test.md)",
+    ),
     ("container", "Kaas"): (
         "beta",
         "cluster created and reached **Active** upstream (`6a9aa956`, K2A4 / 1.33.2) "

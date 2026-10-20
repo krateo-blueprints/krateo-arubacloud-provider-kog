@@ -1348,3 +1348,65 @@ is the whole difference between tidying up and orphaning a billable resource, wh
 the general rule recorded elsewhere in this file and still stands: clearing a finalizer
 removes the controller's delete path. It is safe only when there is demonstrably
 nothing left for it to delete.
+
+### Registry: never created, then created, then Failed (2026-10-20)
+
+Three findings, in the order they appeared.
+
+**1. `size` had never been right, so Registry had never been created.** The chain sent
+`size: "20"` and Aruba refuses it with `'20' is not a valid size`. Its tier note said
+"applies and reaches `Ready`; sample admitted by its CRD" — which was true, and
+described a CR converging on nothing. It also means Registry was never really a member
+of the Kaas/Registry/Job never-Ready group; that group is Kaas and Job.
+
+The legal values are `Small`, `Medium`, `HighPerf`, **case-sensitive**, measured by
+POSTing each candidate with a deliberately nonexistent volume uri so the call could
+not succeed, and watching whether the `Size` error appeared:
+
+```
+Small / Medium / HighPerf   accepted  (only Volume + ElasticIp "not found" remain)
+small / SMALL / S           'x' is not a valid size
+20 / 100 / 1000             'x' is not a valid size
+```
+
+Nothing in the spec can tell you this. The create DTO calls the field "The number of
+concurrent connections required by user", the response DTO calls it "the id of
+registry size", and `RegistrySize` — the one catalogue — is **defined but referenced
+by no path**. Reading the first description literally is exactly how `"20"` got there.
+
+**2. With a registry that exists, the premature-Ready defect was visible.** The CR
+reported `Ready` while Aruba still had the registry `InCreation` ten minutes later,
+and both update and delete are refused in that window. Same defect as Dbaas, same
+fix: an `async` block polling `status.state`. Confirmed live — the CR now holds at
+`Ready=False/Pending` where before it said Ready immediately.
+
+**3. It does not provision on this account.** Measured directly, twice:
+
+```
+t+    1s  InCreation
+t+ 1818s  Failed
+```
+
+and the status is bare — `{"state": "Failed", "creationDate": ...}`, with no
+`failureReason` and no `error`, both of which `StatusResponseDto` declares. The first
+timing run deleted the resource before reading its status; checking the leftover of
+the second is the only reason this is known, and it is why a third 30-minute run was
+not needed.
+
+The account is a **TRIAL** (`legacy_profilename: TRIAL`, `groupMembership:
+[ListinoTrial]`), which is the obvious suspect. **It is not established.** `Kaas` is
+the same container provider and did reach `Active` on this same account, so "container
+is unavailable on trial" is contradicted by our own evidence. A registry-specific
+entitlement is possible; so is a constraint on the payload that nothing expresses. The
+cause is unestablished, and saying so is better than the fourth confident guess in a
+week.
+
+Two operational notes:
+
+- the `async` gate earns its place even though Ready is unreachable: `failureValues:
+  [Failed]` is now confirmed live, so a dead registry fails fast instead of hanging
+  for the full 30 minutes. `maxAttempts` stays at 120 rather than being trimmed to the
+  observed 1818s, because an account that provisions successfully but slowly must not
+  be cut off by a bound derived from a failure here.
+- a `Failed` registry needs its **DELETE issued twice**. The first returns 202 and
+  leaves the resource in place.
