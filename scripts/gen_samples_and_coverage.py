@@ -208,9 +208,25 @@ TIERS = {
     ),
     ("container", "Kaas"): (
         "beta",
-        "cluster created and reached **Active** upstream (`6a9aa956`, K2A4 / 1.33.2) "
-        "and deleted cleanly, but the CR never reported `Ready` — "
-        "**billable** ~EUR 0.076/hr — [live-cluster-test](live-cluster-test.md)",
+        "cluster created and reached **Active** upstream (K2A4 / 1.33.2) and deleted "
+        "cleanly, but the CR never reports `Ready`, and the cause is now established "
+        "rather than guessed. RDC's drift comparison can never pass, because the "
+        "request and response shapes differ **in Aruba's own spec**: "
+        "`KaasInsertPropertiesDto` declares `nodeCidr` while "
+        "`KaasPropertiesResponseDto` declares `nodecidr` (casing), `nodePools[].`"
+        "`instance` and `dataCenter` are strings in the request and objects in the "
+        "response (type), and `securityGroup` is sent as `{name}` and returned as "
+        "`{uri}`. Of the leaves present on both sides, 11 of 11 are equal — the drift "
+        "is entirely these. `compareScope: updatable` does not help: "
+        "`KaasUpdatePropertiesDto` declares only `nodePools`, which is itself one of "
+        "the mismatching fields, so the comparison is unsatisfiable at every scope "
+        "that includes it. The consequence is not only a stuck condition — RDC PUTs "
+        "the healthy cluster every 180s forever, each accepted write driving it from "
+        "`Active` into `Updating`, which refuses the next one "
+        "([oasgen#213](https://github.com/krateo-platformops/oasgen-provider/issues/213)). "
+        "Not fixable here: the OAS is not ours to change and the fields are required "
+        "at create — **billable** ~EUR 0.076/hr — "
+        "[live-cluster-test](live-cluster-test.md)",
     ),
     ("database", "Dbaas"): (
         "ga",

@@ -1410,3 +1410,66 @@ Two operational notes:
   be cut off by a bound derived from a failure here.
 - a `Failed` registry needs its **DELETE issued twice**. The first returns 202 and
   leaves the resource in place.
+
+### Why Kaas never reports Ready — request shape vs response shape, in the vendor's spec (2026-10-20)
+
+`Ready` comes from one thing only: RDC's drift comparison passing. When it fails, the
+reason is computed, written to the condition **in memory**, and never persisted — so
+the only condition that reaches the apiserver is `Creating`, set by the Update leg
+([oasgen#213](https://github.com/krateo-platformops/oasgen-provider/issues/213)). The
+resource is not creating. It is in a permanent observe→update loop.
+
+That loop is visible in the live state, which is worse than a wrong condition. From
+the controller's own HTTP dump across one 25-minute run, the real cluster's
+`status.state`:
+
+```
+InCreation, InCreation, Active, Updating, Active, Updating, Active, Updating,
+Active, Updating, Active, Updating, Active, Updating, Active, Updating, Deleting...
+```
+
+19 PUTs, 7 of them accepted, 12 refused with `{"fieldName": "Status",
+"errorMessage": "Invalid status"}`, on a `resyncInterval` of 180s. **RDC mutates a
+healthy cluster every three minutes, forever**, and each accepted PUT drives it out of
+`Active` into `Updating`, which is what refuses the next one.
+
+#### The field that can never match
+
+No debug build was needed: the verbose dump carries the PUT body and the GET response,
+and the comparison is just those two. Of the leaves present on **both** sides, 11 of 11
+are equal. The drift is entirely in fields the response does not echo *in the shape the
+request used* — and all three mismatches are declared that way in
+`openapi/container-provider.json` itself:
+
+| CR / request | response | mechanism |
+|---|---|---|
+| `properties.nodeCidr.{name,address}` | `properties.`**`nodecidr`**`.{address,uri}` | **casing** — `KaasInsertPropertiesDto` says `nodeCidr`, `KaasPropertiesResponseDto` says `nodecidr`; `name` is never echoed |
+| `nodePools[0].instance: "K2A4"` | `instance: {ram,price,cpu,name,diskSizeGb}` | **type** — string in `NodePoolsDto`, object in `NodePoolsResponseDto` |
+| `nodePools[0].dataCenter: "ITBG-1"` | `dataCenter: {name: "ITBG-1"}` | **type** — same |
+| `securityGroup.{name}` | `securityGroup.{uri}` | **different key** — Aruba creates its own group and returns a uri |
+
+**`compareScope: updatable` cannot fix this, and that is the interesting part.**
+`KaasUpdatePropertiesDto` declares exactly one property, `nodePools`, so narrowing the
+comparison to what the update body can express still leaves `nodePools`, whose
+`instance` and `dataCenter` are string-in-request and object-in-response by the
+vendor's own schema. The comparison is unsatisfiable at every scope that includes the
+one field the update can carry. [oasgen#51](https://github.com/krateo-platformops/oasgen-provider/issues/51)
+assumed "a field the update body can express" is the same as "a field the API will
+echo back comparably"; Kaas is the counterexample.
+
+Nothing here is fixable from this repository. The OAS is Aruba's and is not ours to
+change, the four fields are required at create, and `compareScope:
+identifiersAndStatus` would stop the loop only by stopping drift detection — which for
+a repo whose GA bar *is* drift enforcement is worse than an honest beta. So `Kaas`
+stays **beta**, with the cause recorded rather than guessed.
+
+#### A note on getting the reason out, for anyone who tries
+
+`REST_CONTROLLER_DEBUG=true` in the controller's ConfigMap **did nothing** on
+rest-dynamic-controller 0.24.0: the startup line still reports `"debug": false`. The
+HTTP dump that made this diagnosis possible comes from the CR's
+`krateo.io/connector-verbose` annotation, which is a different switch
+([authentication](authentication.md#verbose-connectors-print-the-bearer-token-below-0261)
+— and on anything below 0.26.1 it prints your bearer token). Note also that the
+provider owns those generated ConfigMaps: applying a RestDefinition regenerates them
+and silently drops a hand-added key.
