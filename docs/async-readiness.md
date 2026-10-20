@@ -186,3 +186,40 @@ deletion and re-checks residue against the API rather than trusting the delete c
 which is the behaviour to copy. Do not clear the finalizer to force it: that removes
 the controller's delete path and orphans the remote resource, which has happened here
 before.
+
+## Every write is refused mid-transition, not just Dbaas's
+
+The `InvalidStatus` family is not specific to DBaaS. The same refusal appears across
+providers, in the generic validation envelope rather than a typed error code:
+
+```
+400 {"type": ".../400", "title": "One or more validation errors occurred.",
+     "status": 400,
+     "errors": [{"field": "Status", "message": "invalid status"}]}
+```
+
+Observed by hand against a live account, all in one sitting:
+
+| call | state at the time | answer |
+|------|-------------------|--------|
+| `PUT` securityRule | `Active` | 200 |
+| `PUT` securityRule, same body, immediately after | `Updating` | 400 `Status: invalid status` |
+| `PUT` securityRule, same body, once `Active` again | `Active` | 200 |
+| `DELETE` vpc while its securityGroup was still deleting | — | 400, then 202 on retry |
+
+Two consequences for anything that writes to this API:
+
+**A 400 is not evidence about the body.** The identical payload earns 200 or 400
+depending only on when it arrives. `scripts/ga_chain.py` chased this as a body-shape
+bug through two wrong explanations because it only looked at the status code; it now
+waits for a settled state before writing, and retries rather than concluding when the
+refusal names the `Status` field. Read the `errors` array before theorising.
+
+**`Ready` on the CR does not mean writable upstream.** The controller reports Ready
+once its observe succeeds, which can be while the resource is still `Updating`. Code
+that reconciles immediately after Ready must tolerate this refusal and retry.
+
+Aruba's error envelope is `errors: [{field, message}]` — **not**
+`{fieldName, errorMessage}`. Reading the wrong keys turns a precise, actionable
+message into `None: None`, which is how the above went unexplained for a whole
+campaign.

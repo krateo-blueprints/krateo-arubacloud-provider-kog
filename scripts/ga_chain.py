@@ -183,6 +183,52 @@ def upstream_id(kind, name, id_path=None):
     return None
 
 
+# A write is refused while the resource is still settling, with
+#
+#   400 {"field": "Status", "message": "invalid status"}
+#
+# which is indistinguishable from a rejected body if you only look at the status code.
+# That is what made SecurityRule read as a resource whose drift cannot be tested for
+# this entire campaign: the very same body that gets a 400 while the rule is Updating
+# gets a 200 once it is Active. Confirmed by hand -- created a rule over the API,
+# PUT the declared spec (200), PUT it again immediately (400 invalid status), waited
+# for Active, PUT the identical body again (200).
+#
+# Aruba's own DELETE is refused the same way while a child is still going, so this is
+# the API's general convention and not a quirk of one endpoint.
+SETTLED = {"Active", "Created", "Available", "Running"}
+BUSY = {"Creating", "InCreation", "Updating", "Deleting", "Pending", "Provisioning"}
+
+
+def busy_refusal(resp):
+    """True when a 400 means "try again later", not "send a different body"."""
+    if not isinstance(resp, dict):
+        return False
+    return any(isinstance(e, dict) and e.get("field") == "Status"
+               for e in resp.get("errors") or [])
+
+
+def wait_settled(url, tok, timeout=240):
+    """Poll until the resource is in a state that accepts writes.
+
+    Unknown states are treated as settled: an unrecognised state must not silently
+    cost us the drift assertion, and a refused PUT is retried anyway.
+    """
+    deadline = time.time() + timeout
+    while True:
+        code, body = api("GET", url, tok)
+        if code != 200 or not isinstance(body, dict):
+            return code, body
+        state = (body.get("status") or {}).get("state")
+        if state not in BUSY:
+            return code, body
+        if time.time() >= deadline:
+            print(f"    drift: {url.rsplit('/', 1)[-1]} still {state} after {timeout}s",
+                  file=sys.stderr)
+            return code, body
+        time.sleep(10)
+
+
 def drift_check(kind, name, url, tok, spec=None):
     """Set a tag upstream and require the controller to remove it.
 
@@ -190,7 +236,9 @@ def drift_check(kind, name, url, tok, spec=None):
     `tags: []`, and before 0.22.1 an empty list matched any remote list, so this
     assertion passed vacuously while the resource stayed diverged.
     """
-    code, body = api("GET", url, tok)
+    # Ready on the CR does not mean writable upstream: the controller reports Ready as
+    # soon as its observe succeeds, which can be while the resource is still Updating.
+    code, body = wait_settled(url, tok)
     if code != 200 or not isinstance(body, dict):
         print(f"    drift: cannot read {kind}/{name} (HTTP {code}) — skipped", file=sys.stderr)
         return None
@@ -238,16 +286,30 @@ def drift_check(kind, name, url, tok, spec=None):
     # resource whose update is queued rather than applied inline.
     shape, code, detail = None, None, None
     for label, cand in candidates:
-        code, resp = api("PUT", url, tok, cand)
+        for _ in range(3):
+            code, resp = api("PUT", url, tok, cand)
+            if code in (200, 202, 204):
+                break
+            detail = resp
+            if not busy_refusal(resp):
+                break   # a real rejection: try the next shape, not the same one again
+            wait_settled(url, tok, 120)
         if code in (200, 202, 204):
             shape = label
             break
-        detail = resp
     if shape is None:
+        # The field-level errors, not just the code. Aruba answers RFC7807 with
+        # `errors: [{field, message}]` -- NOT fieldName/errorMessage, which is what
+        # this printed before and why a real "Status: invalid status" came out as
+        # "None: None" and sent me looking for a body-shape bug that was not there.
         errs = ""
         if isinstance(detail, dict) and detail.get("errors"):
             errs = " — " + "; ".join(
-                f"{e.get('fieldName')}: {e.get('errorMessage')}" for e in detail["errors"][:3])
+                f"{e.get('field') or e.get('fieldName')}: "
+                f"{e.get('message') or e.get('errorMessage')}"
+                for e in detail["errors"][:3] if isinstance(e, dict))
+        elif isinstance(detail, dict) and detail.get("title"):
+            errs = " — " + str(detail["title"])
         tried = ", ".join(l for l, _ in candidates)
         print(f"    drift: PUT returned {code} for every body shape tried ({tried})"
               f"{errs} — cannot inject into {kind}/{name}", file=sys.stderr)

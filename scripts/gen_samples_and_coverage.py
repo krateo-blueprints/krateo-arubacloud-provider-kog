@@ -45,15 +45,23 @@ CONFIG_VERSION = "v1alpha1"
 TIERS = {
     ("network", "Subnet"): (
         "ga",
-        "full lifecycle live — [live-cluster-test](live-cluster-test.md)",
+        "full lifecycle live incl. drift correction, re-runnable on demand under "
+        "`tests/ga/chains/network-security.yaml`. The chain declares `type: Advanced` "
+        "with an explicit CIDR on purpose: `Basic` lets the CMP pick the address, "
+        "which makes the declared value unmatchable — "
+        "[live-cluster-test](live-cluster-test.md)",
     ),
     ("network", "Vpc"): (
         "ga",
-        "full lifecycle live incl. drift correction — [live-cluster-test](live-cluster-test.md)",
+        "full lifecycle live incl. drift correction, re-runnable on demand under "
+        "`tests/ga/chains/network-security.yaml` — [live-cluster-test](live-cluster-test.md)",
     ),
     ("compute", "KeyPair"): (
         "ga",
-        "full lifecycle live — [live-cluster-test](live-cluster-test.md)",
+        "full lifecycle live, re-runnable on demand under "
+        "`tests/ga/chains/compute-keypair.yaml`. No update verb, so drift is N/A; the "
+        "GA claim had previously rested on prose rather than on a chain anything runs "
+        "— [live-cluster-test](live-cluster-test.md)",
     ),
     ("project", "Project"): (
         "ga",
@@ -67,11 +75,19 @@ TIERS = {
     ),
     ("network", "SecurityGroup"): (
         "ga",
-        "full lifecycle live incl. drift correction — [live-cluster-test](live-cluster-test.md)",
+        "full lifecycle live incl. drift correction, re-runnable on demand under "
+        "`tests/ga/chains/network-security.yaml` — [live-cluster-test](live-cluster-test.md)",
     ),
     ("network", "SecurityRule"): (
         "ga",
-        "full lifecycle live incl. drift correction — [live-cluster-test](live-cluster-test.md)",
+        "full lifecycle live incl. drift correction, re-runnable on demand under "
+        "`tests/ga/chains/network-security.yaml`. Its drift probe read as impossible "
+        "for a while — a 400 for every body shape tried — which was a probe bug, not "
+        "a resource limitation: a write is refused with `{\"field\": \"Status\", "
+        "\"message\": \"invalid status\"}` while the rule is still `Updating`, and the "
+        "identical body succeeds once it is `Active` "
+        "([async-readiness](async-readiness.md#every-write-is-refused-mid-transition-not-just-dbaass)) "
+        "— [live-cluster-test](live-cluster-test.md)",
     ),
     ("network", "VpcPeering"): (
         "ga",
@@ -147,13 +163,28 @@ TIERS = {
         "**billable** ~EUR 0.076/hr — [live-cluster-test](live-cluster-test.md)",
     ),
     ("database", "Dbaas"): (
-        "beta",
-        "create/observe/delete proven live (`6a9a846d`, mysql-8.0 / DBO1A2 / 20 GB); "
-        "drift not yet exercised — the 400 was `DBaaS.Read.InvalidStatus`, i.e. the "
-        "resource was still `InCreation`, not a rejected body; an earlier note here "
-        "blamed the update body and was wrong. Ready is now gated on `status.state: "
-        "Active`, which is what makes the drift test reachable at all "
+        "ga",
+        "full lifecycle live incl. drift correction (`6a9a846d`, mysql-8.0 / DBO1A2 / "
+        "20 GB), under `tests/ga/chains/database.yaml`. Two things had to be fixed "
+        "before the drift test could even run: `Ready` is now gated on `status.state: "
+        "Active` (it used to fire while Aruba still had the cluster `InCreation`), and "
+        "the update body must be in **request** shape — the GET returns "
+        "`networking.vpc.uri` where the PUT wants `networking.vpcUri`, so echoing the "
+        "response back reads as nulling Vpc and earns `400 \"The field 'Vpc' cannot be "
+        "modified\"` for fields the caller never touched. Two earlier notes here "
+        "blamed the update body for refusing a full re-PUT; both were wrong "
         "— **billable** — [live-cluster-test](live-cluster-test.md)",
+    ),
+    ("database", "DatabaseBackup"): (
+        "beta",
+        "create/observe/delete proven live, four consecutive chain runs. Needed "
+        "`identifiers: [metadata.id]` and `compareScope: identifiersAndStatus`: the "
+        "backup is keyed by a server-assigned id, so the default `fullSpec` comparison "
+        "looped forever on fields it cannot send and `Ready` was unreachable. Not GA "
+        "on two counts — there is no update verb, so drift cannot be exercised at all, "
+        "and `findby` has only ever matched with a single backup in the project, so "
+        "id-keyed lookup is unproven against a list — "
+        "[live-cluster-test](live-cluster-test.md)",
     ),
     ("database", "Database"): (
         "beta",
@@ -183,11 +214,15 @@ TIERS = {
     ("network", "VpnTunnel"): (
         "beta",
         "create → observe → delete proven live (`6a9b3576`, Site-To-Site / ikev2); "
-        "drift injection rejected with 400, cause NOT established — the identical "
-        "inference for Dbaas (\"the update body will not accept a full re-PUT\") "
-        "turned out to be wrong, the real cause being a provisioning-state refusal, "
-        "so this one needs re-testing rather than trusting the same reasoning "
-        "— **billable** — [live-cluster-test](live-cluster-test.md)",
+        "drift injection rejected with 400, cause NOT established for this resource. "
+        "Two causes are now known to produce exactly this 400 elsewhere — a write "
+        "refused while the resource is still settling (`{\"field\": \"Status\", "
+        "\"message\": \"invalid status\"}`, which is what SecurityRule's was) and a "
+        "response-shaped body where the API wants a request-shaped one (Dbaas) — and "
+        "the probe now handles both. The identical inference drawn for Dbaas (\"the "
+        "update body will not accept a full re-PUT\") turned out to be wrong twice "
+        "over, so this stays unproven until it is re-run rather than reasoned about "
+        "a third time — **billable** — [live-cluster-test](live-cluster-test.md)",
     ),
     ("network", "VpnRoute"): (
         "ga",
