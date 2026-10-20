@@ -471,18 +471,27 @@ def main():
 
             print("\n=== residue check (ground truth, async deletion allowed for) ===")
             names = {n for _, n in created}
+            unverified = False
             for attempt in range(1, 7):
                 left = []
                 for ep in chain.get("residue", []):
                     code, body = api("GET", expand(ep, variables, ids), tok)
                     if code != 200 or not isinstance(body, dict):
+                        # Do NOT pass silently. An endpoint that cannot be read proves
+                        # nothing, and counting it as zero leftovers turns a dead token
+                        # or a typo'd path into a clean bill of health for billable
+                        # resources that are still running.
+                        print(f"    UNVERIFIED: {ep} returned HTTP {code}", file=sys.stderr)
+                        unverified = True
                         continue
                     vals = body.get("values") or body.get("value") or []
                     left += [v for v in vals
                              if ((v.get("metadata") or {}).get("name") or v.get("name")) in names]
                 print(f"    attempt {attempt}: leftovers = {len(left)}")
                 if not left:
-                    print("    clean")
+                    print("    clean" if not unverified else
+                          "    no leftovers among the endpoints that answered, but at "
+                          "least one could not be read — NOT a clean bill")
                     break
                 time.sleep(20)
             else:

@@ -210,6 +210,43 @@ Two sharp edges, both load-bearing:
 > exercises the RBAC widening to the Secret's name, since the create could not have
 > succeeded without it.
 
+## Verbose connectors print the bearer token, below 0.26.1
+
+Every sample in `samples/` carries:
+
+```yaml
+annotations:
+  krateo.io/connector-verbose: 'true'
+```
+
+On a provider older than **0.26.1** that annotation dumps the whole HTTP exchange to
+the controller's log, *including the request headers*:
+
+```
+GET /folders?api-version=1.0 HTTP/1.1
+Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIi...
+```
+
+Measured on `kind-aruba-110` (provider 0.24.0) on 2026-10-20: **90** such lines in
+`arubacloud-network-vpc-controller` alone, each one a live OAuth token. Pod logs are
+routinely shipped to an aggregator that nothing has told about this, and the tokens
+are valid for an hour from the moment they are printed.
+
+[oasgen#166](https://github.com/krateo-platformops/oasgen-provider/pull/166) redacts
+credential headers; it is first tagged in **0.26.1**, and the pin is now 0.27.1, so
+anything validated by CI is safe. The exposure is real for anyone running these
+samples on an older provider:
+
+- **≥ 0.26.1** — keep the annotation; headers are redacted.
+- **< 0.26.1** — remove `krateo.io/connector-verbose` before applying to anything you
+  care about, or accept that the token is in your logs.
+
+This is the second credential defect in the same area; the first was a transform that
+registered the raw value as sensitive but not the transformed one, so logs printed the
+base64 of a password and read as audited. Both argue the same thing: verbose request
+logging and a credential in a header are a bad pair, and the version floor is the only
+thing standing between them.
+
 ## RESTAction credentials
 
 The CloudServer RESTActions run under Snowplow's identity and therefore use their

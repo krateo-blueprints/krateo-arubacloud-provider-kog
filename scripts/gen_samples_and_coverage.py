@@ -65,13 +65,41 @@ TIERS = {
     ),
     ("project", "Project"): (
         "ga",
-        "full lifecycle live incl. drift correction — [live-cluster-test](live-cluster-test.md)",
+        "full lifecycle live incl. drift correction, re-runnable on demand under "
+        "`tests/ga/chains/project-folder.yaml`. Takes no `projectId` — it IS the "
+        "project — [live-cluster-test](live-cluster-test.md)",
     ),
     ("project", "Folder"): (
         "beta",
-        "create/observe/delete proven live; drift **not** exercised — its only mutable "
-        "spec fields are the identifier itself and an account-wide `default` flag, "
-        "neither safe to perturb — [live-cluster-test](live-cluster-test.md)",
+        "create/observe/delete proven live, now under "
+        "`tests/ga/chains/project-folder.yaml`. Drift is **not** exercised and cannot "
+        "be: the body is flat `{name, default}`, with no tags to perturb, a name that "
+        "is the immutable identifier, and a `default` flag that decides account-wide "
+        "where new projects land. Nothing is safe to change, so it stays beta — "
+        "[live-cluster-test](live-cluster-test.md)",
+    ),
+    ("baremetal", "Hpc"): (
+        "experimental",
+        "**cannot be exercised on this account**: "
+        "`GET /projects/{id}/providers/Aruba.Baremetal/hpcs` returns **404** "
+        "(verified 2026-10-20, api-version 1.0 and 1.1), so the provider is not "
+        "enabled here. Two reasons nothing was created to find out more: the OAS "
+        "declares **no DELETE for hpcs at all** — only `post`, `get`, and PUTs for "
+        "`name` and `automaticrenew` — so a bare-metal cluster created through this "
+        "RestDefinition could not be removed through it, and bare metal is the one "
+        "resource class here where an accident is not measured in cents",
+    ),
+    ("metering", "AlertRule"): (
+        "experimental",
+        "**cannot be exercised on this account**: "
+        "`Aruba.Insight/alertRules` returns **404** on both api-version 1.0 and 1.1 "
+        "(verified 2026-10-20) — a collection GET that 404s rather than returning an "
+        "empty list — and `Aruba.Metering/alertRules` is refused as `Unknown "
+        "Provider`. Its `meta` was also the one derivation corrected from the "
+        "response rather than the create body across all 34: the POST is "
+        "metadata-wrapped while both reads return a flat DTO, so the original "
+        "`identifiers: [metadata.name]` could never match and the controller would "
+        "have re-POSTed every reconcile, without bound, against a live account",
     ),
     ("network", "SecurityGroup"): (
         "ga",

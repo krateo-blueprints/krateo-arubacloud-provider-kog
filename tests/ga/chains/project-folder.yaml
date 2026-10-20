@@ -1,0 +1,46 @@
+# Project and Folder, the two account-level resources, under the main runner.
+#
+# Both had live evidence already, but it lived in tests/ga/project.yaml and
+# tests/ga/folder.yaml -- standalone manifests applied by hand. "Covered in a place
+# nobody runs" is how DatabaseBackup shipped a defect that made Ready unreachable, so
+# they move here.
+#
+# Neither takes a projectId: they ARE the project, and the folder sits above it. That
+# also means the residue endpoints are account-wide (/projects, /folders) -- the
+# residue check matches on the names this chain created, so the real project is never
+# touched.
+#
+# Folder carries no drift block, and that is not an oversight. Its body is flat
+# {name, default}: no tags to perturb, the name is the immutable identifier, and
+# `default` is an account-wide flag that decides where new projects land. There is
+# nothing safe left to change.
+#
+# Free: neither a project nor a folder bills.
+name: project-folder
+vars:
+  LOCATION: ITBG-Bergamo
+residue:
+- /projects
+- /folders
+resources:
+- kind: Folder
+  name: ga-pf-folder
+  spec:
+    configurationRef:
+      name: folder-config
+      namespace: default
+    name: ga-pf-folder
+    default: false
+- kind: Project
+  name: ga-pf-project
+  spec:
+    configurationRef:
+      name: project-config
+      namespace: default
+    metadata:
+      name: ga-pf-project
+      tags: []
+    properties:
+      default: false
+      description: GA chain evidence run
+  drift: /projects/${id:self}
