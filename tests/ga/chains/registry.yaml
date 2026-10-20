@@ -1,13 +1,21 @@
 # Registry needs a public IP, a block-storage volume, and an existing subnet + security
 # group. All billable, all hourly, all small:
-#   Registry Small (20 connections)  EUR 0.01233/hr
+#   Registry Small                   EUR 0.01233/hr
 #   ElasticIp                        hourly
 #   BlockStorage 20 GB               hourly
 #
-# `size` is the CONCURRENT CONNECTION COUNT on create ("The number of concurrent
-# connections required by user"), not a tier name — the response field is separately
-# documented as "the id of registry size". Aruba's pricing tiers are 20 / 100 / 1000,
-# so "20" selects Small.
+# `size` takes exactly one of `Small`, `Medium`, `HighPerf` — case-sensitive, and
+# MEASURED, not inferred (2026-10-20): each candidate was POSTed with a deliberately
+# nonexistent volume uri so nothing could be created, and the Size error either
+# appeared or did not. `small` and `SMALL` are both refused; `20`, `100` and `1000`
+# are refused too.
+#
+# This field is undiscoverable from the spec. The create DTO calls it "The number of
+# concurrent connections required by user" and the response DTO calls it "the id of
+# registry size"; the one catalogue in the OAS, `RegistrySize`, is DEFINED BUT
+# REFERENCED BY NO PATH, so no endpoint lists the legal values. An earlier version of
+# this file read the first description literally and sent "20", which is why Registry
+# had never once been created.
 #
 # preset: false — preset only works when the location has no VPC, and cloudburst-default
 # exists (the same rule that rejected the first Kaas attempt).
@@ -55,7 +63,7 @@ resources:
       metadata: {name: ga-registry, location: {value: "${LOCATION}"}, tags: []}
       properties:
         preset: false
-        size: "20"
+        size: Small
         adminUser: {username: gaadmin}
         billingPlan: {billingPeriod: Hour}
         subnet:

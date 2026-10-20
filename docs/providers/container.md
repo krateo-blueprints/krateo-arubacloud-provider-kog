@@ -55,6 +55,8 @@ Sample: [`samples/container/kaasbackup.yaml`](../../samples/container/kaasbackup
 
 ## Registry
 
+> Registry creation is asynchronous and the OAS does not say so: the create returns the object while status.state is still InCreation, and both update and delete are refused until it reaches Active with 400 {fieldName: Status, errorMessage: Invalid status}. Without the async block the CR reports Ready for a registry nothing can use yet. Separately: properties.size takes Small, Medium or HighPerf, case-sensitive -- measured, because the OAS describes it as a connection count and its RegistrySize catalogue is referenced by no path.
+
 | Verb | Method | Path |
 |------|--------|------|
 | findby | GET | `/projects/{projectId}/providers/Aruba.Container/registries` |

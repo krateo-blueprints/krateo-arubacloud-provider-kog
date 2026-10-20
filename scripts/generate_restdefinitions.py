@@ -201,6 +201,48 @@ OVERRIDES = {
               "publishes no monitor endpoint. State values come from "
               "security-provider.json, which declares the vocabulary the database "
               "spec omits.")),
+    "container/registries": dict(
+        # Same defect as database/dbaas, found the same way: the CR reported Ready
+        # while Aruba still had the registry at status.state = InCreation, and every
+        # PUT in that window is refused with 400 {"fieldName": "Size"... no --
+        # {"fieldName": "Status", "errorMessage": "Invalid status"}. Measured live
+        # 2026-10-20: Ready at the CR, InCreation upstream more than ten minutes
+        # later, and the DELETE refused for the same reason, which is why teardown
+        # takes so long.
+        #
+        # Note the envelope: the container provider answers errors:[{fieldName,
+        # errorMessage}] where network and storage answer errors:[{field, message}],
+        # and it capitalises the message differently ("Invalid status" vs "invalid
+        # status"). Anything matching on those strings must handle both.
+        #
+        # Polls its own item path; this provider publishes no monitor endpoint.
+        # "Active" is confirmed by live observation, "InCreation" likewise. "Failed"
+        # is taken from the platform-wide vocabulary in security-provider.json, as
+        # for dbaas -- if the container service has its own terminal failure state,
+        # a failed provisioning polls to maxAttempts rather than failing fast, which
+        # is the safe direction to be wrong in.
+        async_=dict(
+            action="create",
+            mode="requeue",
+            operationRef=dict(In="body", path="metadata.id"),
+            poll=dict(
+                method="GET",
+                path="/projects/{projectId}/providers/Aruba.Container/registries/{id}",
+                handleParam="id",
+                statusPath="status.state",
+                successValues=["Active"],
+                failureValues=["Failed"],
+                intervalSeconds=15, maxAttempts=120),
+            postGet=True),
+        note=("Registry creation is asynchronous and the OAS does not say so: the "
+              "create returns the object while status.state is still InCreation, and "
+              "both update and delete are refused until it reaches Active with 400 "
+              "{fieldName: Status, errorMessage: Invalid status}. Without the async "
+              "block the CR reports Ready for a registry nothing can use yet. "
+              "Separately: properties.size takes Small, Medium or HighPerf, "
+              "case-sensitive -- measured, because the OAS describes it as a "
+              "connection count and its RegistrySize catalogue is referenced by no "
+              "path.")),
     "database/backups": dict(
         metaIdent="metadata.id", compareScope="identifiersAndStatus",
         note=("Aruba names a backup itself: a create asking for 'ga-dbbackup' produces "

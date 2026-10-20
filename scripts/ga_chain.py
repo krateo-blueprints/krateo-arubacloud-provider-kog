@@ -201,19 +201,34 @@ BUSY = {"Creating", "InCreation", "Updating", "Deleting", "Pending", "Provisioni
 
 
 def busy_refusal(resp):
-    """True when a 400 means "try again later", not "send a different body"."""
+    """True when a 400 means "try again later", not "send a different body".
+
+    Both key spellings, deliberately. This API uses at least three error envelopes:
+    network and storage send `errors: [{field, message}]`, the container provider
+    sends `errors: [{fieldName, errorMessage}]`, and the 1.1 compute endpoint matches
+    neither. Keying on `field` alone made this return False for every container
+    resource, so the retry below never fired and Registry's drift was reported as
+    "400 for every body shape tried" when the real answer was "ask again in a minute".
+    The message casing differs too ("invalid status" vs "Invalid status"), so match
+    the field name, not the prose.
+    """
     if not isinstance(resp, dict):
         return False
-    return any(isinstance(e, dict) and e.get("field") == "Status"
+    return any(isinstance(e, dict)
+               and (e.get("field") == "Status" or e.get("fieldName") == "Status")
                for e in resp.get("errors") or [])
 
 
-def wait_settled(url, tok, timeout=240):
+SETTLE_TIMEOUT = int(os.environ.get("SETTLE_TIMEOUT", "420"))
+
+
+def wait_settled(url, tok, timeout=None):
     """Poll until the resource is in a state that accepts writes.
 
     Unknown states are treated as settled: an unrecognised state must not silently
     cost us the drift assertion, and a refused PUT is retried anyway.
     """
+    timeout = SETTLE_TIMEOUT if timeout is None else timeout
     deadline = time.time() + timeout
     while True:
         code, body = api("GET", url, tok)

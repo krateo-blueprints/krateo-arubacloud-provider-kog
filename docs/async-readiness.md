@@ -219,7 +219,26 @@ refusal names the `Status` field. Read the `errors` array before theorising.
 once its observe succeeds, which can be while the resource is still `Updating`. Code
 that reconciles immediately after Ready must tolerate this refusal and retry.
 
-Aruba's error envelope is `errors: [{field, message}]` — **not**
-`{fieldName, errorMessage}`. Reading the wrong keys turns a precise, actionable
-message into `None: None`, which is how the above went unexplained for a whole
-campaign.
+### There is no single error envelope — there are at least three
+
+This is worth more care than it sounds, because every one of them has cost a wrong
+diagnosis here:
+
+| provider | envelope | wording |
+|---|---|---|
+| network, storage | `errors: [{field, message}]` | `invalid status` |
+| container | `errors: [{fieldName, errorMessage}]` | `Invalid status` |
+| compute, `api-version=1.1` | neither — matched no key we tried | — |
+
+Reading the wrong keys turns a precise, actionable message into `None: None`. That
+happened three times in one campaign: first with `fieldName` against a network
+resource, then with the corrected `field` against 1.1 compute, and then again inside
+`scripts/ga_chain.py`, whose retry test matched `field == "Status"` and therefore
+returned False for every container resource — so Registry's drift was reported as
+"400 for every body shape tried" when the API had plainly said "ask again in a
+minute". Note the casing differs too, so match on the field name and never on the
+prose.
+
+**Do not key into an error body blind.** Try the known spellings, and dump whatever
+arrived when none of them match — an over-long error message costs a line of log, a
+swallowed one costs a day.
