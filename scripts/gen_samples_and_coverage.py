@@ -41,6 +41,20 @@ CONFIG_VERSION = "v1alpha1"
 #   experimental generated, statically valid, admitted by the API server
 #   blocked      known non-functional, with the reason recorded
 #
+# WHERE THE API HAS NO UPDATE VERB, drift is INAPPLICABLE rather than unproven, and
+# the GA bar is create -> observe -> delete, re-runnable from a chain. Nothing can
+# diverge that a controller could correct, and RDC will never issue an update, so
+# demanding a drift test would make a whole class of resources permanently
+# un-GA-able for a property of Aruba's API rather than anything about this repo.
+#
+# That rule is written down because the table was inconsistent without it: KeyPair
+# was GA on create/observe/delete with no update verb, while Database, DatabaseUser,
+# Grant and DatabaseBackup sat at beta on the same verb shape. One of those readings
+# had to be wrong. This is the one being adopted -- and it raises the bar in one
+# respect, because "delete" now has to mean a delete VERIFIED AGAINST THE API while
+# the resource's parent still exists. A CR that disappears as its parent is torn down
+# proves nothing: a cascade and a DELETE look identical from Kubernetes.
+#
 # See docs/ga-readiness.md for what each tier claims about production use.
 TIERS = {
     ("network", "Subnet"): (
@@ -196,9 +210,14 @@ TIERS = {
         "**`billingPeriod` is not validated**: a probe created a backup with "
         "`billingPeriod: \"NotAPeriod\"` and the API persisted that string, then the "
         "backup went to `Failed` — almost certainly because of it, since the same "
-        "resource with `Hour` provisions normally. Not GA: it has an `update` verb, so "
-        "drift is testable in principle, but the chain carries no drift block for it "
-        "yet — **billable** — [live-cluster-test](live-cluster-test.md)",
+        "resource with `Hour` provisions normally. Not GA, and the reason is now measured "
+        "rather than missing: it has an `update` verb and "
+        "`tests/ga/chains/container.yaml` carries a drift block for it, but the probe "
+        "cannot inject. A backup refuses every write while `InCreation` "
+        "(`{fieldName: Status, errorMessage: Invalid status}`) and it stayed "
+        "`InCreation` for over 25 minutes, outlasting a 900s settle wait plus four "
+        "retries. Stretching that window until it passes would buy a drift test nobody "
+        "will re-run, so the window is recorded instead — **billable** — [live-cluster-test](live-cluster-test.md)",
     ),
     ("container", "Registry"): (
         "experimental",
@@ -262,40 +281,53 @@ TIERS = {
         "— **billable** — [live-cluster-test](live-cluster-test.md)",
     ),
     ("database", "DatabaseBackup"): (
-        "beta",
-        "create/observe/delete proven live, four consecutive chain runs. Needed "
+        "ga",
+        "create/observe/delete proven live across five consecutive chain runs. Needed "
         "`identifiers: [metadata.id]` and `compareScope: identifiersAndStatus`: the "
         "backup is keyed by a server-assigned id, so the default `fullSpec` comparison "
-        "looped forever on fields it cannot send and `Ready` was unreachable. Not GA "
-        "on two counts — there is no update verb, so drift cannot be exercised at all, "
-        "and `findby` has only ever matched with a single backup in the project, so "
-        "id-keyed lookup is unproven against a list — "
-        "[live-cluster-test](live-cluster-test.md)",
+        "looped forever on fields it cannot send and `Ready` was unreachable. Both "
+        "counts that held it at beta are now closed. **id-keyed findby is proven "
+        "against a list** (2026-10-21): a second backup was created beside this one "
+        "and the CR held its own id across ten consecutive observes with two backups "
+        "in the project — before that, \"matched correctly\" and \"returned the only "
+        "item\" were indistinguishable. And drift is **inapplicable**, not unproven: "
+        "the OAS gives backups no update verb. Delete is verified against the API with "
+        "the parent Dbaas still alive, because teardown removes the backup first and "
+        "the project-wide `/backups` endpoint is in the chain's residue list — "
+        "**billable** — [live-cluster-test](live-cluster-test.md)",
     ),
     ("database", "Database"): (
-        "beta",
-        "create/observe proven live (name-keyed, `status.name = gadb`); deleted with "
-        "its parent rather than individually — **billable parent** — "
-        "[live-cluster-test](live-cluster-test.md)",
+        "ga",
+        "create/observe/delete proven live, name-keyed (`status.name = gadb`). Drift "
+        "is **inapplicable**: the OAS gives it no update verb. Its delete used to rest "
+        "on the parent being torn down afterwards, which cannot tell a cascade from a "
+        "DELETE; it is now verified against the API at its own URL "
+        "(`.../dbaas/{id}/databases/gadb` → 404) **while the Dbaas was still alive** — "
+        "**billable parent** — [live-cluster-test](live-cluster-test.md)",
     ),
     ("database", "DatabaseUser"): (
-        "beta",
-        "create/observe proven live (`gauser`). The password is **not a spec field**: "
-        "it is sourced from a Secret named after the CR and keyed by the username, via "
-        "the `secretRef` resolver "
+        "ga",
+        "create/observe/delete proven live (`gauser`). The password is **not a spec "
+        "field**: it is sourced from a Secret named after the CR and keyed by the "
+        "username, via the `secretRef` resolver "
         "([authentication](authentication.md#a-credential-that-is-not-a-spec-field)). "
         "Its stored value must be **base64-encoded** — undocumented, which makes a "
-        "plaintext value read as a policy rejection that it is not. No update verb, so "
-        "drift is N/A; delete proven with the chain — "
-        "[live-cluster-test](live-cluster-test.md). The create call has not been "
-        "re-run since the password moved out of the spec",
+        "plaintext value read as a policy rejection that it is not. Drift is "
+        "**inapplicable**: no update verb (a password change is a separate "
+        "`PUT .../password` sub-endpoint). Delete is verified against the API at "
+        "`.../dbaas/{id}/users/gauser` (→ 404) **while the Dbaas was still alive**, so "
+        "a cascade cannot account for it. An earlier note here said the create had not "
+        "been re-run since the password moved out of the spec; that is long out of "
+        "date — it reaches `Ready, id=gauser` on every run of "
+        "`tests/ga/chains/database.yaml` — [live-cluster-test](live-cluster-test.md)",
     ),
     ("database", "Grant"): (
-        "beta",
-        "create/observe proven live once its identifier was bound to the leaf "
+        "ga",
+        "create/observe/delete proven live once its identifier was bound to the leaf "
         "`user.username` — binding the object `user` put `map[username:gauser]` in the "
-        "URL. No update verb, so drift is N/A — "
-        "[live-cluster-test](live-cluster-test.md)",
+        "URL. Drift is **inapplicable**: no update verb. Delete is verified against "
+        "the API at `.../users/gauser/grants/gadb` (→ 404) **while the Dbaas was still "
+        "alive** — [live-cluster-test](live-cluster-test.md)",
     ),
     ("network", "VpnTunnel"): (
         "ga",
@@ -747,6 +779,16 @@ stringData:
                 f"{counts.get('experimental', 0)} |\n")
         f.write("| **blocked** | known non-functional, reason recorded | "
                 f"{counts.get('blocked', 0)} |\n\n")
+        f.write(
+            "Where the API has **no update verb**, drift is *inapplicable* rather than "
+            "unproven and the GA bar is `create → observe → delete`, re-runnable from "
+            "a chain: nothing can diverge that a controller could correct. That rule "
+            "is stated because the table was inconsistent without it — `KeyPair` was "
+            "GA on that basis while `Database`, `DatabaseUser`, `Grant` and "
+            "`DatabaseBackup` sat at beta on the same verb shape. It also raises the "
+            "bar in one respect: *delete* must be **verified against the API while the "
+            "resource's parent still exists**, because from Kubernetes a cascade and a "
+            "real DELETE look identical.\n\n")
         f.write("Only **GA** claims fitness for production use. See "
                 "[ga-readiness](ga-readiness.md).\n\n")
 

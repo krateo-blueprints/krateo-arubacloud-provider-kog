@@ -378,6 +378,7 @@ def main():
 
     ids, created, drift_results = {}, [], {}
     secrets_created = []
+    self_urls = {}
 
     # SIGTERM (a CI timeout, an impatient operator, a harness limit) does not raise in
     # Python, so `finally` never runs and the teardown is skipped -- which already left
@@ -449,6 +450,16 @@ def main():
             ids[name] = rid
             print(f"    Ready, id={rid}")
 
+            # Its own URL, for the per-resource delete check in teardown. A chain
+            # states it as `self:`, or gets it free from `drift:`, which is the same
+            # path. Stored EXPANDED, here, because `${id:self}` only means anything
+            # while `kind` is in scope -- expanding it later in teardown raised
+            # `${id:self} used before None was created` and aborted the teardown with
+            # a live Dbaas still running. Resolve it where the context exists.
+            self_ep = res.get("self") or res.get("drift")
+            if self_ep:
+                self_urls[name] = expand(self_ep, variables, ids, kind)
+
             if res.get("drift"):
                 url = expand(res["drift"], variables, ids, kind)
                 drift_results[f"{kind}/{name}"] = drift_check(kind, name, url, tok, spec)
@@ -483,6 +494,41 @@ def main():
                             "--wait=true", f"--timeout={TIMEOUT}s")
                 out = (r.stdout + r.stderr).strip().splitlines()
                 print("   ", out[-1][:160] if out else "(no output)")
+
+                # Prove the DELETE individually, here, while this resource's parent is
+                # still alive. The residue check at the end cannot do it: by then the
+                # parent is gone too, and a child that vanished with its parent is
+                # indistinguishable from one the controller actually deleted. That
+                # distinction is the whole difference between "delete proven" and
+                # "delete assumed" for every resource that hangs off another.
+                #
+                # Wrapped, and deliberately so: the first version of this check raised
+                # on a bad path expansion and ABORTED THE REST OF THE TEARDOWN, leaving
+                # a live Dbaas billing. A verification step must never be able to stop
+                # the deletions it is verifying -- the whole point of this block is to
+                # report, and a reporter that can halt the cleanup is worse than no
+                # reporter at all.
+                try:
+                    url = self_urls.get(name)
+                    if not url:
+                        continue
+                    for attempt in range(1, 13):
+                        code, _ = api("GET", url, tok)
+                        if code == 404:
+                            print(f"    delete verified: {url} -> 404"
+                                  + (f" (after {attempt} checks)" if attempt > 1 else ""))
+                            break
+                        if code != 200:
+                            print(f"    delete UNVERIFIED: {url} -> HTTP {code}",
+                                  file=sys.stderr)
+                            break
+                        time.sleep(15)
+                    else:
+                        print(f"    DELETE NOT CONFIRMED: {url} still reads 200 — the "
+                              f"CR is gone but the resource is not", file=sys.stderr)
+                except Exception as e:                      # never block the teardown
+                    print(f"    delete check errored for {kind}/{name}: {e}",
+                          file=sys.stderr)
 
             print("\n=== residue check (ground truth, async deletion allowed for) ===")
             names = {n for _, n in created}

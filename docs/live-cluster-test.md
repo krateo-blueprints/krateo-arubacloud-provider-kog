@@ -1588,3 +1588,51 @@ The decision table was tested offline rather than by provisioning another cluste
 one gap is stated in the code rather than hidden: a **misspelled** path that still
 contains a deleted parent's id is excused. Closing that would mean teaching the chain
 which collections exist, which is the OAS's job.
+
+### Delete, proven rather than assumed (2026-10-21)
+
+Three resources sat at beta because their delete evidence was "the CR went away and
+the chain tore down the Dbaas afterwards". That cannot distinguish a DELETE the
+controller issued from a cascade when the parent went — and from Kubernetes the two
+look identical.
+
+`scripts/ga_chain.py` now verifies each delete **individually, while that resource's
+parent is still alive**. A resource declares its own URL as `self:` (or inherits it
+from `drift:`, the same path), and teardown GETs it after the CR is gone:
+
+```
+--- deleting DatabaseBackup/ga-dbbackup
+    delete verified: .../Aruba.Database/backups/6ad8743c -> 404 (after 2 checks)
+--- deleting Grant/ga-grant
+    delete verified: .../dbaas/6ad87000/users/gauser/grants/gadb -> 404
+--- deleting DatabaseUser/ga-dbuser
+    delete verified: .../dbaas/6ad87000/users/gauser -> 404
+--- deleting Database/ga-database
+    delete verified: .../dbaas/6ad87000/databases/gadb -> 404
+--- deleting Dbaas/ga-dbaas
+    delete verified: .../dbaas/6ad87000 -> 404
+```
+
+The Dbaas is last, so every one of those 404s was read while it still existed. The
+end-of-run residue check structurally cannot do this: by then the parent is gone too.
+
+#### The first version of this check left a Dbaas running
+
+It expanded `${id:self}` during teardown, where the `kind` context no longer exists,
+and raised `${id:self} used before None was created` — **inside the teardown loop**,
+which abandoned the remaining four deletions with a live, billing Dbaas. Cleaned up by
+hand within minutes, but the lesson is worth more than the fix:
+
+- the URL is now resolved **at creation**, where the context exists, and stored
+  expanded;
+- the check is wrapped so **it can never halt a teardown**. A verification step that
+  can stop the cleanup it reports on is worse than no verification at all, and this
+  file already records two earlier incidents of a probe leaving billable resources
+  behind. Adding a safety feature *in the cleanup path* turned it into the hazard.
+
+#### What it changed
+
+With delete verified individually and drift inapplicable where the API has no update
+verb (see the rule in [coverage](coverage.md#support-tiers)), `Database`,
+`DatabaseUser` and `Grant` meet the GA bar on executed evidence: **23 GA / 6 beta /
+4 experimental / 1 blocked**.

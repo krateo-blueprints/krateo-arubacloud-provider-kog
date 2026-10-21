@@ -83,3 +83,8 @@ resources:
       billingPeriod: Hour
       type: Full
       retentionDays: 7
+  # KaasBackup HAS an update verb, so drift is testable and its absence was the only
+  # thing keeping this at beta. Expect the probe to wait: a backup refuses every write
+  # while it is InCreation, with the container provider's
+  # {"fieldName": "Status", "errorMessage": "Invalid status"}.
+  drift: /projects/${PROJECT}/providers/Aruba.Container/kaas/${id:ga-kaas}/backups/${id:self}
