@@ -134,7 +134,10 @@ TIERS = {
     ("network", "VpcPeering"): (
         "ga",
         "full lifecycle live incl. drift correction, free (no `billingPlan`), under "
-        "`tests/ga/chains/peering-route.yaml`. Its delete is verified against the API "
+        "`tests/ga/chains/peering-route.yaml` — drift block added there 2026-10-22, "
+        "because that chain had none and this note was claiming coverage it did not "
+        "have (the original drift evidence came from the older bash harness). Its "
+        "delete is verified against the API "
         "at `.../vpcs/{id}/vpcPeerings/{id}` (→ 404) **while its VPC was still "
         "alive** — re-earned 2026-10-22 under the stricter rule, because this chain's "
         "residue list covers `/vpcs` only and a peering that vanished with its VPC "

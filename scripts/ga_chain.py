@@ -103,6 +103,19 @@ def api(method, path, tok, body=None):
             return e.code, json.loads(raw)
         except Exception:
             return e.code, None
+    except (urllib.error.URLError, TimeoutError, OSError) as e:
+        # TRANSPORT failure, not an answer from Aruba. Returning 0 lets the polling
+        # loops treat it as "ask again" instead of a verdict, and keeps it clearly
+        # distinct from any real status code.
+        #
+        # This exists because a single `TimeoutError: The read operation timed out` on
+        # one SSL read killed a 20-minute billable run mid-drift-poll: urlopen raises
+        # that outside HTTPError, nothing caught it, and the VpcPeeringRoute verdict
+        # was lost. The teardown still ran, so nothing leaked -- but the run had to be
+        # paid for twice.
+        print(f"    transport error on {method} {path.rsplit('/', 1)[-1]}: "
+              f"{type(e).__name__} — will retry", file=sys.stderr)
+        return 0, None
 
 
 def expand(obj, variables, ids, self_kind=None):
@@ -232,6 +245,9 @@ def wait_settled(url, tok, timeout=None):
     deadline = time.time() + timeout
     while True:
         code, body = api("GET", url, tok)
+        if code == 0:                      # transport blip: ask again
+            time.sleep(10)
+            continue
         if code != 200 or not isinstance(body, dict):
             return code, body
         state = (body.get("status") or {}).get("state")
@@ -518,6 +534,9 @@ def main():
                             print(f"    delete verified: {url} -> 404"
                                   + (f" (after {attempt} checks)" if attempt > 1 else ""))
                             break
+                        if code == 0:            # transport blip: ask again
+                            time.sleep(15)
+                            continue
                         if code != 200:
                             print(f"    delete UNVERIFIED: {url} -> HTTP {code}",
                                   file=sys.stderr)

@@ -1,3 +1,8 @@
+# Vpc and Subnet carry no drift block here on purpose: network-security.yaml already
+# exercises their drift, and duplicating it would double the runtime of this chain for
+# no new evidence. VpcPeering and VpcPeeringRoute DO carry one -- added 2026-10-22,
+# because this chain had none at all, and VpcPeering's GA note had started claiming
+# drift coverage "under tests/ga/chains/peering-route.yaml" that did not exist here.
 # Every resource carries a `self:` URL so teardown verifies its DELETE against the API
 # while its parent still exists. VpcPeering in particular was GA on weaker evidence
 # than the rule now demands: this chain's residue list covers /vpcs only, so a peering
@@ -84,6 +89,7 @@ resources:
 - kind: VpcPeering
   name: ga-pr-peering
   self: /projects/${PROJECT}/providers/Aruba.Network/vpcs/${id:ga-pr-vpc-a}/vpcPeerings/${id:self}
+  drift: /projects/${PROJECT}/providers/Aruba.Network/vpcs/${id:ga-pr-vpc-a}/vpcPeerings/${id:self}
   spec:
     configurationRef:
       name: vpcpeering-config
@@ -101,6 +107,7 @@ resources:
 - kind: VpcPeeringRoute
   name: ga-pr-route
   self: /projects/${PROJECT}/providers/Aruba.Network/vpcs/${id:ga-pr-vpc-a}/vpcPeerings/${id:ga-pr-peering}/vpcPeeringRoutes/${id:self}
+  drift: /projects/${PROJECT}/providers/Aruba.Network/vpcs/${id:ga-pr-vpc-a}/vpcPeerings/${id:ga-pr-peering}/vpcPeeringRoutes/${id:self}
   billable: true
   spec:
     configurationRef:

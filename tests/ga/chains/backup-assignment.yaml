@@ -1,3 +1,13 @@
+# The policy is named ga-bpa-policy-b, not ga-bpa-policy, and that matters: a
+# BackupPolicy called ga-bpa-policy has been stuck in `Deleting` on this account since
+# 2026-09-04 and cannot be removed through the API. findby matches by name, so the
+# chain ADOPTED the dying resource -- the CR reported Ready against something in
+# `Deleting`, and the assignment that depends on it then failed its update with 400.
+# A run against a corpse proves nothing, so the fixture uses a name of its own.
+#
+# Worth noting as a defect in its own right: a resource in `Deleting` satisfied findby
+# and was reported Ready. Observing a resource that is on its way out as healthy is
+# not a property anyone would want.
 # schedule/BackupPolicyAssignment binds a BackupPolicy to a resource. Both parents are
 # already GA-proven, so this chain is the cheapest remaining: one 20 GB volume (hourly,
 # billable) plus a free policy.
@@ -26,12 +36,12 @@ resources:
         billingPeriod: Hour
 
   - kind: BackupPolicy
-    name: ga-bpa-policy
+    name: ga-bpa-policy-b
     self: /projects/${PROJECT}/providers/Aruba.Schedule/backupPolicies/${id:self}
     spec:
       configurationRef: {name: backuppolicy-config, namespace: default}
       projectId: "${PROJECT}"
-      metadata: {name: ga-bpa-policy, tags: []}
+      metadata: {name: ga-bpa-policy-b, tags: []}
       properties:
         resourceType: volume
         schedules:
@@ -48,7 +58,7 @@ resources:
       metadata: {name: ga-bpa, location: {value: "${LOCATION}"}, tags: []}
       properties:
         backupPolicy:
-          uri: "/projects/${PROJECT}/providers/Aruba.Schedule/backupPolicies/${id:ga-bpa-policy}"
+          uri: "/projects/${PROJECT}/providers/Aruba.Schedule/backupPolicies/${id:ga-bpa-policy-b}"
         resource:
           uri: "/projects/${PROJECT}/providers/Aruba.Storage/blockStorages/${id:ga-bpa-vol}"
     drift: /projects/${PROJECT}/providers/Aruba.Schedule/backupPolicyAssignments/${id:self}
