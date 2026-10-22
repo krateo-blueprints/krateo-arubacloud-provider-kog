@@ -41,6 +41,8 @@ The provider image is also **drifted from its own Helm release**: the release's 
 
 oasgen-provider is a monorepo releasing oasgen-provider and rest-dynamic-controller in lockstep, so installing `0.27.1` gets RDC `0.27.1`.
 
+**This gap is now closed** (2026-10-22). `scripts/pin_verify.sh` builds a cluster matching CI exactly — pinned node image, pinned charts, no image overrides — and runs the free `network-security` chain on it. All 34 generated controllers came up on released `ghcr.io/krateo-platformops/rest-dynamic-controller:0.27.1` under `oasgen-provider:0.27.1`, and all four resources went create → observe → **drift corrected** → delete verified 404, residue clean. ESO minted its first token on that stack on the first check, so unattended credential handling holds there too. The behaviour the tiers describe is the behaviour of the released stack, now measured rather than inferred.
+
 What this does and does not put at risk: every provider feature these RestDefinitions rely on is present in the pinned release — `responseTransform`, which is what carries `Kaas`, `Registry` and `Job`, exists in `0.27.1` in both the RestDefinition CRD and the RDC client, and CI's static validation would reject the field otherwise. So no tier here depends on unreleased code. What is *not* yet proven is that the live-API runs reproduce on the released images rather than the local ones. Until one chain is re-run on a cluster built from the pin, treat that as the one gap between these tiers and a user's install.
 
 ## Resources

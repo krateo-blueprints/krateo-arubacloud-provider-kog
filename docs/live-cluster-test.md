@@ -1869,3 +1869,58 @@ So the chain keeps its distinct names and carries a header saying not to run it
 casually. It exists to test a **fix** to the delete path, where wedging one more
 resource would buy something. `BackupPolicyAssignment` stays at **beta** on the
 evidence that exists, and the two corpses need the Aruba console or support.
+
+### The evidence reproduces on the released stack (2026-10-22)
+
+Every live verdict in this document was measured on `kind-aruba-110`, which turned out
+not to be the stack the install docs describe:
+
+| | evidence cluster | CI / install docs |
+|---|---|---|
+| chart | `oasgen-provider-0.24.0` | `0.27.1` |
+| provider image | `local/oasgen-provider:108-live` | released `0.27.1` |
+| RDC image | `local/rest-dynamic-controller:110-test` | released `0.27.1` |
+
+The provider was also drifted from its own Helm release — the values ask for
+`110-test` while the running Deployment is `108-live`, patched in place afterwards, so
+a `helm upgrade` there would have swapped the provider out from under the evidence.
+Neither local image carries a label saying what it was built from.
+
+Nothing about this was *known* to be wrong: `responseTransform`, the feature carrying
+`Kaas`, `Registry` and `Job`, is present at tag `0.27.1` in both the RestDefinition
+CRD and the RDC client. But "therefore it works on the pin" is an inference, and the
+whole premise of this campaign is that inferences about this provider have a poor
+record against clusters.
+
+`scripts/pin_verify.sh` settles it. It builds a cluster matching CI exactly — pinned
+node image `kindest/node:v1.33.12`, charts at `0.27.1`, **no image overrides** — and
+runs the free `network-security` chain: four resources, four drift blocks, zero cost.
+
+```
+    34 ghcr.io/krateo-platformops/rest-dynamic-controller:0.27.1
+     1 ghcr.io/krateo-platformops/oasgen-provider:0.27.1
+
+    DRIFT CORRECTED for Vpc/ga-ns-vpc
+    DRIFT CORRECTED for Subnet/ga-ns-subnet
+    DRIFT CORRECTED for SecurityGroup/ga-ns-sg
+    DRIFT CORRECTED for SecurityRule/ga-ns-sr
+    ... all four deletes verified -> 404
+    attempt 1: leftovers = 0
+    clean
+```
+
+ESO minted its first token on that cluster on the **first** check, so the unattended
+credential path holds on the released stack as well — it is not a property of the
+local build.
+
+Two notes on the script, both from getting it wrong first. It applies **only** the 34
+`*-configuration.yaml` objects: `apply -f samples/` would also create a live billable
+CR per resource and clobber the token Secret ESO owns. And it uses
+`helm upgrade --install` throughout, because the first re-run against the cluster it
+had already built failed with `cannot re-use a name that is still in use` — a
+verification script that cannot be run twice is not much of a verification script.
+
+The client credential is never prompted for: it already exists on the evidence
+cluster, so it is piped cluster-to-cluster through `kubectl` and never touches disk,
+argv or a log. The two labels ESO requires are re-applied in transit, without which
+the lookup fails with a bare "not found".

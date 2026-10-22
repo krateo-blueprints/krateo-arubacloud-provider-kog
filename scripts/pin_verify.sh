@@ -98,11 +98,14 @@ for i in $(seq 1 40); do
 done
 
 say "installing oasgen-provider ${PIN} (RELEASED images, no overrides)"
-helm --kube-context "$CTX" install oasgen-provider-crds \
+# upgrade --install, not install: this script reuses an existing cluster when one is
+# already there, and a plain install then fails with "cannot re-use a name that is
+# still in use". The whole point is that it can be run again.
+helm --kube-context "$CTX" upgrade --install oasgen-provider-crds \
   oci://ghcr.io/krateo-platformops/charts/oasgen-provider-crds \
   --version "$PIN" --namespace krateo-system --create-namespace --wait \
   || die "crds chart failed"
-helm --kube-context "$CTX" install oasgen-provider \
+helm --kube-context "$CTX" upgrade --install oasgen-provider \
   oci://ghcr.io/krateo-platformops/charts/oasgen-provider \
   --version "$PIN" --namespace krateo-system --wait --timeout 5m \
   || die "provider chart failed"
@@ -116,14 +119,18 @@ say "applying OAS ConfigMaps and RestDefinitions"
 # deploys each generated controller into its RestDefinition's namespace.
 kubectl --context "$CTX" apply -n krateo-system -f configmaps/ >/dev/null \
   || die "configmaps failed"
-kubectl --context "$CTX" apply -n krateo-system -f restdefinitions/ >/dev/null \
+# -R, as CI does: restdefinitions/ is one directory per provider, and without it
+# kubectl refuses the directory outright ("recognized file extensions are ...").
+kubectl --context "$CTX" apply -n krateo-system -R -f restdefinitions/ >/dev/null \
   || die "restdefinitions failed"
 
 say "waiting for the controllers the chain needs"
 for res in vpcs subnets securitygroups securityrules; do
   for i in $(seq 1 40); do
+    # Anchored on `-<singular>-controller`: a bare `-vpc` also matches
+    # `-vpcpeering-controller`, and `head -1` would then wait on the wrong one.
     d=$(kubectl --context "$CTX" get deploy -n krateo-system -o name 2>/dev/null \
-        | grep -i -- "-${res%s}" | head -1)
+        | grep -i -- "-${res%s}-controller$" | head -1)
     if [ -n "$d" ] && kubectl --context "$CTX" rollout status "$d" -n krateo-system \
          --timeout=20s >/dev/null 2>&1; then
       echo "    ${res}: $(basename "$d") ready"; break
@@ -132,6 +139,14 @@ for res in vpcs subnets securitygroups securityrules; do
     [ "$i" = 40 ] && die "no ready controller for ${res} after 10m"
   done
 done
+
+say "images actually running, including the RDCs"
+# Printed again here on purpose. The earlier print runs before any RestDefinition
+# exists, so there are no generated controllers yet and it can only show the provider
+# -- while the RDC image is the more interesting half of the question.
+kubectl --context "$CTX" get deploy -n krateo-system \
+  -o jsonpath='{range .items[*]}{.spec.template.spec.containers[0].image}{"\n"}{end}' \
+  | sort | uniq -c | sed 's/^/    /'
 
 say "applying the generated Configurations (and ONLY those)"
 # Deliberately not `apply -f samples/`. That directory also holds a CR sample per
