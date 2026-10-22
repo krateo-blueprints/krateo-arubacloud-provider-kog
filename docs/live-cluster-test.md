@@ -1779,3 +1779,47 @@ assignment that depends on it then failed its update with 400. The fixture now u
 That adoption is a defect in its own right, independent of the harness: **a resource
 in `Deleting` satisfied `findby` and was observed as healthy.** Nothing in the
 response made the CR hesitate about a resource on its way out of existence.
+
+### VpcPeeringRoute reaches GA, on the third attempt (2026-10-22)
+
+`VpcPeeringRoute` was the last resource whose only missing evidence was drift, and
+getting that one verdict took three runs. Neither failure was the resource's fault,
+which is the part worth recording:
+
+1. The chain had **no drift block at all** — while this document and the coverage note
+   both implied the peering chain covered drift. The claim came from the older bash
+   harness and was never carried across when the declarative chain replaced it.
+2. The block was added, the drift was injected, and the poll died on a single
+   `TimeoutError: The read operation timed out`. `api()` caught `HTTPError` only, so a
+   transport failure escaped as an exception and took a 20-minute billable run with it.
+3. With transport blips treated as "ask again", the verdict came out clean.
+
+```
+--- creating VpcPeering/ga-pr-peering
+    Ready, id=6ada2da8ab21a33c1f53c786
+    DRIFT CORRECTED for VpcPeering/ga-pr-peering
+--- creating VpcPeeringRoute/ga-pr-route
+    Ready, id=6ada2e75ab21a33c1f53c79b
+    DRIFT CORRECTED for VpcPeeringRoute/ga-pr-route
+
+RESULT: 6 resources created and observed
+```
+
+All six deletes were verified individually against the API, each at its own URL and
+each **while its parent was still alive** — the route at its full four-level path
+`.../vpcs/{id}/vpcPeerings/{id}/vpcPeeringRoutes/{id}`, which is the only way to
+distinguish a real DELETE from a cascade:
+
+```
+    delete verified: .../vpcPeerings/6ada2da8.../vpcPeeringRoutes/6ada2e75... -> 404
+    delete verified: .../vpcs/6ada2b12.../vpcPeerings/6ada2da8...             -> 404
+    delete verified: .../vpcs/6ada2babab.../subnets/6ada2cf1...               -> 404
+    delete verified: .../vpcs/6ada2b12.../subnets/6ada2c59...                 -> 404
+    delete verified: .../vpcs/6ada2babab21a33c1f53c75d                        -> 404
+    delete verified: .../vpcs/6ada2b12ab21a33c1f53c750                        -> 404
+```
+
+That brings the count to **25 GA**. The lesson is not about peering: a harness that
+turns a transient network error into a lost run will keep charging for the same
+evidence, and the first of the three failures shows that a note claiming coverage is
+not the same as a fixture that produces it.

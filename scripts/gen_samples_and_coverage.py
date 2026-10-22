@@ -145,10 +145,20 @@ TIERS = {
         "[live-cluster-test](live-cluster-test.md)",
     ),
     ("network", "VpcPeeringRoute"): (
-        "beta",
-        "create/observe/delete proven live in a 6-resource chain (two VPCs, two "
-        "**Advanced** subnets whose CIDRs the route references, a peering); drift not "
-        "yet exercised — **billable** — [live-cluster-test](live-cluster-test.md)",
+        "ga",
+        "full lifecycle live in a 6-resource chain (two VPCs, two **Advanced** subnets "
+        "whose CIDRs the route references, a peering) under "
+        "`tests/ga/chains/peering-route.yaml`. Drift is now exercised and **corrected** "
+        "(2026-10-22, `6ada2e75`) — the last count holding it at beta. It took three "
+        "runs to get that verdict, and neither earlier failure was the resource's "
+        "fault: the first had no drift block in the chain at all, and the second "
+        "injected the drift, then lost the poll to a single "
+        "`TimeoutError: The read operation timed out` that nothing caught. Delete is "
+        "verified against the API at its own four-level path "
+        "`.../vpcs/{id}/vpcPeerings/{id}/vpcPeeringRoutes/{id}` (→ 404) **while both "
+        "the peering and the VPC were still alive**, which is the only way to tell a "
+        "real DELETE from a cascade — **billable** — "
+        "[live-cluster-test](live-cluster-test.md)",
     ),
     ("schedule", "BackupPolicy"): (
         "ga",
