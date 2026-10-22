@@ -55,6 +55,8 @@ Sample: [`samples/schedule/backuppolicyassignment.yaml`](../../samples/schedule/
 
 ## Job
 
+> Job reads return values the writes did not send: steps[].actionUri comes back with a leading slash the create REFUSES to accept, and executeUntil comes back as +00:00 where the CR sent Z. Both are keys present on each side, so the drift comparison can never pass and the controller re-PUTs the job on every resync. A responseTransform on the get verb normalises both before the comparison. A step's actionUri must be relative (`poweroff`); only poweron and poweroff are supported, so a Job requires a CloudServer to target -- created out of band by scripts/ga_job_probe.py, since a RestDefinition cannot create one.
+
 | Verb | Method | Path |
 |------|--------|------|
 | findby | GET | `/projects/{projectId}/providers/Aruba.Schedule/jobs` |

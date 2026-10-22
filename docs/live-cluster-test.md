@@ -1667,3 +1667,62 @@ repo-wide rather than only where it was first needed. Two things worth stating p
 - `VpcPeeringRoute` is flagged `billable: true`, so a free pass of `peering-route`
   skips it. It is the one resource whose `self:` is declared but never exercised,
   which is its own small version of "covered in a place nobody runs".
+
+### Job reaches GA — the last of the never-Ready three (2026-10-22)
+
+`scripts/ga_job_probe.py` creates a CloudServer over the API, runs
+`tests/ga/chains/job.yaml` against it, and removes the server afterwards whatever
+happens. The server has to be made out of band because a Job's only supported step
+actions are poweron/poweroff — so it needs one — and a RestDefinition cannot create a
+CloudServer ([oasgen#108](https://github.com/krateo-platformops/oasgen-provider/issues/108)).
+That circularity is why Job had never been exercised.
+
+```
+cloud server 6ada04ff (api-version=1.1) -> Active
+Job/ga-job   Ready, id=6ada054d
+DRIFT CORRECTED for Job/ga-job
+delete verified: .../Aruba.Schedule/jobs/6ada054d -> 404
+chain exited 0 · residue clean
+```
+
+**The fixture could never have worked.** Its step carried a full-path `actionUri`,
+which Aruba rejects as *not configured for this resource typology*; it must be the
+relative `poweroff`. The repo had recorded that rule after a live run and then not
+applied it to the fixture — the same shape of defect as Registry's `size`, where the
+chain's value had never been accepted by the API.
+
+#### The cause: normalisation, which is what Kaas was *not*
+
+Diffed from the controller's own HTTP dump, request against response:
+
+| field | CR sends | API returns |
+|---|---|---|
+| `steps[].actionUri` | `poweroff` | `/poweroff` |
+| `executeUntil` | `2027-01-01T00:00:00Z` | `2027-01-01T00:00:00+00:00` |
+
+The first is the API contradicting itself: it **refuses** a leading slash on write and
+**adds** one on read. The second is the same instant in two encodings. Both keys are
+present on both sides, so each one alone makes the comparison unsatisfiable, and the
+log shows the consequence plainly — **five accepted PUTs in one short run, all 200,
+all no-ops**. This is the server-normalised value the oasgen peer predicted when we
+first discussed #213; it was the wrong explanation for Kaas (a type mismatch) and the
+right one here.
+
+A `responseTransform` on the get verb normalises both before the comparison runs.
+
+#### Two process notes, both earned the hard way
+
+**The emitted program is the only one worth testing.** The first transform used
+`sub("\+00:00$"; "Z")`. The backslash collapsed somewhere between the generator and
+the YAML, gojq refused it with `invalid escape sequence "\+" in string literal`, and
+the run was wasted — because the version that was tested was a copy retyped into a
+shell, not the string the generator produced. `scripts/validate.py` could not catch
+it either: it checks paths, YAML and chart rendering, not whether a jq program
+compiles. The transform now uses `endswith` and a slice, so there is no escape to
+collapse, and it is tested with `jq -f` **against the generated file**.
+
+**Server normalisation is worth suspecting before anything exotic.** Both of Job's
+mismatches are the kind of difference a reasonable API produces without meaning
+anything by it. The expensive diagnoses in this campaign all began by reasoning from a
+status code; the cheap ones began by diffing the two bodies the controller had already
+logged.

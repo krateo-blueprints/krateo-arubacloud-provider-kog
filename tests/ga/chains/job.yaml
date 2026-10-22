@@ -36,5 +36,11 @@ resources:
           - name: ga-poweroff
             httpVerb: POST
             resourceUri: "/projects/${PROJECT}/providers/Aruba.Compute/cloudServers/${CS_ID}"
-            actionUri: "/projects/${PROJECT}/providers/Aruba.Compute/cloudServers/${CS_ID}/poweroff"
+            # RELATIVE, and this is load-bearing: a full path is refused with "The
+            # action /projects/.../poweroff with http verb POST is not configured for
+            # this resource typology", which reads like the action is unsupported when
+            # it is only spelled wrong. Proven live; see docs/live-cluster-test.md.
+            # An earlier version of this fixture carried the full path, so it could
+            # never have created a Job -- the same shape of defect as Registry's size.
+            actionUri: "poweroff"
     drift: /projects/${PROJECT}/providers/Aruba.Schedule/jobs/${id:self}

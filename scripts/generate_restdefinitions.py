@@ -201,6 +201,47 @@ OVERRIDES = {
               "publishes no monitor endpoint. State values come from "
               "security-provider.json, which declares the vocabulary the database "
               "spec omits.")),
+    "schedule/jobs": dict(
+        # Job never reached Ready, and the cause is the one the oasgen peer predicted
+        # for Kaas and was wrong about there: genuine server normalisation of values,
+        # on keys present in both the request and the response.
+        #
+        #   steps[].actionUri   sent "poweroff"             returned "/poweroff"
+        #   executeUntil        sent "...T00:00:00Z"        returned "...T00:00:00+00:00"
+        #
+        # The first is the API contradicting itself: a step is REFUSED unless actionUri
+        # is relative with no leading slash ("The action /projects/.../poweroff with
+        # http verb POST is not configured for this resource typology"), and the read
+        # then hands it back with one. The second is the same instant in two encodings.
+        # Either one alone makes the drift comparison unsatisfiable, so the controller
+        # PUT the job on every resync -- five accepted updates in one short run, all
+        # 200, all no-ops (see oasgen#213).
+        #
+        # Both are states about the API that are true, which is what makes a
+        # responseTransform the right tool rather than a narrowed compareScope: we are
+        # telling the controller how to read Aruba's answer, not telling it to stop
+        # looking. Guarded on type so the program is idempotent and cannot corrupt a
+        # body with no steps.
+        responseTransform={"get": (
+            'if (.properties.steps | type) == "array" then\n'
+            '  .properties.steps |= map(\n'
+            '    if (.actionUri | type) == "string" then .actionUri |= ltrimstr("/")\n'
+            '    else . end\n'
+            '  )\n'
+            'else . end\n'
+            '| if (.properties.executeUntil | type) == "string"\n'
+            '     and (.properties.executeUntil | endswith("+00:00")) then\n'
+            '    .properties.executeUntil |= (.[:-6] + "Z")\n'
+            '  else . end\n')},
+        note=("Job reads return values the writes did not send: steps[].actionUri "
+              "comes back with a leading slash the create REFUSES to accept, and "
+              "executeUntil comes back as +00:00 where the CR sent Z. Both are keys "
+              "present on each side, so the drift comparison can never pass and the "
+              "controller re-PUTs the job on every resync. A responseTransform on the "
+              "get verb normalises both before the comparison. A step's actionUri must "
+              "be relative (`poweroff`); only poweron and poweroff are supported, so a "
+              "Job requires a CloudServer to target -- created out of band by "
+              "scripts/ga_job_probe.py, since a RestDefinition cannot create one.")),
     "container/kaas": dict(
         # Kaas could never reach Ready, and the cause is in Aruba's spec, not ours:
         # the node pool's `instance` and `dataCenter` are STRINGS in

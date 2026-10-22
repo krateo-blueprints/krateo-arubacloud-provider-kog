@@ -158,11 +158,27 @@ TIERS = {
         "return 400 `Invalid status` — [live-cluster-test](live-cluster-test.md)",
     ),
     ("schedule", "Job"): (
-        "beta",
-        "create/observe proven live (`6a9d9ec6`) against a real CloudServer. A step is "
-        "**`POST` with a RELATIVE `actionUri`** (`poweroff`) — a full path is rejected "
-        "as *not configured for this resource typology* — "
-        "[live-cluster-test](live-cluster-test.md)",
+        "ga",
+        "full lifecycle live incl. drift correction and an API-verified delete, "
+        "against a real CloudServer (2026-10-22). Run it with "
+        "`scripts/ga_job_probe.py`, which creates that server out of band — a Job's "
+        "only supported step actions are poweron/poweroff, so it needs one, and a "
+        "RestDefinition cannot create a CloudServer "
+        "([oasgen#108](https://github.com/krateo-platformops/oasgen-provider/issues/108)). "
+        "A step is **`POST` with a RELATIVE `actionUri`** (`poweroff`); a full path is "
+        "rejected as *not configured for this resource typology*, and the fixture "
+        "carried a full path until now, so it had never created a Job at all.\n\n"
+        "It was the last of the never-Ready three, and its cause was the server "
+        "normalisation the Kaas investigation went looking for and did not find: "
+        "`steps[].actionUri` is sent as `poweroff` and returned as `/poweroff` — the "
+        "API refusing the leading slash on write and adding it on read — and "
+        "`executeUntil` is sent as `…Z` and returned as `…+00:00`. Both keys are "
+        "present on each side, so the drift comparison could never pass and the "
+        "controller re-PUT the job on every resync: five accepted, no-op updates in "
+        "one short run "
+        "([oasgen#213](https://github.com/krateo-platformops/oasgen-provider/issues/213)). "
+        "A `responseTransform` on the get verb normalises both before the comparison "
+        "— **free** — [live-cluster-test](live-cluster-test.md)",
     ),
     ("storage", "BlockStorage"): (
         "ga",
