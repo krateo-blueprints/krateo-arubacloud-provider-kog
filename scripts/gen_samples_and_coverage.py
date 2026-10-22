@@ -823,6 +823,28 @@ stringData:
             "real DELETE look identical.\n\n")
         f.write("Only **GA** claims fitness for production use. See "
                 "[ga-readiness](ga-readiness.md).\n\n")
+        # Which stack the evidence came from is part of the claim. Recording it
+        # because it was missing: the tiers above were measured on local builds
+        # (`local/oasgen-provider:108-live`, `local/rest-dynamic-controller:110-test`)
+        # while CI pins 0.27.1 and that is what the install docs tell users to use.
+        f.write(
+            "### The stack the evidence was measured on\n\n"
+            "A tier is a claim about a stack, so the stack belongs next to it. The live "
+            "runs behind these tiers were executed against locally built images "
+            "(`local/oasgen-provider:108-live`, `local/rest-dynamic-controller:110-test`) "
+            "on the `kind-aruba-110` cluster, **not** against the released images the "
+            "install docs name. CI pins `0.27.1`, and oasgen-provider is a monorepo "
+            "releasing oasgen-provider and rest-dynamic-controller in lockstep, so "
+            "installing `0.27.1` gets RDC `0.27.1`.\n\n"
+            "What this does and does not put at risk: every provider feature these "
+            "RestDefinitions rely on is present in the pinned release — `responseTransform`, "
+            "which is what carries `Kaas`, `Registry` and `Job`, exists in `0.27.1` in both "
+            "the RestDefinition CRD and the RDC client, and CI's static validation would "
+            "reject the field otherwise. So no tier here depends on unreleased code. What "
+            "is *not* yet proven is that the live-API runs reproduce on the released "
+            "images rather than the local ones. Until one chain is re-run on a cluster "
+            "built from the pin, treat that as the one gap between these tiers and a "
+            "user's install.\n\n")
 
         f.write("## Resources\n\n")
         f.write("| Provider | Kind | Tier | Verbs | Identifier(s) | Evidence |\n")
