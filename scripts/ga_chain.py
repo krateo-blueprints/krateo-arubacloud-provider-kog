@@ -73,24 +73,38 @@ def kubectl(*args, check=False, stdin=None):
     )
 
 
-def token():
+_TOKEN = None
+
+
+def token(force=False):
     """Read the ESO-managed Secret, which is the only copy anything keeps fresh.
 
     A file under /tmp is a manual-bootstrap artefact and goes stale the moment ESO
     rotates; preferring it produced 401s against an otherwise healthy cluster.
+
+    Cached, because every API call asks for it; `force=True` goes back to the Secret
+    for a token ESO has since refreshed. A chain can easily outlive one token -- a
+    billable run died of exactly that, every delete and the whole residue check
+    answering 401, which left a 20 GB volume's fate unknown until it was swept by
+    hand. Nothing here may depend on a token minted twenty minutes ago.
     """
+    global _TOKEN
+    if _TOKEN is not None and not force:
+        return _TOKEN
     r = kubectl("get", "secret", TOKEN_SECRET, "-n", TOKEN_SECRET_NS,
                 "-o", "jsonpath={.data.token}")
     if r.returncode == 0 and r.stdout.strip():
-        return base64.b64decode(r.stdout).decode()
+        _TOKEN = base64.b64decode(r.stdout).decode()
+        return _TOKEN
     raise SystemExit(f"no token in {TOKEN_SECRET_NS}/{TOKEN_SECRET}")
 
 
-def api(method, path, tok, body=None):
+def api(method, path, body=None, _retried=False):
     req = urllib.request.Request(
         f"{API}{path}{'&' if '?' in path else '?'}api-version=1.0",
         method=method,
-        headers={"Authorization": f"Bearer {tok}", "Content-Type": "application/json"},
+        headers={"Authorization": f"Bearer {token()}",
+                 "Content-Type": "application/json"},
         data=json.dumps(body).encode() if body is not None else None,
     )
     try:
@@ -98,6 +112,13 @@ def api(method, path, tok, body=None):
             raw = resp.read()
             return resp.status, (json.loads(raw) if raw else None)
     except urllib.error.HTTPError as e:
+        if e.code == 401 and not _retried:
+            # The token expired under us. ESO keeps the Secret current, so read it
+            # again and replay the call once; a second 401 is a real authz failure.
+            print("    401 — re-reading the ESO Secret and retrying once",
+                  file=sys.stderr)
+            token(force=True)
+            return api(method, path, body, _retried=True)
         raw = e.read()
         try:
             return e.code, json.loads(raw)
@@ -235,7 +256,7 @@ def busy_refusal(resp):
 SETTLE_TIMEOUT = int(os.environ.get("SETTLE_TIMEOUT", "420"))
 
 
-def wait_settled(url, tok, timeout=None):
+def wait_settled(url, timeout=None):
     """Poll until the resource is in a state that accepts writes.
 
     Unknown states are treated as settled: an unrecognised state must not silently
@@ -244,7 +265,7 @@ def wait_settled(url, tok, timeout=None):
     timeout = SETTLE_TIMEOUT if timeout is None else timeout
     deadline = time.time() + timeout
     while True:
-        code, body = api("GET", url, tok)
+        code, body = api("GET", url)
         if code == 0:                      # transport blip: ask again
             time.sleep(10)
             continue
@@ -260,7 +281,7 @@ def wait_settled(url, tok, timeout=None):
         time.sleep(10)
 
 
-def drift_check(kind, name, url, tok, spec=None):
+def drift_check(kind, name, url, spec=None):
     """Set a tag upstream and require the controller to remove it.
 
     Deliberately the scenario oasgen-provider#76 got wrong: the CR declares
@@ -269,7 +290,7 @@ def drift_check(kind, name, url, tok, spec=None):
     """
     # Ready on the CR does not mean writable upstream: the controller reports Ready as
     # soon as its observe succeeds, which can be while the resource is still Updating.
-    code, body = wait_settled(url, tok)
+    code, body = wait_settled(url)
     if code != 200 or not isinstance(body, dict):
         print(f"    drift: cannot read {kind}/{name} (HTTP {code}) — skipped", file=sys.stderr)
         return None
@@ -318,13 +339,13 @@ def drift_check(kind, name, url, tok, spec=None):
     shape, code, detail = None, None, None
     for label, cand in candidates:
         for _ in range(3):
-            code, resp = api("PUT", url, tok, cand)
+            code, resp = api("PUT", url, cand)
             if code in (200, 202, 204):
                 break
             detail = resp
             if not busy_refusal(resp):
                 break   # a real rejection: try the next shape, not the same one again
-            wait_settled(url, tok, 120)
+            wait_settled(url, 120)
         if code in (200, 202, 204):
             shape = label
             break
@@ -351,7 +372,7 @@ def drift_check(kind, name, url, tok, spec=None):
             f"drift-probe={int(time.time())}", "--overwrite")
     deadline = time.time() + DRIFT_TIMEOUT
     while time.time() < deadline:
-        code, cur = api("GET", url, tok)
+        code, cur = api("GET", url)
         if code == 200 and isinstance(cur, dict):
             tags = (cur.get("metadata") or {}).get("tags")
             if tags == []:
@@ -385,9 +406,7 @@ def main():
             f"chain '{chain['name']}' needs these vars supplied from the environment: "
             + ", ".join(missing) + "\n(declared empty in the fixture precisely so they "
             "are never committed — export GA_<NAME> or <NAME> before running)")
-    tok = token()
-
-    code, _ = api("GET", "/projects", tok)
+    code, _ = api("GET", "/projects")
     if code != 200:
         raise SystemExit(f"token is not usable (HTTP {code})")
     print(f"token OK — chain '{chain['name']}'")
@@ -478,7 +497,7 @@ def main():
 
             if res.get("drift"):
                 url = expand(res["drift"], variables, ids, kind)
-                drift_results[f"{kind}/{name}"] = drift_check(kind, name, url, tok, spec)
+                drift_results[f"{kind}/{name}"] = drift_check(kind, name, url, spec)
 
         print(f"\nRESULT: {len(created)} resources created and observed")
         for k, v in drift_results.items():
@@ -529,7 +548,7 @@ def main():
                     if not url:
                         continue
                     for attempt in range(1, 13):
-                        code, _ = api("GET", url, tok)
+                        code, _ = api("GET", url)
                         if code == 404:
                             print(f"    delete verified: {url} -> 404"
                                   + (f" (after {attempt} checks)" if attempt > 1 else ""))
@@ -556,7 +575,7 @@ def main():
                 left = []
                 for ep in chain.get("residue", []):
                     url = expand(ep, variables, ids)
-                    code, body = api("GET", url, tok)
+                    code, body = api("GET", url)
                     if code != 200 or not isinstance(body, dict):
                         # Do NOT pass silently. An endpoint that cannot be read proves
                         # nothing, and counting it as zero leftovers turns a dead token

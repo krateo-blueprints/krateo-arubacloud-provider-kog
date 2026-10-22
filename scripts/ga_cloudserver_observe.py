@@ -65,7 +65,8 @@ def token():
 TOK = None
 
 
-def api(method, path, body=None, version="1.0"):
+def api(method, path, body=None, version="1.0", _retried=False):
+    global TOK
     req = urllib.request.Request(
         f"{API}{path}?api-version={version}", method=method,
         headers={"Authorization": f"Bearer {TOK}", "Content-Type": "application/json"},
@@ -75,6 +76,14 @@ def api(method, path, body=None, version="1.0"):
             raw = resp.read()
             return resp.status, (json.loads(raw) if raw else None)
     except urllib.error.HTTPError as e:
+        # A probe that holds one token for its whole run tears down with an expired
+        # one: 401 on every DELETE, and a billable server left running. Re-read the
+        # ESO-managed Secret and replay the call once.
+        if e.code == 401 and not _retried:
+            print("    401 — re-reading the ESO Secret and retrying once",
+                  file=sys.stderr)
+            TOK = token()
+            return api(method, path, body, version, _retried=True)
         raw = e.read()
         try:
             return e.code, json.loads(raw)

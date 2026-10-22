@@ -1726,3 +1726,56 @@ mismatches are the kind of difference a reasonable API produces without meaning
 anything by it. The expensive diagnoses in this campaign all began by reasoning from a
 status code; the cheap ones began by diffing the two bodies the controller had already
 logged.
+
+### A run that outlives its own token (2026-10-22)
+
+The `backup-assignment` run failed in a way worth recording, because the failure was
+in the harness rather than the provider, and it was the kind that hides itself.
+
+The chain read the ESO-managed Secret once at startup and passed that string down
+through every call. Roughly twenty minutes in, the token expired. From that moment
+the API answered **401 to everything**, and the run's own safety net went with it:
+
+```
+--- deleting BackupPolicy/ga-bpa-policy
+    delete UNVERIFIED: .../backupPolicies/6a9ae9d4780e9f66e872af55 -> HTTP 401
+--- deleting BlockStorage/ga-bpa-vol
+    delete UNVERIFIED: .../blockStorages/6ada0ddc984f54e9730cacf9 -> HTTP 401
+    UNVERIFIED: .../blockStorages returned HTTP 401
+    no leftovers among the endpoints that answered, but at least one could not be
+    read — NOT a clean bill
+```
+
+The `kubectl delete` calls still worked, because those go through the cluster and the
+controllers hold their own credentials. Only the *verification* was blinded. So the
+fate of a billable 20 GB volume was unknown until `scripts/account_check.py` was run
+by hand and found the collection empty — the deletes had in fact succeeded.
+
+Two things earned their keep here. The residue check refused to call the account
+clean on a 401, rather than reporting zero leftovers from endpoints that never
+answered; an earlier version of that check would have printed `clean` and been
+believed. And a separate sweep existed to ask the question again with a fresh token.
+
+The fix is that no code path may depend on a token minted at startup. `token()` now
+caches and takes `force=True`, and `api()` treats a 401 as a retryable condition:
+re-read the Secret, replay the call once, and only then report failure. The token is
+no longer threaded through the call sites at all, so there is nothing left to hold a
+stale one. Verified by poisoning the cache with a junk string — the next call logged
+`401 — re-reading the ESO Secret and retrying once` and returned 200.
+
+The same hazard was worse in the two probe scripts (`ga_cloudserver_observe.py`,
+`ga_job_probe.py`): their teardown runs *after* the longest waits in the script, so an
+expired token there means 401 on every DELETE and a server left running and billing.
+Both now refresh the same way.
+
+#### And the run proved nothing anyway
+
+Its `BackupPolicy` reported `Ready` against id `6a9ae9d4780e9f66e872af55` — the policy
+that has been stuck in `Deleting` on this account since **2026-09-04**. `findby`
+matches by name, the fixture used the same name, so the chain adopted the corpse; the
+assignment that depends on it then failed its update with 400. The fixture now uses
+`ga-bpa-policy-b`.
+
+That adoption is a defect in its own right, independent of the harness: **a resource
+in `Deleting` satisfied `findby` and was observed as healthy.** Nothing in the
+response made the CR hesitate about a resource on its way out of existence.
