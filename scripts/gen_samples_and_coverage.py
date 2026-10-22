@@ -184,7 +184,11 @@ TIERS = {
         "create → observe → delete proven live in the storage chain. Drift is **not "
         "applicable**: its update body (`RestoreUpdatePropertiesDto`) is an empty "
         "schema with zero properties, so there is nothing to converge — the same bar "
-        "as the resources with no update verb — "
+        "as the resources with no update verb. Delete re-verified 2026-10-22 against "
+        "the API at `.../backups/{id}/restores/{id}` (→ 404) **while the parent backup "
+        "was still alive**: the residue list covers blockStorages, snapshots and "
+        "backups but never restores, so this was the one claim in that chain resting "
+        "on the parent being torn down afterwards — "
         "[live-cluster-test](live-cluster-test.md)",
     ),
     ("security", "Kms"): (
@@ -194,10 +198,14 @@ TIERS = {
     ),
     ("security", "Key"): (
         "ga",
-        "create → observe → delete proven live (`b6ae8eee`). Drift is **not "
-        "applicable**: its update body is `{name}` only, and `name` is the identifier, "
-        "so there is no non-identifying field to converge — the same reasoning as "
-        "`Restore` — **billable parent** — [live-cluster-test](live-cluster-test.md)",
+        "create → observe → delete proven live. Drift is **not applicable**: its "
+        "update body is `{name}` only, and `name` is the identifier, so there is no "
+        "non-identifying field to converge — the same reasoning as `Restore`. Delete "
+        "re-verified 2026-10-22 against the API at `.../kms/{id}/keys/ga-key` (→ 404) "
+        "**while the parent KMS was still alive**: this chain's residue list covers "
+        "`/kms` only, so a key that vanished with its KMS would have been "
+        "indistinguishable from one the controller deleted — **billable parent** — "
+        "[live-cluster-test](live-cluster-test.md)",
     ),
     ("security", "Kmip"): (
         "experimental",

@@ -1636,3 +1636,34 @@ With delete verified individually and drift inapplicable where the API has no up
 verb (see the rule in [coverage](coverage.md#support-tiers)), `Database`,
 `DatabaseUser` and `Grant` meet the GA bar on executed evidence: **23 GA / 6 beta /
 4 experimental / 1 blocked**.
+
+### Re-earning GA under the stricter delete rule (2026-10-22)
+
+Raising the delete bar created a gap in our own table: three resources were GA on
+exactly the evidence just rejected for `Database`, `DatabaseUser` and `Grant`. Each is
+a **child** resource whose chain's residue list covers only the parent collection, so
+a child that vanished when its parent went was indistinguishable from one the
+controller deleted.
+
+All three re-ran and all three held, each 404 read **while its parent still existed**:
+
+| resource | verified at | parent alive |
+|---|---|---|
+| `VpcPeering` | `.../vpcs/6ad9eb1d/vpcPeerings/6ad9eda8` | VPC, deleted after |
+| `Key` | `.../kms/6ad9f3b6/keys/ga-key` | KMS, deleted after |
+| `Restore` | `.../backups/6ad9f62d/restores/6ad9f6f9` | backup, deleted after |
+
+Picked up incidentally, since teardown now checks every resource: `Subnet` ×2, `Vpc`
+×2, `Kms`, `Backup`, `Snapshot` and `BlockStorage` all verified the same way, and
+`Kms`, `BlockStorage`, `Snapshot` and `Backup` each passed drift again on the way
+through.
+
+`self:` is now declared for **all 46 resources across all 16 chains**, so the check is
+repo-wide rather than only where it was first needed. Two things worth stating plainly:
+
+- **No demotions were needed, but demotion was the expected outcome if a delete had
+  not been verifiable.** A rule that can only confirm what was already claimed is not
+  a rule.
+- `VpcPeeringRoute` is flagged `billable: true`, so a free pass of `peering-route`
+  skips it. It is the one resource whose `self:` is declared but never exercised,
+  which is its own small version of "covered in a place nobody runs".
