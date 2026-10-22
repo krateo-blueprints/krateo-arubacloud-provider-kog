@@ -569,7 +569,21 @@ def main():
                           file=sys.stderr)
 
             print("\n=== residue check (ground truth, async deletion allowed for) ===")
+            # Match leftovers by ID, not by name. A fixture name is not unique on the
+            # account: a BackupPolicyAssignment called `ga-bpa` has been wedged in
+            # `Deleting` since 2026-09-04, so a name-keyed check reported `leftovers =
+            # 1` against a run that created nothing at all -- blaming this run for a
+            # seven-week-old corpse, and in the other direction it would have hidden a
+            # real leak behind a same-named stranger. Only a resource whose id this run
+            # recorded is this run's to answer for.
+            #
+            # Name matching survives as a fallback for resources that reached the API
+            # but whose id was never captured (a create that timed out before the id
+            # could be read); there, a same-named pre-existing resource is the lesser
+            # risk against missing a genuine leak.
             names = {n for _, n in created}
+            created_ids = {ids[n] for _, n in created if ids.get(n)}
+            nameless = {n for _, n in created if not ids.get(n)}
             unverified = False
             for attempt in range(1, 7):
                 left = []
@@ -606,8 +620,16 @@ def main():
                             unverified = True
                         continue
                     vals = body.get("values") or body.get("value") or []
-                    left += [v for v in vals
-                             if ((v.get("metadata") or {}).get("name") or v.get("name")) in names]
+                    for v in vals:
+                        md = v.get("metadata") or {}
+                        vid = md.get("id") or v.get("id")
+                        vname = md.get("name") or v.get("name")
+                        if vid and vid in created_ids:
+                            left.append(v)
+                            print(f"    leftover: {vname} id={vid}")
+                        elif vname in nameless:
+                            left.append(v)
+                            print(f"    leftover (id never recorded): {vname}")
                 print(f"    attempt {attempt}: leftovers = {len(left)}")
                 if not left:
                     print("    clean" if not unverified else

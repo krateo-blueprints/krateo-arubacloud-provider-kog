@@ -1,13 +1,32 @@
-# The policy is named ga-bpa-policy-b, not ga-bpa-policy, and that matters: a
-# BackupPolicy called ga-bpa-policy has been stuck in `Deleting` on this account since
-# 2026-09-04 and cannot be removed through the API. findby matches by name, so the
-# chain ADOPTED the dying resource -- the CR reported Ready against something in
-# `Deleting`, and the assignment that depends on it then failed its update with 400.
-# A run against a corpse proves nothing, so the fixture uses a name of its own.
+# DO NOT RUN THIS CHAIN CASUALLY. Every real run of it leaves a resource that can
+# never be deleted. See "the cost of a verdict" below.
+#
+# Two resources here carry a `-b` suffix because their original names are taken, by
+# corpses: a BackupPolicy `ga-bpa-policy` and a BackupPolicyAssignment `ga-bpa` have
+# been stuck in `Deleting` on this account since 2026-09-04 and cannot be removed
+# through the API. findby matches by NAME, so the chain ADOPTED the dying resources --
+# the CR reported Ready against something in `Deleting`.
+#
+# That was fixed in two steps, and the first was only half a fix: renaming the policy
+# alone still left the assignment colliding, so the next run adopted the wedged
+# ASSIGNMENT instead and failed differently -- `delete of ga-bpa did not remove the
+# external resource, which is still present`, a delete failure reported while the
+# resource was supposedly being created. Both names are now distinct.
 #
 # Worth noting as a defect in its own right: a resource in `Deleting` satisfied findby
-# and was reported Ready. Observing a resource that is on its way out as healthy is
-# not a property anyone would want.
+# and was reported Ready. Observing a resource on its way out of existence as healthy
+# is not a property anyone would want.
+#
+# THE COST OF A VERDICT. BackupPolicyAssignment sits at beta for one measured reason:
+# its delete does not complete. The resource enters `Deleting` and stays there, and
+# every further DELETE returns 400 `Invalid status`. That is exactly how the two
+# September corpses were made. So a run of this chain with working names does not
+# "re-verify" anything -- create, observe and drift are already proven live
+# (`6a9aea83`), and the delete is proven broken. What it would add is a third
+# permanently undeletable resource on the account.
+#
+# It is therefore deliberately NOT part of routine runs. Run it only to test a FIX to
+# the delete path, where wedging one more resource buys something.
 # schedule/BackupPolicyAssignment binds a BackupPolicy to a resource. Both parents are
 # already GA-proven, so this chain is the cheapest remaining: one 20 GB volume (hourly,
 # billable) plus a free policy.
@@ -51,11 +70,11 @@ resources:
             time: "02:00:00"
 
   - kind: BackupPolicyAssignment
-    name: ga-bpa
+    name: ga-bpa-b
     spec:
       configurationRef: {name: backuppolicyassignment-config, namespace: default}
       projectId: "${PROJECT}"
-      metadata: {name: ga-bpa, location: {value: "${LOCATION}"}, tags: []}
+      metadata: {name: ga-bpa-b, location: {value: "${LOCATION}"}, tags: []}
       properties:
         backupPolicy:
           uri: "/projects/${PROJECT}/providers/Aruba.Schedule/backupPolicies/${id:ga-bpa-policy-b}"

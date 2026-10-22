@@ -166,9 +166,28 @@ TIERS = {
     ),
     ("schedule", "BackupPolicyAssignment"): (
         "beta",
-        "create → observe → **drift corrected** proven live (`6a9aea83`); delete did "
-        "not complete — it entered `Deleting` and stayed there, and further DELETEs "
-        "return 400 `Invalid status` — [live-cluster-test](live-cluster-test.md)",
+        "create → observe → **drift corrected** proven live (`6a9aea83`); **delete does "
+        "not complete** — the resource enters `Deleting` and stays there, and every "
+        "further DELETE returns 400 `Invalid status`. That is the whole reason it is "
+        "not GA, and it is measured, not suspected: the `6a9aea83` assignment and its "
+        "policy have been wedged in `Deleting` since **2026-09-04**, seven weeks, and "
+        "need the Aruba console or support — more DELETEs cannot help.\n\n"
+        "Two attempts to re-verify it on 2026-10-22 produced no new evidence, and the "
+        "reason is worth recording because it is a provider defect rather than bad "
+        "luck: `findby` matches by **name**, and the wedged resources hold the "
+        "fixture's names. Both runs therefore **adopted a resource in `Deleting`** and "
+        "reported it Ready — first the policy (whose dependent assignment then failed "
+        "its update with 400), then, after only the policy had been renamed, the "
+        "assignment itself (`delete of ga-bpa did not remove the external resource, "
+        "which is still present`, reported while the resource was supposedly being "
+        "created). Observing a resource on its way out of existence as healthy is a "
+        "defect in its own right.\n\n"
+        "`tests/ga/chains/backup-assignment.yaml` now uses distinct names and is "
+        "deliberately **excluded from routine runs**: with create, observe and drift "
+        "already proven and delete already proven broken, another run would buy no "
+        "information and would leave a third permanently undeletable resource on the "
+        "account. It is kept for testing a *fix* to the delete path — "
+        "[live-cluster-test](live-cluster-test.md)",
     ),
     ("schedule", "Job"): (
         "ga",

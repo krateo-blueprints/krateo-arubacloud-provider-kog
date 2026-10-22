@@ -1823,3 +1823,49 @@ That brings the count to **25 GA**. The lesson is not about peering: a harness t
 turns a transient network error into a lost run will keep charging for the same
 evidence, and the first of the three failures shows that a note claiming coverage is
 not the same as a fixture that produces it.
+
+### BackupPolicyAssignment: two runs, no new evidence, and a half fix of mine (2026-10-22)
+
+`BackupPolicyAssignment` was re-run twice to replace an adopted verdict with a real
+one. Neither run produced evidence, and the cause is worth recording because it is a
+provider behaviour rather than bad luck.
+
+`findby` matches by **name**, and this account holds two resources wedged in
+`Deleting` since **2026-09-04** that hold the fixture's names. So:
+
+- **Run 1** adopted `BackupPolicy/ga-bpa-policy` — id `6a9ae9d4`, a seven-week-old
+  corpse — and reported it **Ready**. The dependent assignment then failed its update
+  with 400.
+- I renamed the policy to `ga-bpa-policy-b`. That was **half a fix**: the assignment
+  was still called `ga-bpa`, which is also the name of the wedged *assignment*.
+- **Run 2** therefore adopted the corpse one level down, and failed in a way that
+  names the problem exactly: `delete of ga-bpa did not remove the external resource,
+  which is still present` — a **delete** failure reported while the resource was
+  supposedly being *created*.
+
+Both names are now distinct. Two things the second run did get right: the fresh policy
+came up as `6ada3146` (today's id, not the corpse's), and both the policy and the
+20 GB volume were deleted and **verified 404** against the API.
+
+#### The residue check was blaming the run for a corpse
+
+Run 2 reported `leftovers = 1` while having created nothing that survived. The
+leftover was the September assignment, matched because the check compared **names**.
+A fixture name is not unique on an account. It now matches by **id** — only a
+resource whose id the run recorded is that run's to answer for — with name matching
+kept as a fallback for a create that timed out before an id could be read. The same
+bug would have hidden a real leak behind a same-named stranger.
+
+#### Why this chain is now excluded from routine runs
+
+The honest conclusion is that there is nothing left to learn here at acceptable cost.
+Create, observe and drift are **already proven live** (`6a9aea83`). Delete is
+**already proven broken**: the resource enters `Deleting` and stays, and every further
+DELETE returns 400 `Invalid status` — which is precisely how the two September corpses
+were made. A run with working names would re-confirm both and leave a *third*
+permanently undeletable resource on the account.
+
+So the chain keeps its distinct names and carries a header saying not to run it
+casually. It exists to test a **fix** to the delete path, where wedging one more
+resource would buy something. `BackupPolicyAssignment` stays at **beta** on the
+evidence that exists, and the two corpses need the Aruba console or support.
