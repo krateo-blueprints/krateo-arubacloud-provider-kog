@@ -25,6 +25,7 @@ residue:
 resources:
 - kind: Folder
   name: ga-pf-folder
+  self: /folders/${id:self}
   spec:
     configurationRef:
       name: folder-config

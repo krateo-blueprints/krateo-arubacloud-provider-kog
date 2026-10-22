@@ -1,3 +1,6 @@
+# Key carries a `self:` URL because this chain's residue list covers /kms only. A key
+# that disappeared when its KMS went is indistinguishable from one the controller
+# deleted, and Key is GA -- so that evidence has to be the stronger kind.
 name: security-key
 vars:
   PROJECT: 69a55c8d5e6f0e14f14093ff
@@ -23,6 +26,7 @@ resources:
   drift: /projects/${PROJECT}/providers/Aruba.Security/kms/${id:self}
 - kind: Key
   name: ga-key
+  self: /projects/${PROJECT}/providers/Aruba.Security/kms/${id:ga-kms}/keys/ga-key
   billable: true
   spec:
     configurationRef:

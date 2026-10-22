@@ -23,6 +23,7 @@ residue:
 resources:
 - kind: KeyPair
   name: ga-chain-keypair
+  self: /projects/${PROJECT}/providers/Aruba.Compute/keyPairs/${id:self}
   spec:
     configurationRef:
       name: keypair-config

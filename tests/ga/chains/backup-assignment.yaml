@@ -15,6 +15,7 @@ residue:
 resources:
   - kind: BlockStorage
     name: ga-bpa-vol
+    self: /projects/${PROJECT}/providers/Aruba.Storage/blockStorages/${id:self}
     billable: true
     spec:
       configurationRef: {name: blockstorage-config, namespace: default}
@@ -26,6 +27,7 @@ resources:
 
   - kind: BackupPolicy
     name: ga-bpa-policy
+    self: /projects/${PROJECT}/providers/Aruba.Schedule/backupPolicies/${id:self}
     spec:
       configurationRef: {name: backuppolicy-config, namespace: default}
       projectId: "${PROJECT}"

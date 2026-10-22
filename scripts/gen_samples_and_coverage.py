@@ -133,7 +133,12 @@ TIERS = {
     ),
     ("network", "VpcPeering"): (
         "ga",
-        "full lifecycle live incl. drift correction, free (no `billingPlan`) — "
+        "full lifecycle live incl. drift correction, free (no `billingPlan`), under "
+        "`tests/ga/chains/peering-route.yaml`. Its delete is verified against the API "
+        "at `.../vpcs/{id}/vpcPeerings/{id}` (→ 404) **while its VPC was still "
+        "alive** — re-earned 2026-10-22 under the stricter rule, because this chain's "
+        "residue list covers `/vpcs` only and a peering that vanished with its VPC "
+        "would have looked identical to one the controller deleted — "
         "[live-cluster-test](live-cluster-test.md)",
     ),
     ("network", "VpcPeeringRoute"): (
