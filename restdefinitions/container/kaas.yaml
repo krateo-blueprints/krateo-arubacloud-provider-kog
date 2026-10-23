@@ -1,4 +1,5 @@
 # Aruba Cloud Kaas (container provider) - generated, no proxy.
+# Kaas reads return a different shape than its writes accept: nodePools[].instance and nodePools[].dataCenter are strings in NodePoolsDto and objects in NodePoolsResponseDto. RDC compares the CR's keys against the response, so those two are permanent drift, and no compareScope avoids them because KaasUpdatePropertiesDto declares only nodePools. A responseTransform on the get verb folds each object back to its .name before the comparison runs. nodeCidr (returned as `nodecidr`) and securityGroup.name (returned as `uri`) need no handling: those keys are absent from the response and are skipped.
 apiVersion: ogen.krateo.io/v1alpha1
 kind: RestDefinition
 metadata:
@@ -25,6 +26,11 @@ spec:
       requestFieldMapping:
       - inPath: id
         inCustomResource: status.metadata.id
+      responseTransform:
+        inline: "if (.properties.nodePools | type) == \"array\" then\n  .properties.nodePools |= map(\n\
+          \    (if (.instance | type) == \"object\" then .instance = .instance.name\n     else . end)\n\
+          \    | (if (.dataCenter | type) == \"object\"\n       then .dataCenter = .dataCenter.name else\
+          \ . end)\n  )\nelse . end\n"
     - action: create
       method: POST
       path: /projects/{projectId}/providers/Aruba.Container/kaas

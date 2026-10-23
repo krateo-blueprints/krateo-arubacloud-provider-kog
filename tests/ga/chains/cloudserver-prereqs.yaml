@@ -18,6 +18,7 @@ residue:
 resources:
   - kind: BlockStorage
     name: ga-cs-boot
+    self: /projects/${PROJECT}/providers/Aruba.Storage/blockStorages/${id:self}
     billable: true
     spec:
       configurationRef: {name: blockstorage-config, namespace: default}
@@ -31,6 +32,7 @@ resources:
 
   - kind: ElasticIp
     name: ga-cs-eip
+    self: /projects/${PROJECT}/providers/Aruba.Network/elasticIps/${id:self}
     billable: true
     spec:
       configurationRef: {name: elasticip-config, namespace: default}

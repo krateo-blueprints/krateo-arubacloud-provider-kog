@@ -3,7 +3,7 @@ type: Runbook
 title: Live cluster test
 description: The end-to-end create/observe/drift/delete validation and how to repeat it.
 tags: [aruba, kog]
-timestamp: 2026-09-28T00:00:00Z
+timestamp: 2026-10-15T00:00:00Z
 ---
 
 # Live-cluster test
@@ -1072,6 +1072,132 @@ update it, failing with `400`. A stuck resource makes its own name unusable.
 free `BackupPolicyAssignment` and its `BackupPolicy` remain wedged in `Deleting` and
 will need clearing from the Aruba console or by support.
 
+### Forward-compatibility: the 34 on oasgen 0.30.0 (2026-10-15)
+
+At the time of this run we pinned **0.22.2**; upstream was at **0.30.0**, eight minor
+versions ahead. (The pin is now **0.27.1** — see "The bump, taken" below.) Run on a
+fresh `kind-aruba-030` at Kubernetes **1.36.4** (the floor 0.28.0 now demands), charts
+`oasgen-provider-crds` and `oasgen-provider` both 0.30.0:
+
+| check | result |
+|-------|--------|
+| RestDefinitions `Ready=True` | **34 / 34**, in ~180s |
+| generated controller deployments | **35 / 35** at `1/1` (34 + the provider) |
+| `oasgen-provider` error/fatal log lines | **0** |
+| served CRD versions | unchanged — `v1-0` ×1 (`AlertRule`), `v1-0-0` ×33, `v1alpha1` ×34 |
+| samples accepted by strict decoding | **66 / 68** |
+| RestDefinition schema shape | identical: same `spec` keys, same `resource` keys, same `required` |
+
+**The 34 RestDefinitions need no change to run on 0.30.0.** Stage 3's "retire served
+versions nothing is using" did not touch ours, and `fix(api): refuse a per-verb oasPath`
+does not apply — all 34 use a single `spec.oasPath`.
+
+#### The one coupled change: dotted selectors flip from flat to nested
+
+The two failures are `network/loadbalancer` and `compute/cloudserver`, the only
+resources whose identifier is dotted, and they fail **identically on 0.24.0**, so this
+is not a 0.30.0 regression. It is [oasgen#106](https://github.com/krateo-platformops/oasgen-provider/issues/106)
+— ours, filed when a flat `metadata.name` selector could never match because RDC reads
+it nested — **closed COMPLETED on 2026-09-09 and shipped.**
+
+Measured, so the bump does not rediscover it:
+
+```
+oasgen 0.22.2   flat  `metadata.name: x`        correct   (the old pin)
+oasgen 0.24.0   NESTED `metadata: {name: x}`    correct   (kind-aruba-110)
+oasgen 0.27.1   NESTED `metadata: {name: x}`    correct   (the pin now)
+oasgen 0.30.0   NESTED `metadata: {name: x}`    correct   (kind-aruba-030)
+```
+
+Above 0.22.x the flat form is refused as:
+
+```
+unknown field "spec.metadata.name"
+```
+
+Worth noting how that message misleads: it reads the same whether the rejected key was
+flat (`metadata.name`) or nested (`metadata` → `name`). Someone debugging it from the
+error alone can conclude the opposite of the truth and "fix" it in the wrong direction.
+The CRD's own property list is the authority — `['configurationRef', 'metadata',
+'projectId']` says nested, unambiguously.
+
+#### What a bump to 0.30.0 therefore requires
+
+1. `OASGEN_VERSION` **and** `node_image: kindest/node:v1.36.x` in the same commit —
+   0.28.0's chart floor is `>=1.36.0-0`, so on 1.33 Helm refuses and the job fails for
+   a reason unrelated to the 34.
+2. Flip the dotted selector to nested in `gen_samples_and_coverage.py` and regenerate.
+3. Optionally move `DatabaseUser.password` out of base64: request-direction `jq` shipped
+   in 0.26.1, along with the redaction fix it needed — see
+   [authentication](authentication.md#a-credential-that-is-not-a-spec-field).
+
+### The bump, taken — 0.22.2 → 0.27.1
+
+Not to 0.30.0. 0.28.0's chart floor is `>=1.36.0-0`, so taking it drags the node image
+with it; **0.27.1 is the top of the range that still installs on 1.33**, and both
+charts publish it (`helm show chart` on each, `kubeVersion: '>=1.33.0-0'`). What it
+buys over 0.22.2: nested dotted selectors (#109, 0.23.0), envelope unwrapping (#146,
+0.25.0), jq-shaped request bodies (#148, 0.26.0) and credential-header redaction
+(#166, first tagged in 0.26.1 — which is why the bump does not stop at 0.25.1).
+
+Steps 1 and 2 above were done in one commit: `OASGEN_VERSION: "0.27.1"`, the selector
+flipped to nested in `gen_samples_and_coverage.py`, and all 34 pairs regenerated. The
+node image stays at `v1.33.12`, deliberately — 0.27.1 does not demand 1.36, and moving
+both at once would confuse two independent failure modes if CI went red.
+
+Only two files changed in the regeneration, `samples/network/loadbalancer.yaml` and
+`samples/compute/cloudserver.yaml`, which is the expected blast radius: they are the
+only resources with a dotted identifier.
+
+Step 3 was deliberately **not** bundled in: moving the base64 out of the Secret's
+value changes what every existing DatabaseUser Secret must contain, which deserves its
+own commit and its own live run.
+
+#### Proven by mirroring the CI job locally, not by the static validator
+
+Fresh `kind-aruba-0271` at `kindest/node:v1.33.12`, both charts at 0.27.1, the same
+two apply steps and the same checks the workflow runs:
+
+| check | result |
+|-------|--------|
+| RestDefinitions `Ready=True` | **34 / 34**, inside ~4.5 min |
+| deployments at `1/1` in `krateo-system` | **35 / 35** (34 controllers + the provider) |
+| `oasgen-provider` error/fatal log lines | **0** |
+| samples under **strict** server-side decoding | **69 / 69** |
+
+The two dotted-selector samples are accepted, and the old flat form is refused on the
+same cluster:
+
+```
+unknown field "spec.metadata.name"
+```
+
+which is the point: the flip is required by the bump, not cosmetic.
+
+#### The smoke was proving the wrong namespace
+
+Running it locally turned up something the workflow could not have told us. The step
+was:
+
+```
+kubectl apply -n krateo-system -f configmaps/
+kubectl apply -R -f restdefinitions/     # <- no -n
+```
+
+The manifests declare no namespace, so the second line put all 34 in `default`, and
+**oasgen deploys each generated controller into its RestDefinition's own namespace** —
+so the 34 controllers went to `default` too. The readiness check counts with `-A`, so
+the job was green throughout while proving a layout nobody installs: `docs/usage.md`,
+the chart and every live cluster here put these in `krateo-system`.
+
+It surfaced only because the local mirror counted *in krateo-system* and answered
+`0/34`. A smoke that asserts "34 are Ready" without asserting where they are is
+weaker than it looks. Fixed in the same commit, and the table above is from the run
+with the fix, with all 35 deployments in `krateo-system`.
+
+**Not covered by this run:** anything requiring the Aruba API. This proves generation,
+CRD shape and controller rollout, not a single live reconcile.
+
 ### Verifying oasgen-provider #146 (envelope unwrap) — findings that affect this repo
 
 Ran the `fix/110-envelope-unwrap` build against all 34 RestDefinitions on a fresh cluster
@@ -1088,6 +1214,8 @@ and was always correctly typed. The single exception is `database/DatabaseBackup
 stock 0.24.0   "tags": {"type": "string"}                              <- degraded
 PR #146        "tags": {"type": "array", "items": {"type": "string"}}  <- correct
 ```
+
+#### CRD validation ratcheting
 
 **A CRD status-type change is survivable, but only because of validation ratcheting.**
 Forcing the upgrade path — stale string in etcd, schema then tightened to array — on
@@ -1132,3 +1260,947 @@ currently declare is a core identity field present on every read, so nothing wou
 today — but that is luck, not design, and it constrains what we may safely declare later.
 
 Tracked upstream as [#152](https://github.com/krateo-platformops/oasgen-provider/issues/152).
+
+### VpnTunnel drift, on the fourth explanation (2026-10-20)
+
+`tests/ga/chains/vpn.yaml --with-billable`, five resources, oasgen 0.24.0 on
+`kind-aruba-110`:
+
+```
+Vpc ... Ready          Subnet ... Ready          ElasticIp ... Ready
+VpnTunnel ... Ready, id=6ad70b7bab21a33c1f53b2b3
+    drift: 6ad70b7bab21a33c1f53b2b3 still InCreation after 240s
+    drift injected via declared spec (tags=[drifted-by-hand])
+    DRIFT CORRECTED for VpnTunnel/ga-vpntunnel
+VpnRoute  ... Ready, id=6ad70d7eab21a33c1f53b2cc
+    DRIFT CORRECTED for VpnRoute/ga-vpnroute
+```
+
+**Nothing about the resource needed changing.** The 400 that held this at beta was the
+state refusal documented in
+[async-readiness](async-readiness.md#every-write-is-refused-mid-transition-not-just-dbaass),
+and the fix was in the probe: wait for a settled state, and retry a refusal that names
+the `Status` field instead of concluding the body is wrong.
+
+Note the second line. This tunnel is still `InCreation` past the probe's 240s settle
+wait, so the wait alone would not have been enough — the **retry** is what got the
+write through. A probe that waits but does not retry would have reported this as a
+rejected body all over again, which is worth remembering before anyone "simplifies"
+that loop away.
+
+Three wrong explanations preceded this, all of them reasoned from a status code rather
+than from the error body: "the update body will not accept a full re-PUT" (twice, for
+two different resources), then a provisioning-state refusal that was real but was
+masking the Dbaas shape bug. The error array was sitting in the response the whole
+time; the probe was reading the wrong keys for it.
+
+### CloudServer observed for the first time, and a delete that cannot run (2026-10-20)
+
+`scripts/ga_cloudserver_observe.py`. CloudServer's create is unreachable from a
+RestDefinition, so its `findby` and `get` had only ever been applied against an empty
+collection — which proves nothing at all. This creates the server over the API and
+makes the controller find it:
+
+```
+boot volume 6ad7326b (bootable, LU22-001) -> NotUsed
+elastic ip  6ad732a0                      -> NotUsed
+cloud server 6ad732b8 created at api-version=1.1 -> Active
+CR Ready — observed id=6ad732b8503f218a2d6969f6
+RESULT {"server_active": true, "observed_id": "6ad732b8...", "cr_ready": true} leftovers=0
+```
+
+The observed id is the one the POST returned, so the CR converged on *that* server
+rather than on anything incidental.
+
+**`securityGroups` is required and the OAS does not say so.** The first attempt was
+refused with `GenericResource: securityGroup cannot be null`, from a request schema
+that marks no property required anywhere. That is the fourth undeclared constraint of
+this kind recorded here, after Kaas's three.
+
+**The error nearly went unread.** The first failure printed `None: None`, because the
+1.1 compute endpoint does not use the `errors: [{field, message}]` envelope the
+network and storage providers use — the same class of mistake that cost three wrong
+explanations earlier in this campaign, one layer further down. The probe now renders
+whatever arrives and dumps the body when it recognises nothing.
+
+#### Delete routes through a RESTAction, and wedges without Snowplow
+
+Teardown timed out, and the controller said why, every few seconds, forever:
+
+```
+Cannot delete external resource
+err: resource declares deleteApiRef krateo-system/arubacloud-compute-cloudserver-delete
+     but no snowplow client is configured (set the snowplow/authn URLs)
+```
+
+CloudServer's delete is a RESTAction, not a native verb, so **on a cluster without a
+Snowplow client the CR cannot be deleted at all**. It sits with
+`composition.krateo.io/finalizer`, `Ready=False/Deleting`, `Synced=False/ReconcileError`,
+while the remote server is already gone.
+
+This is a deployment prerequisite that nothing in the install path states, and it is
+why CloudServer is beta rather than anything higher: the resource can be observed, but
+a CR created on a Snowplow-less cluster is undeletable through Kubernetes.
+
+The finalizer was cleared by hand here — **after** confirming the remote was genuinely
+gone (`GET .../cloudServers` returned `total: 0` and the id returned 404). That check
+is the whole difference between tidying up and orphaning a billable resource, which is
+the general rule recorded elsewhere in this file and still stands: clearing a finalizer
+removes the controller's delete path. It is safe only when there is demonstrably
+nothing left for it to delete.
+
+### Registry: never created, then created, then Failed (2026-10-20)
+
+Three findings, in the order they appeared.
+
+**1. `size` had never been right, so Registry had never been created.** The chain sent
+`size: "20"` and Aruba refuses it with `'20' is not a valid size`. Its tier note said
+"applies and reaches `Ready`; sample admitted by its CRD" — which was true, and
+described a CR converging on nothing. It also means Registry was never really a member
+of the Kaas/Registry/Job never-Ready group; that group is Kaas and Job.
+
+The legal values are `Small`, `Medium`, `HighPerf`, **case-sensitive**, measured by
+POSTing each candidate with a deliberately nonexistent volume uri so the call could
+not succeed, and watching whether the `Size` error appeared:
+
+```
+Small / Medium / HighPerf   accepted  (only Volume + ElasticIp "not found" remain)
+small / SMALL / S           'x' is not a valid size
+20 / 100 / 1000             'x' is not a valid size
+```
+
+Nothing in the spec can tell you this. The create DTO calls the field "The number of
+concurrent connections required by user", the response DTO calls it "the id of
+registry size", and `RegistrySize` — the one catalogue — is **defined but referenced
+by no path**. Reading the first description literally is exactly how `"20"` got there.
+
+**2. With a registry that exists, the premature-Ready defect was visible.** The CR
+reported `Ready` while Aruba still had the registry `InCreation` ten minutes later,
+and both update and delete are refused in that window. Same defect as Dbaas, same
+fix: an `async` block polling `status.state`. Confirmed live — the CR now holds at
+`Ready=False/Pending` where before it said Ready immediately.
+
+**3. It does not provision on this account.** Measured directly, twice:
+
+```
+t+    1s  InCreation
+t+ 1818s  Failed
+```
+
+and the status is bare — `{"state": "Failed", "creationDate": ...}`, with no
+`failureReason` and no `error`, both of which `StatusResponseDto` declares. The first
+timing run deleted the resource before reading its status; checking the leftover of
+the second is the only reason this is known, and it is why a third 30-minute run was
+not needed.
+
+The account is a **TRIAL** (`legacy_profilename: TRIAL`, `groupMembership:
+[ListinoTrial]`), which is the obvious suspect. **It is not established.** `Kaas` is
+the same container provider and did reach `Active` on this same account, so "container
+is unavailable on trial" is contradicted by our own evidence. A registry-specific
+entitlement is possible; so is a constraint on the payload that nothing expresses. The
+cause is unestablished, and saying so is better than the fourth confident guess in a
+week.
+
+Two operational notes:
+
+- the `async` gate earns its place even though Ready is unreachable: `failureValues:
+  [Failed]` is now confirmed live, so a dead registry fails fast instead of hanging
+  for the full 30 minutes. `maxAttempts` stays at 120 rather than being trimmed to the
+  observed 1818s, because an account that provisions successfully but slowly must not
+  be cut off by a bound derived from a failure here.
+- a `Failed` registry needs its **DELETE issued twice**. The first returns 202 and
+  leaves the resource in place.
+
+### Why Kaas never reported Ready — and the one-line fix (2026-10-20)
+
+`Ready` comes from one thing only: RDC's drift comparison passing. When it fails, the
+reason is computed, written to the condition **in memory**, and never persisted — so
+the only condition that reaches the apiserver is `Creating`, set by the Update leg
+([oasgen#213](https://github.com/krateo-platformops/oasgen-provider/issues/213)). The
+resource is not creating. It is in a permanent observe→update loop.
+
+That loop is visible in the live state, which is worse than a wrong condition. From
+the controller's own HTTP dump across one 25-minute run, the real cluster's
+`status.state`:
+
+```
+InCreation, InCreation, Active, Updating, Active, Updating, Active, Updating,
+Active, Updating, Active, Updating, Active, Updating, Active, Updating, Deleting...
+```
+
+19 PUTs, 7 of them accepted, 12 refused with `{"fieldName": "Status",
+"errorMessage": "Invalid status"}`, on a `resyncInterval` of 180s. **RDC mutates a
+healthy cluster every three minutes, forever**, and each accepted PUT drives it out of
+`Active` into `Updating`, which is what refuses the next one.
+
+#### The two fields that can never match
+
+No debug build was needed: the verbose dump carries the PUT body and the GET response,
+and the comparison is just those two. Of the leaves present on **both** sides, 11 of 11
+are equal.
+
+**The comparison walks the CR's keys and skips any key absent from the response** —
+that is what stops `configurationRef` counting as drift. So only a key present on
+*both* sides with a differing value can cause drift, which narrows four candidate
+mismatches to two. All four are declared this way in
+`openapi/container-provider.json` itself:
+
+| CR / request | response | mechanism | drifts? |
+|---|---|---|---|
+| `properties.nodeCidr.{name,address}` | `properties.`**`nodecidr`**`.{address,uri}` | casing — `KaasInsertPropertiesDto` says `nodeCidr`, `KaasPropertiesResponseDto` says `nodecidr` | **no** — key absent, skipped |
+| `securityGroup.{name}` | `securityGroup.{uri}` | different key — Aruba makes its own group | **no** — key absent, skipped |
+| `kubernetesVersion.{value}` | `{value,sellStartDate,recommended}` | response superset | **no** — the CR's only key matches |
+| `nodePools[0].instance: "K2A4"` | `{ram,price,cpu,name,diskSizeGb}` | **type** — string in `NodePoolsDto`, object in `NodePoolsResponseDto` | **YES** |
+| `nodePools[0].dataCenter: "ITBG-1"` | `{name: "ITBG-1"}` | **type** — same | **YES** |
+
+An earlier version of this section claimed all four mismatches caused the drift. That
+was wrong, and the evidence for it was already in the diff that produced it: the tool
+printed `nodeCidr` and `securityGroup.name` under "fields the response does not
+contain (skipped by the comparison)", and the prose then called them causes. Flattening
+to leaf paths hid the only distinction that matters — *key absent* versus *key present
+with a different type*.
+
+**`compareScope: updatable` cannot fix this, and that is the interesting part.**
+`KaasUpdatePropertiesDto` declares exactly one property, `nodePools`, so narrowing the
+comparison to what the update body can express still leaves `nodePools`, whose
+`instance` and `dataCenter` are string-in-request and object-in-response by the
+vendor's own schema. The comparison is unsatisfiable at every scope that includes the
+one field the update can carry. [oasgen#51](https://github.com/krateo-platformops/oasgen-provider/issues/51)
+assumed "a field the update body can express" is the same as "a field the API will
+echo back comparably"; Kaas is the counterexample.
+
+#### Fixed, without waiting for upstream
+
+`responseTransform` is a whole-document gojq program applied to the response **before**
+per-field mapping, status population and the drift comparison — present in the
+installed CRD and available since 0.20.0, so the pin already has it. It states what
+the vendor's two shapes have in common, which is a true statement about the API rather
+than a way of silencing the comparison: the scalar a write sends is the `name` of the
+object a read returns.
+
+```yaml
+- action: get
+  responseTransform:
+    inline: |
+      if (.properties.nodePools | type) == "array" then
+        .properties.nodePools |= map(
+          (if (.instance | type) == "object" then .instance = .instance.name else . end)
+          | (if (.dataCenter | type) == "object" then .dataCenter = .dataCenter.name else . end)
+        )
+      else . end
+```
+
+Guarded on type, so it is idempotent and cannot corrupt a body that is already
+request-shaped or has no node pools. Deliberately **no** lines for `nodeCidr` or
+`securityGroup`: those keys are skipped, and handling them would be inventing a fix
+for drift that does not occur.
+
+Verified before the cluster was touched — the program was run against the captured
+response, and the comparison rule above was reimplemented over the transformed body,
+predicting a pass. Then live, end to end:
+
+```
+Kaas/ga-kaas  Ready, id=6ad786908e35c4ce7d3379df
+DRIFT CORRECTED for Kaas/ga-kaas
+drift Kaas/ga-kaas: ok      teardown clean, leftovers = 0
+```
+
+So `Kaas` is **GA**, and the write loop is gone with it. `compareScope:
+identifiersAndStatus` was considered and rejected: it would have stopped the loop only
+by stopping drift detection, which for a repo whose GA bar *is* drift enforcement
+would be worse than an honest beta.
+
+#### A note on getting the reason out, for anyone who tries
+
+`REST_CONTROLLER_DEBUG=true` in the controller's ConfigMap **did nothing** on
+rest-dynamic-controller 0.24.0: the startup line still reports `"debug": false`. The
+HTTP dump that made this diagnosis possible comes from the CR's
+`krateo.io/connector-verbose` annotation, which is a different switch
+([authentication](authentication.md#verbose-connectors-print-the-bearer-token-below-0261)
+— and on anything below 0.26.1 it prints your bearer token). Note also that the
+provider owns those generated ConfigMaps: applying a RestDefinition regenerates them
+and silently drops a hand-added key.
+
+### KaasBackup, and three values the spec cannot give you (2026-10-20)
+
+KaasBackup was unreachable for the whole campaign: it hangs off a Kaas, and no chain
+could get past a Kaas that never reported `Ready`. With that fixed it runs:
+
+```
+Kaas/ga-kaas             Ready, id=6ad7ad3c...   DRIFT CORRECTED
+KaasBackup/ga-kaasbackup Ready, id=6ad7aea9...
+drift Kaas/ga-kaas: ok
+```
+
+That is also Kaas's **second** consecutive drift pass, so its GA rests on two runs.
+
+**`type` accepts only `Full`.** The OAS declares it a bare string with no enum. The
+API will tell you, if you read the error body — and note which field it blames:
+
+```
+('RetentionDays', 'Type is not valid. Allowed values are Full')
+('Kaas',          'There is another backup in creation')
+```
+
+The complaint about `type` arrives attached to `RetentionDays`. The second line is a
+second undeclared rule: **only one backup may be in creation at a time**, so backups
+cannot be created in parallel.
+
+**`billingPeriod` is not validated.** This was found by accident, and the accident is
+the point. The probe sent `billingPeriod: "NotAPeriod"` deliberately, as a guarantee
+that the call could not succeed — the same trick that safely probed Registry's `size`,
+where an invalid volume uri *is* checked. Aruba accepted it, created the backup, and
+persisted the string verbatim:
+
+```json
+"properties": {"billingPeriod": "NotAPeriod", "type": "Full", "retentionDays": 7}
+```
+
+So the probe created a real billable resource it was designed not to create. **A
+deliberately-invalid field is only a safety net if that field is validated, and which
+fields are validated is not knowable in advance** — only a field whose rejection you
+have already observed can be used that way.
+
+That backup then went `InCreation` → `Failed`, which looked like a KaasBackup defect
+and was not: the same resource with `billingPeriod: Hour` provisions normally. The
+invalid value was almost certainly the cause. Worth recording as a near miss — one
+more confident note about a resource that does not work, drawn from input only this
+probe would ever send.
+
+#### The residue check earned its keep, then got sharper
+
+The run ended with the check **refusing to call itself clean**:
+
+```
+UNVERIFIED: .../kaas/${id:ga-kaas}/backups returned HTTP 404
+no leftovers among the endpoints that answered, but at least one could not be read
+```
+
+Correct, and in this case explainable: backups live under their cluster, and the
+cluster was already gone. Two fixes followed. The message now prints the **expanded**
+URL rather than the template — the output above cannot be pasted into anything. And a
+404 on a child collection whose parent *this chain just deleted* is now reported as
+the deletion being confirmed rather than as a failed reading, since a backup cannot
+outlive its cluster. Every other failure, including a 404 on a path with no deleted
+parent in it, still refuses the clean bill.
+
+The decision table was tested offline rather than by provisioning another cluster, and
+one gap is stated in the code rather than hidden: a **misspelled** path that still
+contains a deleted parent's id is excused. Closing that would mean teaching the chain
+which collections exist, which is the OAS's job.
+
+### Delete, proven rather than assumed (2026-10-21)
+
+Three resources sat at beta because their delete evidence was "the CR went away and
+the chain tore down the Dbaas afterwards". That cannot distinguish a DELETE the
+controller issued from a cascade when the parent went — and from Kubernetes the two
+look identical.
+
+`scripts/ga_chain.py` now verifies each delete **individually, while that resource's
+parent is still alive**. A resource declares its own URL as `self:` (or inherits it
+from `drift:`, the same path), and teardown GETs it after the CR is gone:
+
+```
+--- deleting DatabaseBackup/ga-dbbackup
+    delete verified: .../Aruba.Database/backups/6ad8743c -> 404 (after 2 checks)
+--- deleting Grant/ga-grant
+    delete verified: .../dbaas/6ad87000/users/gauser/grants/gadb -> 404
+--- deleting DatabaseUser/ga-dbuser
+    delete verified: .../dbaas/6ad87000/users/gauser -> 404
+--- deleting Database/ga-database
+    delete verified: .../dbaas/6ad87000/databases/gadb -> 404
+--- deleting Dbaas/ga-dbaas
+    delete verified: .../dbaas/6ad87000 -> 404
+```
+
+The Dbaas is last, so every one of those 404s was read while it still existed. The
+end-of-run residue check structurally cannot do this: by then the parent is gone too.
+
+#### The first version of this check left a Dbaas running
+
+It expanded `${id:self}` during teardown, where the `kind` context no longer exists,
+and raised `${id:self} used before None was created` — **inside the teardown loop**,
+which abandoned the remaining four deletions with a live, billing Dbaas. Cleaned up by
+hand within minutes, but the lesson is worth more than the fix:
+
+- the URL is now resolved **at creation**, where the context exists, and stored
+  expanded;
+- the check is wrapped so **it can never halt a teardown**. A verification step that
+  can stop the cleanup it reports on is worse than no verification at all, and this
+  file already records two earlier incidents of a probe leaving billable resources
+  behind. Adding a safety feature *in the cleanup path* turned it into the hazard.
+
+#### What it changed
+
+With delete verified individually and drift inapplicable where the API has no update
+verb (see the rule in [coverage](coverage.md#support-tiers)), `Database`,
+`DatabaseUser` and `Grant` meet the GA bar on executed evidence: **23 GA / 6 beta /
+4 experimental / 1 blocked**.
+
+### Re-earning GA under the stricter delete rule (2026-10-22)
+
+Raising the delete bar created a gap in our own table: three resources were GA on
+exactly the evidence just rejected for `Database`, `DatabaseUser` and `Grant`. Each is
+a **child** resource whose chain's residue list covers only the parent collection, so
+a child that vanished when its parent went was indistinguishable from one the
+controller deleted.
+
+All three re-ran and all three held, each 404 read **while its parent still existed**:
+
+| resource | verified at | parent alive |
+|---|---|---|
+| `VpcPeering` | `.../vpcs/6ad9eb1d/vpcPeerings/6ad9eda8` | VPC, deleted after |
+| `Key` | `.../kms/6ad9f3b6/keys/ga-key` | KMS, deleted after |
+| `Restore` | `.../backups/6ad9f62d/restores/6ad9f6f9` | backup, deleted after |
+
+Picked up incidentally, since teardown now checks every resource: `Subnet` ×2, `Vpc`
+×2, `Kms`, `Backup`, `Snapshot` and `BlockStorage` all verified the same way, and
+`Kms`, `BlockStorage`, `Snapshot` and `Backup` each passed drift again on the way
+through.
+
+`self:` is now declared for **all 46 resources across all 16 chains**, so the check is
+repo-wide rather than only where it was first needed. Two things worth stating plainly:
+
+- **No demotions were needed, but demotion was the expected outcome if a delete had
+  not been verifiable.** A rule that can only confirm what was already claimed is not
+  a rule.
+- `VpcPeeringRoute` is flagged `billable: true`, so a free pass of `peering-route`
+  skips it. It is the one resource whose `self:` is declared but never exercised,
+  which is its own small version of "covered in a place nobody runs".
+
+### Job reaches GA — the last of the never-Ready three (2026-10-22)
+
+`scripts/ga_job_probe.py` creates a CloudServer over the API, runs
+`tests/ga/chains/job.yaml` against it, and removes the server afterwards whatever
+happens. The server has to be made out of band because a Job's only supported step
+actions are poweron/poweroff — so it needs one — and a RestDefinition cannot create a
+CloudServer ([oasgen#108](https://github.com/krateo-platformops/oasgen-provider/issues/108)).
+That circularity is why Job had never been exercised.
+
+```
+cloud server 6ada04ff (api-version=1.1) -> Active
+Job/ga-job   Ready, id=6ada054d
+DRIFT CORRECTED for Job/ga-job
+delete verified: .../Aruba.Schedule/jobs/6ada054d -> 404
+chain exited 0 · residue clean
+```
+
+**The fixture could never have worked.** Its step carried a full-path `actionUri`,
+which Aruba rejects as *not configured for this resource typology*; it must be the
+relative `poweroff`. The repo had recorded that rule after a live run and then not
+applied it to the fixture — the same shape of defect as Registry's `size`, where the
+chain's value had never been accepted by the API.
+
+#### The cause: normalisation, which is what Kaas was *not*
+
+Diffed from the controller's own HTTP dump, request against response:
+
+| field | CR sends | API returns |
+|---|---|---|
+| `steps[].actionUri` | `poweroff` | `/poweroff` |
+| `executeUntil` | `2027-01-01T00:00:00Z` | `2027-01-01T00:00:00+00:00` |
+
+The first is the API contradicting itself: it **refuses** a leading slash on write and
+**adds** one on read. The second is the same instant in two encodings. Both keys are
+present on both sides, so each one alone makes the comparison unsatisfiable, and the
+log shows the consequence plainly — **five accepted PUTs in one short run, all 200,
+all no-ops**. This is the server-normalised value the oasgen peer predicted when we
+first discussed #213; it was the wrong explanation for Kaas (a type mismatch) and the
+right one here.
+
+A `responseTransform` on the get verb normalises both before the comparison runs.
+
+#### Two process notes, both earned the hard way
+
+**The emitted program is the only one worth testing.** The first transform used
+`sub("\+00:00$"; "Z")`. The backslash collapsed somewhere between the generator and
+the YAML, gojq refused it with `invalid escape sequence "\+" in string literal`, and
+the run was wasted — because the version that was tested was a copy retyped into a
+shell, not the string the generator produced. `scripts/validate.py` could not catch
+it either: it checks paths, YAML and chart rendering, not whether a jq program
+compiles. The transform now uses `endswith` and a slice, so there is no escape to
+collapse, and it is tested with `jq -f` **against the generated file**.
+
+**Server normalisation is worth suspecting before anything exotic.** Both of Job's
+mismatches are the kind of difference a reasonable API produces without meaning
+anything by it. The expensive diagnoses in this campaign all began by reasoning from a
+status code; the cheap ones began by diffing the two bodies the controller had already
+logged.
+
+### A run that outlives its own token (2026-10-22)
+
+The `backup-assignment` run failed in a way worth recording, because the failure was
+in the harness rather than the provider, and it was the kind that hides itself.
+
+The chain read the ESO-managed Secret once at startup and passed that string down
+through every call. Roughly twenty minutes in, the token expired. From that moment
+the API answered **401 to everything**, and the run's own safety net went with it:
+
+```
+--- deleting BackupPolicy/ga-bpa-policy
+    delete UNVERIFIED: .../backupPolicies/6a9ae9d4780e9f66e872af55 -> HTTP 401
+--- deleting BlockStorage/ga-bpa-vol
+    delete UNVERIFIED: .../blockStorages/6ada0ddc984f54e9730cacf9 -> HTTP 401
+    UNVERIFIED: .../blockStorages returned HTTP 401
+    no leftovers among the endpoints that answered, but at least one could not be
+    read — NOT a clean bill
+```
+
+The `kubectl delete` calls still worked, because those go through the cluster and the
+controllers hold their own credentials. Only the *verification* was blinded. So the
+fate of a billable 20 GB volume was unknown until `scripts/account_check.py` was run
+by hand and found the collection empty — the deletes had in fact succeeded.
+
+Two things earned their keep here. The residue check refused to call the account
+clean on a 401, rather than reporting zero leftovers from endpoints that never
+answered; an earlier version of that check would have printed `clean` and been
+believed. And a separate sweep existed to ask the question again with a fresh token.
+
+The fix is that no code path may depend on a token minted at startup. `token()` now
+caches and takes `force=True`, and `api()` treats a 401 as a retryable condition:
+re-read the Secret, replay the call once, and only then report failure. The token is
+no longer threaded through the call sites at all, so there is nothing left to hold a
+stale one. Verified by poisoning the cache with a junk string — the next call logged
+`401 — re-reading the ESO Secret and retrying once` and returned 200.
+
+The same hazard was worse in the two probe scripts (`ga_cloudserver_observe.py`,
+`ga_job_probe.py`): their teardown runs *after* the longest waits in the script, so an
+expired token there means 401 on every DELETE and a server left running and billing.
+Both now refresh the same way.
+
+#### And the run proved nothing anyway
+
+Its `BackupPolicy` reported `Ready` against id `6a9ae9d4780e9f66e872af55` — the policy
+that has been stuck in `Deleting` on this account since **2026-09-04**. `findby`
+matches by name, the fixture used the same name, so the chain adopted the corpse; the
+assignment that depends on it then failed its update with 400. The fixture now uses
+`ga-bpa-policy-b`.
+
+That adoption is a defect in its own right, independent of the harness: **a resource
+in `Deleting` satisfied `findby` and was observed as healthy.** Nothing in the
+response made the CR hesitate about a resource on its way out of existence.
+
+### VpcPeeringRoute reaches GA, on the third attempt (2026-10-22)
+
+`VpcPeeringRoute` was the last resource whose only missing evidence was drift, and
+getting that one verdict took three runs. Neither failure was the resource's fault,
+which is the part worth recording:
+
+1. The chain had **no drift block at all** — while this document and the coverage note
+   both implied the peering chain covered drift. The claim came from the older bash
+   harness and was never carried across when the declarative chain replaced it.
+2. The block was added, the drift was injected, and the poll died on a single
+   `TimeoutError: The read operation timed out`. `api()` caught `HTTPError` only, so a
+   transport failure escaped as an exception and took a 20-minute billable run with it.
+3. With transport blips treated as "ask again", the verdict came out clean.
+
+```
+--- creating VpcPeering/ga-pr-peering
+    Ready, id=6ada2da8ab21a33c1f53c786
+    DRIFT CORRECTED for VpcPeering/ga-pr-peering
+--- creating VpcPeeringRoute/ga-pr-route
+    Ready, id=6ada2e75ab21a33c1f53c79b
+    DRIFT CORRECTED for VpcPeeringRoute/ga-pr-route
+
+RESULT: 6 resources created and observed
+```
+
+All six deletes were verified individually against the API, each at its own URL and
+each **while its parent was still alive** — the route at its full four-level path
+`.../vpcs/{id}/vpcPeerings/{id}/vpcPeeringRoutes/{id}`, which is the only way to
+distinguish a real DELETE from a cascade:
+
+```
+    delete verified: .../vpcPeerings/6ada2da8.../vpcPeeringRoutes/6ada2e75... -> 404
+    delete verified: .../vpcs/6ada2b12.../vpcPeerings/6ada2da8...             -> 404
+    delete verified: .../vpcs/6ada2babab.../subnets/6ada2cf1...               -> 404
+    delete verified: .../vpcs/6ada2b12.../subnets/6ada2c59...                 -> 404
+    delete verified: .../vpcs/6ada2babab21a33c1f53c75d                        -> 404
+    delete verified: .../vpcs/6ada2b12ab21a33c1f53c750                        -> 404
+```
+
+That brings the count to **25 GA**. The lesson is not about peering: a harness that
+turns a transient network error into a lost run will keep charging for the same
+evidence, and the first of the three failures shows that a note claiming coverage is
+not the same as a fixture that produces it.
+
+### BackupPolicyAssignment: two runs, no new evidence, and a half fix of mine (2026-10-22)
+
+`BackupPolicyAssignment` was re-run twice to replace an adopted verdict with a real
+one. Neither run produced evidence, and the cause is worth recording because it is a
+provider behaviour rather than bad luck.
+
+`findby` matches by **name**, and this account holds two resources wedged in
+`Deleting` since **2026-09-04** that hold the fixture's names. So:
+
+- **Run 1** adopted `BackupPolicy/ga-bpa-policy` — id `6a9ae9d4`, a seven-week-old
+  corpse — and reported it **Ready**. The dependent assignment then failed its update
+  with 400.
+- I renamed the policy to `ga-bpa-policy-b`. That was **half a fix**: the assignment
+  was still called `ga-bpa`, which is also the name of the wedged *assignment*.
+- **Run 2** therefore adopted the corpse one level down, and failed in a way that
+  names the problem exactly: `delete of ga-bpa did not remove the external resource,
+  which is still present` — a **delete** failure reported while the resource was
+  supposedly being *created*.
+
+Both names are now distinct. Two things the second run did get right: the fresh policy
+came up as `6ada3146` (today's id, not the corpse's), and both the policy and the
+20 GB volume were deleted and **verified 404** against the API.
+
+#### The residue check was blaming the run for a corpse
+
+Run 2 reported `leftovers = 1` while having created nothing that survived. The
+leftover was the September assignment, matched because the check compared **names**.
+A fixture name is not unique on an account. It now matches by **id** — only a
+resource whose id the run recorded is that run's to answer for — with name matching
+kept as a fallback for a create that timed out before an id could be read. The same
+bug would have hidden a real leak behind a same-named stranger.
+
+#### Why this chain is now excluded from routine runs
+
+The honest conclusion is that there is nothing left to learn here at acceptable cost.
+Create, observe and drift are **already proven live** (`6a9aea83`). Delete is
+**already proven broken**: the resource enters `Deleting` and stays, and every further
+DELETE returns 400 `Invalid status` — which is precisely how the two September corpses
+were made. A run with working names would re-confirm both and leave a *third*
+permanently undeletable resource on the account.
+
+So the chain keeps its distinct names and carries a header saying not to run it
+casually. It exists to test a **fix** to the delete path, where wedging one more
+resource would buy something. `BackupPolicyAssignment` stays at **beta** on the
+evidence that exists, and the two corpses need the Aruba console or support.
+
+### The evidence reproduces on the released stack (2026-10-22)
+
+Every live verdict in this document was measured on `kind-aruba-110`, which turned out
+not to be the stack the install docs describe:
+
+| | evidence cluster | CI / install docs |
+|---|---|---|
+| chart | `oasgen-provider-0.24.0` | `0.27.1` |
+| provider image | `local/oasgen-provider:108-live` | released `0.27.1` |
+| RDC image | `local/rest-dynamic-controller:110-test` | released `0.27.1` |
+
+The provider was also drifted from its own Helm release — the values ask for
+`110-test` while the running Deployment is `108-live`, patched in place afterwards, so
+a `helm upgrade` there would have swapped the provider out from under the evidence.
+Neither local image carries a label saying what it was built from.
+
+Nothing about this was *known* to be wrong: `responseTransform`, the feature carrying
+`Kaas`, `Registry` and `Job`, is present at tag `0.27.1` in both the RestDefinition
+CRD and the RDC client. But "therefore it works on the pin" is an inference, and the
+whole premise of this campaign is that inferences about this provider have a poor
+record against clusters.
+
+`scripts/pin_verify.sh` settles it. It builds a cluster matching CI exactly — pinned
+node image `kindest/node:v1.33.12`, charts at `0.27.1`, **no image overrides** — and
+runs the free `network-security` chain: four resources, four drift blocks, zero cost.
+
+```
+    34 ghcr.io/krateo-platformops/rest-dynamic-controller:0.27.1
+     1 ghcr.io/krateo-platformops/oasgen-provider:0.27.1
+
+    DRIFT CORRECTED for Vpc/ga-ns-vpc
+    DRIFT CORRECTED for Subnet/ga-ns-subnet
+    DRIFT CORRECTED for SecurityGroup/ga-ns-sg
+    DRIFT CORRECTED for SecurityRule/ga-ns-sr
+    ... all four deletes verified -> 404
+    attempt 1: leftovers = 0
+    clean
+```
+
+ESO minted its first token on that cluster on the **first** check, so the unattended
+credential path holds on the released stack as well — it is not a property of the
+local build.
+
+Two notes on the script, both from getting it wrong first. It applies **only** the 34
+`*-configuration.yaml` objects: `apply -f samples/` would also create a live billable
+CR per resource and clobber the token Secret ESO owns. And it uses
+`helm upgrade --install` throughout, because the first re-run against the cluster it
+had already built failed with `cannot re-use a name that is still in use` — a
+verification script that cannot be run twice is not much of a verification script.
+
+The client credential is never prompted for: it already exists on the evidence
+cluster, so it is piped cluster-to-cluster through `kubectl` and never touches disk,
+argv or a log. The two labels ESO requires are re-applied in transit, without which
+the lookup fails with a bare "not found".
+
+## Kmip reaches GA — 26 (2026-10-23)
+
+`security/Kmip` was the last resource in the repository that had **never run**. It is
+now GA, and the run that earned it was on the released stack via `pin_verify.sh`, so
+there is no local build anywhere in the evidence:
+
+```
+=== images actually running, including the RDCs ===
+       1 ghcr.io/krateo-platformops/oasgen-provider:0.27.1
+      34 ghcr.io/krateo-platformops/rest-dynamic-controller:0.27.1
+--- creating Kmip/ga-kmip
+    Ready, id=b132fb62-998d-479f-9c9d-794c6f1ea2fd
+RESULT: 3 resources created and observed
+  drift Kms/ga-kms: ok
+--- deleting Kmip/ga-kmip
+    delete verified: .../kms/6ada8934d94d05eaad355b01/kmip/b132fb62-998d-479f-9c9d-794c6f1ea2fd
+                     -> 200 tombstone (status=Deleted, deletionDate set) after 2 checks
+    attempt 1: leftovers = 0
+    clean
+=== chain exited 0 ===
+```
+
+Drift is **inapplicable** by the `Key`/`Restore` precedent, not unproven: `KmipNameDto`
+is `{name}` only and `name` is the identifier, so there is no non-identifying field
+left to converge.
+
+### The cause was a name collision, and the scope choice was the whole fix
+
+Its path is `/kms/{id}/kmip/{kmipId}`, so the spec carries `id` meaning *the KMS*
+while every response carries `id` meaning *the Kmip*. One key, present on both sides,
+two unrelated identities — the comparison can never be satisfied, so the controller
+PUT `{"name":"ga-kmip"}` every 180s against a response that already said
+`name: ga-kmip`. Third distinct route into [oasgen#213](https://github.com/krateo-platformops/oasgen-provider/issues/213),
+after `Kaas` (request/response **type** mismatch) and `Job` (server
+**normalisation**).
+
+`identifiersAndStatus` was tried first and changed nothing — four more no-op PUTs,
+one billable KMS run. It projects the spec onto `identifiers + additionalStatusFields`
+and `id` **is** an additionalStatusField here, because that is how the Kmip's own id
+reaches status to build `{kmipId}`; the scope pulled the colliding key straight back
+in. `updatable` derives its field set from the update body instead, and is the only
+scope that drops `id` without breaking either URL construction or the status mapping.
+A `responseTransform` cannot help for the same reason: the response's `id` is what
+populates status.
+
+### The finalizer releases by the fallback, not by the feature — oasgen#218
+
+Kmip is a tombstone resource: after a successful DELETE it vanishes from its own
+collection, including with `includeDeleted=true`, while `GET` on its id still answers
+**200** with `status: Deleted` and a `deletionDate` a live read does not carry. The
+chain now accepts that as proof of absence; demanding a 404 there would report an
+unconfirmed delete forever.
+
+The RestDefinition declares a `notFoundBody` predicate on the get verb for exactly
+this, and the predicate is correct — but on every released version it is the *observe*
+path that honours it and the *delete* path that cannot. RDC hands the delete check the
+whole `restclient.Response` struct instead of the body, gojq cannot index a Go struct,
+the program errors, and the deliberately-forgiving error branch reports
+*unverifiable* — at which point a successful DELETE is trusted. Right outcome,
+adjacent reason, and deletion is never actually verified for a tombstone resource,
+which is the limitation [oasgen#111](https://github.com/krateo-platformops/oasgen-provider/issues/111)
+was filed to remove.
+
+Filed as [oasgen#218](https://github.com/krateo-platformops/oasgen-provider/issues/218)
+with a reproduction: one line, `body` → `body.ResponseBody` at
+`mutate_restaction.go:157`, introduced by the commit that added the feature and
+present from 0.23.0 through 0.32.0. The patch builds and the controller tests pass
+both before *and* after it, which is the other half of the report — the existing
+`notFoundBody` tests call the helper directly with a map, so nothing in the suite
+exercises either caller.
+
+This repository's chain verifies the tombstone against the API itself, which is how
+the discrepancy surfaced at all: the chain could prove the resource was gone while
+the controller could not.
+
+## Folder reaches GA — 27 (2026-10-23)
+
+`project/Folder` was beta because of a claim in its own chain file, and the claim was
+wrong. Full lifecycle now, on the released 0.27.1 stack:
+
+```
+--- creating Folder/ga-pf-folder
+    Ready, id=6adb13221647a47e76f0c788
+    drift injected via driftBody (name='ga-pf-folder-drifted'); waiting for correction to 'ga-pf-folder'
+    DRIFT CORRECTED for Folder/ga-pf-folder
+--- deleting Folder/ga-pf-folder
+    delete verified: /folders/6adb13221647a47e76f0c788 -> 404
+    attempt 1: leftovers = 0
+    clean
+```
+
+### The note said there was nothing safe to perturb
+
+> no tags to perturb, a name that is the immutable identifier, and a `default` flag
+> that decides account-wide where new projects land. Nothing is safe to change.
+
+Two of those three hold. The name is **not** immutable. It is what `findby` matches
+on, which is where the confusion came from, but Folder's `get`, `update` and `delete`
+all build their path from `status.id` — never from the name — and `FolderUpdateDto`
+is `{name, default}` with `name` plainly writable. So the name can be perturbed
+upstream and converged back, the resource is never lost while it is diverged, and the
+account-wide `default` switch is never touched. The probe sends `default: false`
+through the perturbation deliberately, so the switch is not flipped even momentarily.
+
+### What actually blocked it was the harness
+
+The generic drift injector perturbs `metadata.tags`. `FolderUpdateDto` declares
+`additionalProperties: false`, so adding a `metadata` key is a 400 — and it is a 400
+for **every** body shape the injector tries, since both its candidates carry the tag.
+The probe then reported that drift could not be injected, which read as a property of
+the resource.
+
+This is the second time a harness limitation has been recorded as a resource
+limitation (the first was Dbaas drift sitting SKIPPED for the whole campaign because
+only one of two body shapes was tried). The fix generalises rather than special-cases:
+a chain may now declare
+
+```yaml
+driftBody:            # the exact PUT body to inject
+  name: ga-pf-folder-drifted
+  default: false
+driftAssert:          # the field the controller must restore, and to what
+  path: name
+  equals: ga-pf-folder
+```
+
+and the injector asserts the write actually landed before waiting for correction — an
+API that accepts and silently ignores a PUT must not look like a controller that
+corrected it instantly, which is the vacuous pass oasgen#76 produced.
+
+### Also fixed here: delete verification had a fixed three-minute budget
+
+`DELETE_VERIFY_SECONDS` replaces a hardcoded 12 polls at 15s. Three minutes cannot
+tell a delete that STALLS from one that is merely slow, and that distinction is the
+entire open question on `schedule/BackupPolicyAssignment`. It is a separate finding
+from Folder but it came out of the same read of the teardown path.
+
+## KaasBackup does not provision either — and it is the same failure as Registry (2026-10-23)
+
+`container/KaasBackup` was beta with a note promising that a longer settle window
+would earn its drift test. It would not have. The backup **fails**, and the note was
+wrong about why.
+
+With the state logged on every transition, on the released 0.27.1 stack:
+
+```
+--- creating Kaas/ga-kaas
+    state 6adb1c8a: (first read) -> InCreation at t+0s
+    state 6adb1c8a: InCreation   -> Active     at t+266s
+    DRIFT CORRECTED for Kaas/ga-kaas
+--- creating KaasBackup/ga-kaasbackup
+    Ready, id=6adb1e4e8e35c4ce7d33a3ec
+    state 6adb1e4e: (first read) -> InCreation at t+0s
+    state 6adb1e4e: InCreation   -> Failed     at t+1637s
+    drift: PUT returned 400 for every body shape tried — Status: Invalid status
+           — cannot inject (state at refusal: Failed)
+--- deleting KaasBackup/ga-kaasbackup
+    delete verified: .../kaas/6adb1c8a.../backups/6adb1e4e... -> 404
+```
+
+### Two claims of mine that this refutes
+
+**"It stayed `InCreation` for over 25 minutes, outlasting a 900s settle wait."** It
+does leave `InCreation` — into `Failed`, at t+1637s. The window was never the
+obstacle; this run gave it 2700s and the outcome was the same. A `Failed` resource
+refuses writes with exactly the envelope a busy one uses,
+`{fieldName: Status, errorMessage: Invalid status}`, which is why the probe's verdict
+read like impatience.
+
+**"The earlier `Failed` was almost certainly the unvalidated `billingPeriod`."** A
+probe had created a backup with `billingPeriod: "NotAPeriod"`, the API persisted that
+string verbatim, and the backup failed — so the string got the blame. This run sent
+`Hour` and failed identically. That explanation does not survive.
+
+### Why the harness could not tell me this before
+
+The probe reported its own verdict — *400 for every body shape tried* — and discarded
+the state that produced it. That is the same defect as
+[oasgen#213](https://github.com/krateo-platformops/oasgen-provider/issues/213), the
+one this campaign filed against the provider for computing a drift reason and throwing
+it away, reproduced in our own harness. `wait_settled` now logs every state transition
+with a timestamp, and the give-up message names the state at the moment of refusal.
+One line per transition, and it turned a year's worth of plausible guessing into a
+measurement in a single run.
+
+### The pattern that matters
+
+| Resource | `InCreation` | Outcome | Diagnostic |
+|---|---|---|---|
+| `container/Registry` | 1818s | `Failed` | none |
+| `container/KaasBackup` | 1637s | `Failed` | none |
+| `container/Kaas` (parent) | 266s | **`Active`** | — |
+
+Two sub-resources of one provider failing the same way, on an account where the parent
+cluster provisions in four minutes, is a far stronger signal than either alone. Both
+statuses are bare: no `failureReason`, no `error`, though `StatusResponseDto` declares
+both. This is now the central question in the Aruba support request, phrased as
+entitlement/quota/backing-service rather than payload, because the payloads have been
+exhausted.
+
+`create`, `observe` and a 404-verified `delete` all work for KaasBackup. What fails is
+the provisioning behind them, so it moves from beta to **experimental** alongside
+Registry rather than staying beta on a promise of patience.
+
+## BackupPolicyAssignment: the delete really does stall (2026-10-23)
+
+The one measurement this resource had never been given: delete the assignment with
+its referenced volume **alive** and wait longer than three minutes. Taken, and the
+answer is no.
+
+```
+--- creating BackupPolicyAssignment/ga-bpa-b
+    Ready, id=6adb152d97493a7adf79529d
+    drift injected via declared spec (tags=[drifted-by-hand]); waiting for correction
+    DRIFT CORRECTED for BackupPolicyAssignment/ga-bpa-b
+--- deleting BackupPolicyAssignment/ga-bpa-b
+    error: timed out waiting for the condition          (TIMEOUT=1800, finalizer held)
+    DELETE NOT CONFIRMED after 45 min: .../6adb152d97493a7adf79529d still reads 200
+```
+
+75 minutes in `Deleting`, with the BlockStorage `NotUsed` (alive) and the policy
+`Active` throughout. The dependency order violated in September was respected here,
+so the stall is a property of the resource rather than residue of that mistake. The
+earlier correction — that calling the delete *proven broken* overstated the evidence —
+was right to make, and the stronger claim is now earned instead of assumed.
+
+`BackupPolicyAssignment` stays **beta**: create, observe and drift all proven live;
+only the delete does not complete.
+
+### What the September pair and this one do NOT share
+
+Both are `Deleting` forever, but they are not behaving identically, and a correction
+to something recorded earlier today matters here.
+
+Earlier this session I wrote that the two September records *"advance together on
+roughly a 15-minute cycle"*, inferred from two samples 14.7 minutes apart
+(`07:20:05Z`, `07:34:47Z`). Later samples do not support a fixed cycle — `09:23:14Z`
+and `09:26:05Z` are three minutes apart. Two points were not a period, and reporting
+them as one was over-reading.
+
+A second guess of mine died the same way. Seeing `ga-bpa-b` sit untouched from
+`08:11:02Z` to `09:27:31Z` — its entire 75-minute stall — until the DELETE on its own
+policy touched it, I concluded the writes were cascade effects rather than a retry
+loop. Then I sampled all four every 60s:
+
+```
+t+0m  ga-bpa=09:26:05  ga-bpa-b=09:28:05  ga-bpa-policy=09:26:05  ga-bpa-policy-b=09:28:04
+t+1m  ga-bpa=09:29:09  ga-bpa-b=09:29:12  ga-bpa-policy=09:29:09  ga-bpa-policy-b=09:29:12
+t+2m  ga-bpa=09:29:09  ga-bpa-b=09:30:03  ga-bpa-policy=09:29:09  ga-bpa-policy-b=09:30:02
+t+3m  ga-bpa=09:29:09  ga-bpa-b=09:30:03  ga-bpa-policy=09:29:09  ga-bpa-policy-b=09:30:02
+```
+
+`ga-bpa` is a seven-week-old corpse with no CR, no controller and nothing of mine
+touching it, and it advanced at `09:29:09Z` anyway — within three seconds of all three
+others. So something server-side does sweep these records; it is not purely cascade.
+
+What is actually observed, and all that should be claimed:
+
+* every record in `Deleting` has its `updateDate` advanced from time to time
+* an assignment and its policy always move together, to the second
+* the intervals are **irregular** — 3 minutes, 1 minute, and a 73-minute gap all occur
+* the `state` never changes
+
+Three readings of this in one session, each confidently wrong before the next sample.
+The mechanism is not established and this is where I stop guessing at it; the table
+above is the evidence, and Aruba can say what it means.
+
+### The volume was kept alive on purpose
+
+The chain's teardown deletes in reverse dependency order, so after the assignment it
+goes for the policy and then the volume. Letting it finish would have reproduced
+exactly the September mistake: an assignment stuck in `Deleting` whose volume no
+longer exists, which is what made that pair unrecoverable.
+
+The run was stopped after the verdict line and before the volume delete. The policy's
+DELETE had already gone out, so `ga-bpa-policy-b` is `Deleting` too, but
+**`ga-bpa-vol` is alive** — Aruba support now has one wedged assignment whose
+referenced resource still exists, next to one whose does not. That contrast is worth
+more than a clean account here.

@@ -1,0 +1,67 @@
+# Project and Folder, the two account-level resources, under the main runner.
+#
+# Both had live evidence already, but it lived in tests/ga/project.yaml and
+# tests/ga/folder.yaml -- standalone manifests applied by hand. "Covered in a place
+# nobody runs" is how DatabaseBackup shipped a defect that made Ready unreachable, so
+# they move here.
+#
+# Neither takes a projectId: they ARE the project, and the folder sits above it. That
+# also means the residue endpoints are account-wide (/projects, /folders) -- the
+# residue check matches on the names this chain created, so the real project is never
+# touched.
+#
+# Folder's drift block is NOT the usual one, and the correction to the old note here
+# is the reason this chain changed. That note said Folder had nothing safe to perturb:
+# flat {name, default}, no tags, "the name is the immutable identifier", and `default`
+# an account-wide flag deciding where new projects land. Two of those three are right.
+#
+# The name is NOT immutable. It is the identifier the findby MATCHES on, but Folder's
+# get, update and delete all build their path from `status.id` -- never from the name
+# -- and FolderUpdateDto accepts `name` outright. So the name can be perturbed upstream
+# and converged back without the resource ever being lost and without `default` being
+# touched at all. What actually blocked this was the probe, not the resource: the
+# generic injector adds `metadata.tags`, and FolderUpdateDto is additionalProperties:
+# false, so every shape it tried was a 400 and drift read as untestable.
+#
+# Hence driftBody/driftAssert: perturb the one field that is safe to perturb, and
+# require the controller to put it back.
+#
+# Free: neither a project nor a folder bills.
+name: project-folder
+vars:
+  LOCATION: ITBG-Bergamo
+residue:
+- /projects
+- /folders
+resources:
+- kind: Folder
+  name: ga-pf-folder
+  self: /folders/${id:self}
+  spec:
+    configurationRef:
+      name: folder-config
+      namespace: default
+    name: ga-pf-folder
+    default: false
+  drift: /folders/${id:self}
+  # `default: false` is carried through the perturbation deliberately: the whole point
+  # is that this probe never flips the account-wide switch, not even for a moment.
+  driftBody:
+    name: ga-pf-folder-drifted
+    default: false
+  driftAssert:
+    path: name
+    equals: ga-pf-folder
+- kind: Project
+  name: ga-pf-project
+  spec:
+    configurationRef:
+      name: project-config
+      namespace: default
+    metadata:
+      name: ga-pf-project
+      tags: []
+    properties:
+      default: false
+      description: GA chain evidence run
+  drift: /projects/${id:self}

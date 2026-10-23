@@ -11,6 +11,7 @@ residue:
 resources:
 - kind: Vpc
   name: ga-vpn-vpc
+  self: /projects/${PROJECT}/providers/Aruba.Network/vpcs/${id:self}
   spec:
     configurationRef:
       name: vpc-config
@@ -26,6 +27,7 @@ resources:
       preset: false
 - kind: Subnet
   name: ga-vpnroute-subnet
+  self: /projects/${PROJECT}/providers/Aruba.Network/vpcs/${id:ga-vpn-vpc}/subnets/${id:self}
   spec:
     configurationRef:
       name: subnet-config
@@ -44,6 +46,7 @@ resources:
         address: 10.60.0.0/24
 - kind: ElasticIp
   name: ga-vpn-eip
+  self: /projects/${PROJECT}/providers/Aruba.Network/elasticIps/${id:self}
   billable: true
   spec:
     configurationRef:

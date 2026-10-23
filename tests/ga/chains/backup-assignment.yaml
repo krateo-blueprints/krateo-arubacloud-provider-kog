@@ -1,3 +1,50 @@
+# DO NOT RUN THIS CHAIN CASUALLY. Every real run of it leaves a resource that can
+# never be deleted. See "the cost of a verdict" below.
+#
+# Two resources here carry a `-b` suffix because their original names are taken, by
+# corpses: a BackupPolicy `ga-bpa-policy` and a BackupPolicyAssignment `ga-bpa` have
+# been stuck in `Deleting` on this account since 2026-09-04 and cannot be removed
+# through the API. findby matches by NAME, so the chain ADOPTED the dying resources --
+# the CR reported Ready against something in `Deleting`.
+#
+# That was fixed in two steps, and the first was only half a fix: renaming the policy
+# alone still left the assignment colliding, so the next run adopted the wedged
+# ASSIGNMENT instead and failed differently -- `delete of ga-bpa did not remove the
+# external resource, which is still present`, a delete failure reported while the
+# resource was supposedly being created. Both names are now distinct.
+#
+# Worth noting as a defect in its own right: a resource in `Deleting` satisfied findby
+# and was reported Ready. Observing a resource on its way out of existence as healthy
+# is not a property anyone would want.
+#
+# THE COST OF A VERDICT. BackupPolicyAssignment sits at beta because its delete has
+# never been observed to COMPLETE. It enters `Deleting`, and every further DELETE
+# returns 400 `Invalid status`.
+#
+# An earlier version of this note called that "proven broken". It is not, and the
+# overstatement is worth keeping visible. The 400s are the ordinary state refusal this
+# API gives any write on a resource mid-transition -- the same shape that produced
+# three wrong explanations for VpnTunnel's drift before the right one turned out to be
+# "wait longer". And the one run that could have settled it was spoiled by hand: when
+# teardown stalled, the referenced BlockStorage was force-deleted OUT OF DEPENDENCY
+# ORDER, and an assignment cannot finish deleting once the volume it binds is gone.
+# That is what made `6a9aea83` permanent -- residue of a mistake, not a demonstration
+# of a defect.
+#
+# So the open question is narrow and answerable: does the delete complete if the
+# volume stays alive and the probe waits long enough? Nothing has ever waited more
+# than three minutes, because that was the harness's fixed budget. It is now
+# DELETE_VERIFY_SECONDS, and this chain is the reason.
+#
+# Run it as:
+#   TIMEOUT=3600 DELETE_VERIFY_SECONDS=2700 python3 scripts/ga_chain.py \
+#       tests/ga/chains/backup-assignment.yaml --with-billable
+#
+# and DO NOT intervene when the teardown appears to hang -- the hang IS the
+# measurement. If it still has not completed when the window closes, the verdict is
+# the same as before but now actually earned, and the cost is one more wedged
+# assignment. Do not force-delete the volume to hurry it along; that is precisely the
+# mistake that cost the last verdict.
 # schedule/BackupPolicyAssignment binds a BackupPolicy to a resource. Both parents are
 # already GA-proven, so this chain is the cheapest remaining: one 20 GB volume (hourly,
 # billable) plus a free policy.
@@ -15,6 +62,7 @@ residue:
 resources:
   - kind: BlockStorage
     name: ga-bpa-vol
+    self: /projects/${PROJECT}/providers/Aruba.Storage/blockStorages/${id:self}
     billable: true
     spec:
       configurationRef: {name: blockstorage-config, namespace: default}
@@ -25,11 +73,12 @@ resources:
         billingPeriod: Hour
 
   - kind: BackupPolicy
-    name: ga-bpa-policy
+    name: ga-bpa-policy-b
+    self: /projects/${PROJECT}/providers/Aruba.Schedule/backupPolicies/${id:self}
     spec:
       configurationRef: {name: backuppolicy-config, namespace: default}
       projectId: "${PROJECT}"
-      metadata: {name: ga-bpa-policy, tags: []}
+      metadata: {name: ga-bpa-policy-b, tags: []}
       properties:
         resourceType: volume
         schedules:
@@ -39,14 +88,14 @@ resources:
             time: "02:00:00"
 
   - kind: BackupPolicyAssignment
-    name: ga-bpa
+    name: ga-bpa-b
     spec:
       configurationRef: {name: backuppolicyassignment-config, namespace: default}
       projectId: "${PROJECT}"
-      metadata: {name: ga-bpa, location: {value: "${LOCATION}"}, tags: []}
+      metadata: {name: ga-bpa-b, location: {value: "${LOCATION}"}, tags: []}
       properties:
         backupPolicy:
-          uri: "/projects/${PROJECT}/providers/Aruba.Schedule/backupPolicies/${id:ga-bpa-policy}"
+          uri: "/projects/${PROJECT}/providers/Aruba.Schedule/backupPolicies/${id:ga-bpa-policy-b}"
         resource:
           uri: "/projects/${PROJECT}/providers/Aruba.Storage/blockStorages/${id:ga-bpa-vol}"
     drift: /projects/${PROJECT}/providers/Aruba.Schedule/backupPolicyAssignments/${id:self}

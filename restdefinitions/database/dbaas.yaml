@@ -1,4 +1,5 @@
 # Aruba Cloud Dbaas (database provider) - generated, no proxy.
+# Dbaas creation is asynchronous: the API returns the object while status.state is still InCreation, and refuses every update until it reaches Active (400 DBaaS.Read.InvalidStatus). Without the async block the CR reports Ready in seconds for a resource that is unusable for a quarter of an hour. Polls its own item path, since this provider publishes no monitor endpoint. State values come from security-provider.json, which declares the vocabulary the database spec omits.
 apiVersion: ogen.krateo.io/v1alpha1
 kind: RestDefinition
 metadata:
@@ -27,6 +28,23 @@ spec:
     - action: create
       method: POST
       path: /projects/{projectId}/providers/Aruba.Database/dbaas
+      async:
+        mode: requeue
+        operationRef:
+          in: body
+          path: metadata.id
+        poll:
+          method: GET
+          path: /projects/{projectId}/providers/Aruba.Database/dbaas/{id}
+          handleParam: id
+          statusPath: status.state
+          successValues:
+          - Active
+          failureValues:
+          - Failed
+          intervalSeconds: 15
+          maxAttempts: 120
+        postGet: true
     - action: update
       method: PUT
       path: /projects/{projectId}/providers/Aruba.Database/dbaas/{id}

@@ -3,7 +3,7 @@ type: Decision
 title: GA readiness
 description: What GA means for this provider, what blocks it, and how each tier is earned.
 tags: [aruba, kog, ga, release]
-timestamp: 2026-09-06T00:00:00Z
+timestamp: 2026-09-29T00:00:00Z
 ---
 
 # GA readiness
@@ -163,9 +163,10 @@ RestDefinitions.
 
 ### P2 — beta-tier quality, not GA blockers
 
-- **`DatabaseUser.password` is a plaintext spec field** (§B4). Unacceptable for a
-  GA resource; acceptable for a *documented* beta one. It gates promoting the
-  `database` provider, not the GA core.
+- ~~**`DatabaseUser.password` is a plaintext spec field** (§B4)~~ — **resolved.**
+  The field is dropped from the CRD and supplied at create time by oasgen's
+  `secretRef` resolver. It no longer gates promoting `database`; what remains is
+  lifecycle evidence, like every other resource.
 - Fidelity gaps §A1, §A3–A6 (`nullable`, `readOnly`, `number`, `format`,
   constraints) — cosmetic today, real if response-body validation is ever enabled.
 - Action endpoints §C1 (power on/off, attach/detach, rename) remain

@@ -3,7 +3,7 @@ type: Runbook
 title: GA completion plan
 description: How every resource reaches a GA tier, in what order, and what it costs.
 tags: [aruba, kog, ga, plan]
-timestamp: 2026-09-05T00:00:00Z
+timestamp: 2026-09-29T00:00:00Z
 ---
 
 # Completing GA across all 34 resources
@@ -136,8 +136,10 @@ The second is more honest if CI cannot afford them, and a beta label that is
 accurate beats a GA label that decays. `Hpc` additionally needs its `async` block
 observed reaching `Succeeded`, which has never happened.
 
-`database` also carries **P2: `DatabaseUser.password` is a plaintext spec field**.
-That must be fixed before `database` is promoted, regardless of lifecycle evidence.
+`database` no longer carries P2. `DatabaseUser.password` **is gone from the spec**:
+the create call sources it through oasgen's `secretRef` resolver, and the generated CRD
+now exposes only `configurationRef`, `projectId`, `dbaasId` and `username`. See
+[authentication](authentication.md#a-credential-that-is-not-a-spec-field).
 
 ### Wave 5 — blocked on upstream (2)
 
@@ -177,7 +179,7 @@ are now work items:
 |----------|--------------------------|
 | `CloudServer` RESTActions never executed | Wire `URL_SNOWPLOW`/`URL_AUTHN` into the generated RDC deployment and drive the delegated create/update/delete for real |
 | `Kaas`, `Dbaas`, `Hpc` cost real money per run | Accept the spend, record a dated run per resource, and let CI re-verify only the free set |
-| `DatabaseUser.password` is a plaintext spec field | Fix it before `database` is promoted — a GA resource must not require a secret in its spec |
+| `DatabaseUser.password` is a plaintext spec field | **Resolved**: dropped from the spec via `excludedSpecFields` and supplied at create time by the `secretRef` resolver, which reads the Secret's name from `metadata.name` and its key from `spec.username`. No OAS change, and no `*SecretRef` field the OAS does not declare. Verified from the regenerated CRD; the create call itself is pending the live run |
 | `Key`, `Kmip`, `Folder` have no safe field to perturb | Declare a per-resource drift field in the chain fixture rather than relying on `metadata.tags` |
 | `Restore` appeared to be in that set | **Resolved**: its update body `RestoreUpdatePropertiesDto` is an empty schema — zero properties — so there is nothing to converge. Drift is not applicable, not merely hard, and its bar is `create → observe → delete` |
 

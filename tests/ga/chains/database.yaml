@@ -1,3 +1,9 @@
+# Each resource carries a `self:` URL so teardown can verify its DELETE against the
+# API *while its parent Dbaas is still alive*. The residue check at the end cannot do
+# that: by then the Dbaas is gone, and a user that vanished with its cluster is
+# indistinguishable from one the controller actually deleted. That difference is what
+# separates "delete proven" from "delete assumed" for everything that hangs off a
+# Dbaas, and it is why Database, DatabaseUser and Grant stayed at beta.
 name: database
 vars:
   PROJECT: 69a55c8d5e6f0e14f14093ff
@@ -7,6 +13,16 @@ vars:
   SG_ID: 69a560ce2312085699426c2a
 residue:
 - /projects/${PROJECT}/providers/Aruba.Database/dbaas
+- /projects/${PROJECT}/providers/Aruba.Database/backups
+# Users and databases hang off the Dbaas, and until now nothing checked them, so
+# "delete proven" for DatabaseUser and Grant rested on the CR disappearing and the
+# parent being torn down afterwards -- which cannot distinguish a real DELETE from a
+# cascade. Teardown removes them BEFORE the Dbaas, so these endpoints are readable at
+# that moment and the distinction is now measurable. They 404 once the Dbaas is gone,
+# which the residue check reports as the parent's deletion confirming itself rather
+# than as a failed reading.
+- /projects/${PROJECT}/providers/Aruba.Database/dbaas/${id:ga-dbaas}/users
+- /projects/${PROJECT}/providers/Aruba.Database/dbaas/${id:ga-dbaas}/databases
 resources:
 - kind: Dbaas
   name: ga-dbaas
@@ -38,6 +54,7 @@ resources:
   drift: /projects/${PROJECT}/providers/Aruba.Database/dbaas/${id:self}
 - kind: Database
   name: ga-database
+  self: /projects/${PROJECT}/providers/Aruba.Database/dbaas/${id:ga-dbaas}/databases/gadb
   billable: true
   idPath: name
   spec:
@@ -49,6 +66,7 @@ resources:
     name: gadb
 - kind: DatabaseUser
   name: ga-dbuser
+  self: /projects/${PROJECT}/providers/Aruba.Database/dbaas/${id:ga-dbaas}/users/gauser
   billable: true
   idPath: username
   spec:
@@ -58,20 +76,29 @@ resources:
     projectId: ${PROJECT}
     dbaasId: ${id:ga-dbaas}
     username: gauser
-    # BASE64, and this is NOT documented anywhere in the OAS. A plaintext password is
-    # rejected with "Password does not match the minimum requirements", which reads as a
-    # policy failure and is not one -- every plaintext value fails, including Aruba's own
-    # SDK example. Their Terraform provider encodes client-side:
-    #   internal/provider/dbaasuser_resource.go:130
-    #   passwordBase64 := base64.StdEncoding.EncodeToString([]byte(...))
-    # Decoded value here: Prova123456789AC@
-    #
-    # The same error is ALSO returned while the DBaaS user API is still initialising,
-    # even with a correct password -- the provider polls GET on a non-existent user until
-    # it 404s to prove the API is up. Two unrelated causes, one misleading message.
-    password: UHJvdmExMjM0NTY3ODlBQ0A=
+  # password is NOT a spec field any more -- it is sourced from this Secret by the
+  # secretRef resolver on the create call. name comes from metadata.name and key from
+  # spec.username, both read out of the CR, which is what lets this work without a
+  # *SecretRef field the source OAS does not declare.
+  #
+  # The VALUE is BASE64, and that is NOT documented anywhere in the OAS. A plaintext
+  # password is rejected with "Password does not match the minimum requirements", which
+  # reads as a policy failure and is not one -- every plaintext value fails, including
+  # Aruba's own SDK example. Their Terraform provider encodes client-side:
+  #   internal/provider/dbaasuser_resource.go:130
+  #   passwordBase64 := base64.StdEncoding.EncodeToString([]byte(...))
+  # Decoded value here: Prova123456789AC@
+  #
+  # The same error is ALSO returned while the DBaaS user API is still initialising,
+  # even with a correct password -- the provider polls GET on a non-existent user until
+  # it 404s to prove the API is up. Two unrelated causes, one misleading message.
+  secret:
+    name: ga-dbuser
+    key: gauser
+    value: UHJvdmExMjM0NTY3ODlBQ0A=
 - kind: Grant
   name: ga-grant
+  self: /projects/${PROJECT}/providers/Aruba.Database/dbaas/${id:ga-dbaas}/users/gauser/grants/gadb
   billable: true
   idPath: user
   spec:
@@ -85,3 +112,31 @@ resources:
       username: gauser
     role:
       name: ReadOnly
+- kind: DatabaseBackup
+  name: ga-dbbackup
+  self: /projects/${PROJECT}/providers/Aruba.Database/backups/${id:self}
+  billable: true
+  # Placed last so teardown (reverse order) removes the backup before the Dbaas it
+  # points at. No `drift` block: the OAS gives backups no update verb, so the bar is
+  # create -> observe -> delete, as for the other seven immutable resources.
+  #
+  # This is the one resource whose emitted status oasgen#146 changes, which is why it
+  # was added to the chain -- see docs/live-cluster-test.md.
+  spec:
+    configurationRef:
+      name: databasebackup-config
+      namespace: default
+    projectId: ${PROJECT}
+    metadata:
+      name: ga-dbbackup
+      location:
+        value: ${LOCATION}
+      tags: []
+    properties:
+      dataCenter: ITBG-1
+      dbaas:
+        uri: /projects/${PROJECT}/providers/Aruba.Database/dbaas/${id:ga-dbaas}
+      database:
+        name: gadb
+      billingPlan:
+        billingPeriod: Hour

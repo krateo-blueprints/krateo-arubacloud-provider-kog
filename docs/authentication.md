@@ -3,7 +3,7 @@ type: Configuration
 title: Authentication
 description: The short-lived Aruba JWT: how it is minted, stored and rotated.
 tags: [aruba, kog]
-timestamp: 2026-08-19T00:00:00Z
+timestamp: 2026-10-15T00:00:00Z
 ---
 
 # Authentication
@@ -121,6 +121,132 @@ Requires oasgen ≥ 0.19.0 and RDC ≥ 0.19.0
 ([#49](https://github.com/krateo-platformops/oasgen-provider/issues/49)); earlier
 versions skipped the `apiKey` scheme silently and generated no auth block at all.
 
+## A credential that is not a spec field
+
+`DatabaseUser` needs a password. The source OAS declares it as a plain body string, and
+a body string becomes a spec field — so the obvious generation puts a credential in the
+CR, where anyone with `get databaseusers` can read it. Base64 does not help: it is an
+encoding, not a protection.
+
+The field is instead **dropped from the CRD** and supplied at create time by oasgen's
+`secretRef` resolver:
+
+```yaml
+excludedSpecFields:
+- password
+verbsDescription:
+- action: create
+  method: POST
+  path: /projects/{projectId}/providers/Aruba.Database/dbaas/{dbaasId}/users
+  fieldMapping:
+  - inBody: password
+    resolver:
+      type: secretRef
+      secretRef:
+        nameFromCustomResource: metadata.name
+        keyFromCustomResource: spec.username
+```
+
+So the Secret is **named after the CR** and **keyed by the username**, and is read from
+the CR's own namespace. Both paths point at fields the CR already has, which is the
+whole trick: the resolver normally wants a `*SecretRef` field to read the name and key
+from, and this OAS declares none — [and the OAS is not ours to
+change](oas-patches.md). Reusing `metadata.name` and `spec.username` needs nothing
+added.
+
+What the pattern buys:
+
+- The plaintext form no longer exists. There is no spec field to fill in by mistake,
+  because the CRD has no such property — `kubectl explain` shows `configurationRef`,
+  `projectId`, `dbaasId`, `username` and nothing else.
+- RDC registers the resolved value as a **sensitive value**, so it is redacted from
+  request logging rather than merely absent from the CR.
+- RBAC is self-provisioned and narrow: RDC grants itself `get` on *that Secret name*,
+  not on Secrets generally.
+
+Two sharp edges, both load-bearing:
+
+- **The stored value must be the base64 of the password**, because Aruba requires
+  base64 and does not document it (their Terraform provider encodes client-side, at
+  `internal/provider/dbaasuser_resource.go:130`). The Secret holds exactly the bytes
+  the API wants.
+- **`valueMapping` cannot do that encoding for you — on the version we pin.** A `jq`
+  transform of `@base64` looks like the right answer and is silently discarded on RDC
+  ≤ 0.24.0: it wires `jq` for the response direction only, and on a request it
+  `continue`s past the entry rather than sending an untransformed value, so the field
+  is simply missing from the body. You then debug the password, because what Aruba
+  reports is a password-policy error.
+
+  [oasgen#148](https://github.com/krateo-platformops/oasgen-provider/pull/148)
+  implements the request direction for `inPath`, `inQuery` and `inBody`, and **shipped
+  in 0.26.1**. So on 0.26.1 or later this Secret could hold the plaintext password and
+  the RestDefinition could encode it — the better shape, since the operator then stores
+  the value they actually chose.
+
+  Both preconditions for that switch are now met, which was not true when this was
+  first written:
+
+  - **The redaction leak #148 opened is fixed and released.** With a resolver *and* a
+    transform, the resolved value was registered as sensitive but the *transformed*
+    value — the one that goes on the wire — was not, so request logging would redact
+    the raw credential and print its base64. Worse than no redaction, because the log
+    reads as audited. Fixed in `3184958`, which merged inside #148 and is therefore in
+    0.26.1 as well.
+  - Aruba's base64 requirement does not go away. It moves from the Secret's value into
+    the RestDefinition.
+
+  **We still have not made that switch**, but the reason has changed. It used to be
+  that the pin (0.22.2) predated #148 and the generated RestDefinitions must work on
+  the version we pin. The pin is now 0.27.1, which carries it — so the blocker is
+  gone and only the work remains. It is deliberately not bundled into the bump
+  commit: moving the base64 from the Secret's value into the RestDefinition changes
+  what every existing DatabaseUser Secret must contain, and that deserves its own
+  commit and its own live run rather than riding along with a version change.
+
+> **Verified live:** the regenerated CRD carries no `password` property, the
+> RestDefinition reaches `Ready=True` with the resolver attached, and the create call
+> carries the resolved value — `DatabaseUser/ga-dbuser` reached `Ready` with
+> `id=gauser` on four consecutive runs of `tests/ga/chains/database.yaml`, which also
+> exercises the RBAC widening to the Secret's name, since the create could not have
+> succeeded without it.
+
+## Verbose connectors print the bearer token, below 0.26.1
+
+Every sample in `samples/` carries:
+
+```yaml
+annotations:
+  krateo.io/connector-verbose: 'true'
+```
+
+On a provider older than **0.26.1** that annotation dumps the whole HTTP exchange to
+the controller's log, *including the request headers*:
+
+```
+GET /folders?api-version=1.0 HTTP/1.1
+Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIi...
+```
+
+Measured on `kind-aruba-110` (provider 0.24.0) on 2026-10-20: **90** such lines in
+`arubacloud-network-vpc-controller` alone, each one a live OAuth token. Pod logs are
+routinely shipped to an aggregator that nothing has told about this, and the tokens
+are valid for an hour from the moment they are printed.
+
+[oasgen#166](https://github.com/krateo-platformops/oasgen-provider/pull/166) redacts
+credential headers; it is first tagged in **0.26.1**, and the pin is now 0.27.1, so
+anything validated by CI is safe. The exposure is real for anyone running these
+samples on an older provider:
+
+- **≥ 0.26.1** — keep the annotation; headers are redacted.
+- **< 0.26.1** — remove `krateo.io/connector-verbose` before applying to anything you
+  care about, or accept that the token is in your logs.
+
+This is the second credential defect in the same area; the first was a transform that
+registered the raw value as sensitive but not the transformed one, so logs printed the
+base64 of a password and read as audited. Both argue the same thing: verbose request
+logging and a credential in a header are a bad pair, and the version floor is the only
+thing standing between them.
+
 ## RESTAction credentials
 
 The CloudServer RESTActions run under Snowplow's identity and therefore use their
@@ -140,49 +266,36 @@ platform concern, and the pieces already compose:
   Configuration's `valuePrefix`, precisely so a rotation path "writes the raw
   credential and never has to know about HTTP framing" (oasgen's own words).
 
-Sketch — ESO's webhook provider performing the client-credentials exchange, with
-the api key/secret held in a separate Secret:
+The manifests live in the repo rather than in this page, because an earlier sketch
+here drifted from what actually works and cost an afternoon:
 
-```yaml
-apiVersion: external-secrets.io/v1beta1
-kind: SecretStore
-metadata: {name: aruba-oauth, namespace: default}
-spec:
-  provider:
-    webhook:
-      url: https://mylogin.aruba.it/auth/realms/cmp-new-apikey/protocol/openid-connect/token
-      method: POST
-      headers: {Content-Type: application/x-www-form-urlencoded}
-      body: "grant_type=client_credentials&client_id={{ .clientId }}&client_secret={{ .clientSecret }}"
-      result: {jsonPath: "$.access_token"}
-      secrets:
-        - name: clientId
-          secretRef: {name: aruba-api-key, key: client_id}
-        - name: clientSecret
-          secretRef: {name: aruba-api-key, key: client_secret}
----
-apiVersion: external-secrets.io/v1beta1
-kind: ExternalSecret
-metadata: {name: arubacloud-token, namespace: default}
-spec:
-  refreshInterval: 30m          # well under the ~1h TTL -- never let it lapse
-  secretStoreRef: {name: aruba-oauth, kind: SecretStore}
-  target: {name: arubacloud-token, creationPolicy: Owner}
-  data:
-    - secretKey: token
-      remoteRef: {key: access_token}
-```
+- `eso/clustersecretstore.yaml` — the webhook generator performing the
+  client-credentials exchange
+- `eso/externalsecret.yaml` — writes `default/arubacloud-token`, key `token`
+- `scripts/eso-bootstrap.sh` — stores the client credential once; this is the only
+  step that needs the client secret, and it prompts on the terminal so the value
+  never reaches your shell history or a process listing
 
-Two things to get right:
+Four details the sketch got wrong, each of which fails without explaining itself:
 
-- **`refreshInterval` comfortably below the TTL.** Recovery after an expired
-  token is delayed by the controller's exponential backoff (measured: 160s after
-  only a few failures). Refreshing early means that window is never entered.
-- **No trailing whitespace in the written value.** A newline in the Secret
-  produces `net/http: invalid header field value for "Authorization"` — see
-  [rdc#45](https://github.com/krateo-platformops/rest-dynamic-controller/issues/45).
-  ESO's `jsonPath` extraction is clean; a hand-written `template` may not be.
+- **`ClusterSecretStore`, not `SecretStore`.** The credential lives in
+  `krateo-system` while the token Secret is written to `default`; a namespaced
+  store cannot cross that boundary.
+- **One `secrets` entry, addressed by field.** Two entries named `clientId` /
+  `clientSecret` make `{{ .clientId }}` render the *whole Secret* as a Go map —
+  `map[client_id:… client_secret:…]` — which Aruba rejects as `invalid_client`.
+  Bind one `creds` entry and reference `{{ .creds.client_id }}`.
+- **`| urlquery` on both values.** A secret containing `+` or `&` otherwise
+  corrupts the form body.
+- **Two mandatory labels on the credential Secret.**
+  `reconcile.external-secrets.io/managed=true` (ESO's informer caches only
+  labelled Secrets, so without it the lookup fails with a bare "not found" while
+  the Secret plainly exists) and `external-secrets.io/type=webhook`. The bootstrap
+  script applies both.
 
-> The manifests above are a **sketch, not a tested artifact** — ESO was not
-> installed on the test cluster. What *is* verified is the premise they depend on:
+> **Verified so far:** on `kind-aruba-110`, ESO installs, both manifests are
+> accepted, and the ExternalSecret reaches `SecretSyncedError: could not get secret
+> data from provider` — the correct failure for a missing credential. The token
+> mint itself is unverified, because that needs the client secret typed at a
+> terminal. What is independently verified is the premise all of this depends on:
 > rotation propagates without a restart.

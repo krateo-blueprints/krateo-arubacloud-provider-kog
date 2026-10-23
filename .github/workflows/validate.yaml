@@ -23,7 +23,18 @@ env:
   # Pin the provider the RestDefinitions are validated against. Bumping this is a
   # deliberate act with a visible diff, not something that drifts under us on a
   # Tuesday -- and the smoke job re-proves the 34 against the new version.
-  OASGEN_VERSION: "0.22.2"
+  #
+  # 0.27.1 is the top of the range that still installs on the node image below.
+  # What it buys over 0.22.2:
+  #   0.23.0  #109  dotted selectors emitted nested, so LoadBalancer/CloudServer
+  #                 findby can match at all (the samples flip in this same commit)
+  #   0.25.0  #146  response envelope unwrapped
+  #   0.26.0  #148  jq-shaped request bodies
+  #   0.26.1  #166  credential headers redacted in logs -- the reason this is not
+  #                 pinned at 0.25.1
+  # 0.28.0 is deliberately NOT taken: #178 raises the chart floor to Kubernetes
+  # 1.36, which would force the node image up in the same breath.
+  OASGEN_VERSION: "0.27.1"
 
 jobs:
   validate:
@@ -80,6 +91,22 @@ jobs:
         uses: helm/kind-action@v1
         with:
           cluster_name: aruba-ci
+          # Pinned, for the same reason OASGEN_VERSION is: an unpinned node image
+          # means the Kubernetes version this 34-resource smoke actually proves drifts
+          # with whatever helm/kind-action defaults to that week.
+          #
+          # 1.33 is the floor of the charts we pin's successors (oasgen#153) and the
+          # version from which CRD validation ratcheting is GA with LockToDefault, so
+          # it proves the smoke at the interesting end of that range. It is NOT the
+          # floor any more: oasgen#178 raised it to 1.36 in chart 0.28.0, because
+          # version-scoped watching needs a MutatingAdmissionPolicy that 1.33-1.35 do
+          # not serve. 0.22.2, which we pin, declares no kubeVersion at all and
+          # installs here fine.
+          #
+          # So raising OASGEN_VERSION past 0.27.1 means raising this to v1.36 in the
+          # same commit, or Helm refuses the chart and the job fails for a reason that
+          # has nothing to do with the 34 RestDefinitions it is meant to be testing.
+          node_image: kindest/node:v1.33.12
 
       - name: Install Helm
         uses: azure/setup-helm@v4
@@ -96,7 +123,15 @@ jobs:
       - name: Apply OAS ConfigMaps and RestDefinitions
         run: |
           kubectl apply -n krateo-system -f configmaps/
-          kubectl apply -R -f restdefinitions/
+          # -n krateo-system is NOT decoration. The manifests declare no namespace, so
+          # without it they land in `default` -- and oasgen deploys each generated
+          # controller into its RestDefinition's own namespace, so all 34 controllers
+          # follow them there. The readiness check below counts with -A, so this job
+          # stayed green for the whole life of the repo while proving a layout nobody
+          # installs: docs/usage.md, the Helm chart and the live clusters all put these
+          # in krateo-system. Caught 2026-10-20 by mirroring this job locally and
+          # counting in krateo-system, where the answer was 0/34.
+          kubectl apply -n krateo-system -R -f restdefinitions/
 
       - name: Every RestDefinition reaches Ready
         run: |

@@ -25,6 +25,7 @@ resources:
 
   - kind: Key
     name: ga-key
+    self: /projects/${PROJECT}/providers/Aruba.Security/kms/${id:ga-kms}/keys/ga-key
     billable: true
     spec:
       configurationRef: {name: key-config, namespace: default}
@@ -35,6 +36,7 @@ resources:
 
   - kind: Kmip
     name: ga-kmip
+    self: /projects/${PROJECT}/providers/Aruba.Security/kms/${id:ga-kms}/kmip/${id:self}
     billable: true
     spec:
       configurationRef: {name: kmip-config, namespace: default}

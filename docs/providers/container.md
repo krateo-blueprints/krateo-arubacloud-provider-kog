@@ -23,6 +23,8 @@ timestamp: 2026-09-28T00:00:00Z
 
 ## Kaas
 
+> Kaas reads return a different shape than its writes accept: nodePools[].instance and nodePools[].dataCenter are strings in NodePoolsDto and objects in NodePoolsResponseDto. RDC compares the CR's keys against the response, so those two are permanent drift, and no compareScope avoids them because KaasUpdatePropertiesDto declares only nodePools. A responseTransform on the get verb folds each object back to its .name before the comparison runs. nodeCidr (returned as `nodecidr`) and securityGroup.name (returned as `uri`) need no handling: those keys are absent from the response and are skipped.
+
 | Verb | Method | Path |
 |------|--------|------|
 | findby | GET | `/projects/{projectId}/providers/Aruba.Container/kaas` |
@@ -54,6 +56,8 @@ Configuration query params: `api-version, filter, ignoreDeletedStatus, limit, of
 Sample: [`samples/container/kaasbackup.yaml`](../../samples/container/kaasbackup.yaml) · [`kaasbackup-configuration.yaml`](../../samples/container/kaasbackup-configuration.yaml)
 
 ## Registry
+
+> Registry creation is asynchronous and the OAS does not say so: the create returns the object while status.state is still InCreation, and both update and delete are refused until it leaves that state with 400 {fieldName: Status, errorMessage: Invalid status}. Without the async block the CR reports Ready for a registry nothing can use yet. Measured: InCreation for 1818s, then Failed -- no registry has reached Active on this account, so the gate's value here is failing fast rather than gating Ready. Separately: properties.size takes Small, Medium or HighPerf, case-sensitive -- measured, because the OAS describes it as a connection count and its RegistrySize catalogue is referenced by no path.
 
 | Verb | Method | Path |
 |------|--------|------|
