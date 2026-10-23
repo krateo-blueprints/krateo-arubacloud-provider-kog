@@ -26,6 +26,7 @@ CLUSTER="${CLUSTER:-aruba-pin}"
 CTX="kind-${CLUSTER}"
 SRC_CTX="${SRC_CONTEXT:-kind-aruba-110}"           # where the credential already lives
 CHAIN="${CHAIN:-tests/ga/chains/network-security.yaml}"
+CHAIN_ARGS="${CHAIN_ARGS:-}"                       # e.g. --with-billable
 KEEP="${KEEP:-1}"
 
 say() { printf '\n=== %s ===\n' "$*"; }
@@ -124,19 +125,29 @@ kubectl --context "$CTX" apply -n krateo-system -f configmaps/ >/dev/null \
 kubectl --context "$CTX" apply -n krateo-system -R -f restdefinitions/ >/dev/null \
   || die "restdefinitions failed"
 
-say "waiting for the controllers the chain needs"
-for res in vpcs subnets securitygroups securityrules; do
+say "waiting for the controllers ${CHAIN} needs"
+# Derived from the chain itself rather than hardcoded, so this works for any chain
+# passed in CHAIN. A hardcoded list silently waits for the wrong controllers the
+# moment the chain changes, and then times out for a reason that looks like a
+# provider fault.
+KINDS=$(python3 -c "
+import sys, yaml
+c = yaml.safe_load(open('$CHAIN'))
+print(' '.join(sorted({r['kind'].lower() for r in (c.get('resources') or [])})))
+") || die "could not read kinds from $CHAIN"
+echo "    kinds: ${KINDS}"
+for kind in $KINDS; do
   for i in $(seq 1 40); do
-    # Anchored on `-<singular>-controller`: a bare `-vpc` also matches
+    # Anchored on `-<kind>-controller$`: a bare `-vpc` also matches
     # `-vpcpeering-controller`, and `head -1` would then wait on the wrong one.
     d=$(kubectl --context "$CTX" get deploy -n krateo-system -o name 2>/dev/null \
-        | grep -i -- "-${res%s}-controller$" | head -1)
+        | grep -i -- "-${kind}-controller$" | head -1)
     if [ -n "$d" ] && kubectl --context "$CTX" rollout status "$d" -n krateo-system \
          --timeout=20s >/dev/null 2>&1; then
-      echo "    ${res}: $(basename "$d") ready"; break
+      echo "    ${kind}: $(basename "$d") ready"; break
     fi
     sleep 15
-    [ "$i" = 40 ] && die "no ready controller for ${res} after 10m"
+    [ "$i" = 40 ] && die "no ready controller for ${kind} after 10m"
   done
 done
 
@@ -159,7 +170,10 @@ find samples -name '*-configuration.yaml' -print0 \
 echo "    applied $(find samples -name '*-configuration.yaml' | wc -l | tr -d ' ')"
 
 say "running ${CHAIN} on the released stack"
-KUBE_CONTEXT="$CTX" python3 -u scripts/ga_chain.py "$CHAIN"
+# CHAIN_ARGS carries flags through to the runner, e.g. --with-billable. Unquoted on
+# purpose so it word-splits into separate arguments.
+# shellcheck disable=SC2086
+KUBE_CONTEXT="$CTX" python3 -u scripts/ga_chain.py "$CHAIN" ${CHAIN_ARGS:-}
 rc=$?
 say "chain exited ${rc}"
 exit $rc

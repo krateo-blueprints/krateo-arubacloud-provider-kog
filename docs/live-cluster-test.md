@@ -1924,3 +1924,78 @@ The client credential is never prompted for: it already exists on the evidence
 cluster, so it is piped cluster-to-cluster through `kubectl` and never touches disk,
 argv or a log. The two labels ESO requires are re-applied in transit, without which
 the lookup fails with a bare "not found".
+
+## Kmip reaches GA — 26 (2026-10-23)
+
+`security/Kmip` was the last resource in the repository that had **never run**. It is
+now GA, and the run that earned it was on the released stack via `pin_verify.sh`, so
+there is no local build anywhere in the evidence:
+
+```
+=== images actually running, including the RDCs ===
+       1 ghcr.io/krateo-platformops/oasgen-provider:0.27.1
+      34 ghcr.io/krateo-platformops/rest-dynamic-controller:0.27.1
+--- creating Kmip/ga-kmip
+    Ready, id=b132fb62-998d-479f-9c9d-794c6f1ea2fd
+RESULT: 3 resources created and observed
+  drift Kms/ga-kms: ok
+--- deleting Kmip/ga-kmip
+    delete verified: .../kms/6ada8934d94d05eaad355b01/kmip/b132fb62-998d-479f-9c9d-794c6f1ea2fd
+                     -> 200 tombstone (status=Deleted, deletionDate set) after 2 checks
+    attempt 1: leftovers = 0
+    clean
+=== chain exited 0 ===
+```
+
+Drift is **inapplicable** by the `Key`/`Restore` precedent, not unproven: `KmipNameDto`
+is `{name}` only and `name` is the identifier, so there is no non-identifying field
+left to converge.
+
+### The cause was a name collision, and the scope choice was the whole fix
+
+Its path is `/kms/{id}/kmip/{kmipId}`, so the spec carries `id` meaning *the KMS*
+while every response carries `id` meaning *the Kmip*. One key, present on both sides,
+two unrelated identities — the comparison can never be satisfied, so the controller
+PUT `{"name":"ga-kmip"}` every 180s against a response that already said
+`name: ga-kmip`. Third distinct route into [oasgen#213](https://github.com/krateo-platformops/oasgen-provider/issues/213),
+after `Kaas` (request/response **type** mismatch) and `Job` (server
+**normalisation**).
+
+`identifiersAndStatus` was tried first and changed nothing — four more no-op PUTs,
+one billable KMS run. It projects the spec onto `identifiers + additionalStatusFields`
+and `id` **is** an additionalStatusField here, because that is how the Kmip's own id
+reaches status to build `{kmipId}`; the scope pulled the colliding key straight back
+in. `updatable` derives its field set from the update body instead, and is the only
+scope that drops `id` without breaking either URL construction or the status mapping.
+A `responseTransform` cannot help for the same reason: the response's `id` is what
+populates status.
+
+### The finalizer releases by the fallback, not by the feature — oasgen#218
+
+Kmip is a tombstone resource: after a successful DELETE it vanishes from its own
+collection, including with `includeDeleted=true`, while `GET` on its id still answers
+**200** with `status: Deleted` and a `deletionDate` a live read does not carry. The
+chain now accepts that as proof of absence; demanding a 404 there would report an
+unconfirmed delete forever.
+
+The RestDefinition declares a `notFoundBody` predicate on the get verb for exactly
+this, and the predicate is correct — but on every released version it is the *observe*
+path that honours it and the *delete* path that cannot. RDC hands the delete check the
+whole `restclient.Response` struct instead of the body, gojq cannot index a Go struct,
+the program errors, and the deliberately-forgiving error branch reports
+*unverifiable* — at which point a successful DELETE is trusted. Right outcome,
+adjacent reason, and deletion is never actually verified for a tombstone resource,
+which is the limitation [oasgen#111](https://github.com/krateo-platformops/oasgen-provider/issues/111)
+was filed to remove.
+
+Filed as [oasgen#218](https://github.com/krateo-platformops/oasgen-provider/issues/218)
+with a reproduction: one line, `body` → `body.ResponseBody` at
+`mutate_restaction.go:157`, introduced by the commit that added the feature and
+present from 0.23.0 through 0.32.0. The patch builds and the controller tests pass
+both before *and* after it, which is the other half of the report — the existing
+`notFoundBody` tests call the helper directly with a map, so nothing in the suite
+exercises either caller.
+
+This repository's chain verifies the tombstone against the API itself, which is how
+the discrepancy surfaced at all: the chain could prove the resource was gone while
+the controller could not.

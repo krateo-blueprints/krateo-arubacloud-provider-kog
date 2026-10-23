@@ -396,6 +396,64 @@ OVERRIDES = {
               "turn blocks deleting its Kms ('Some kms keys are not deleted').")),
     "security/kmip": dict(
         metaWrap=False, idField="name",
+        # Kmip never reported Ready, and the cause is a NAME COLLISION between a path
+        # parameter and a response field. Its path is
+        # `/kms/{id}/kmip/{kmipId}`, so the spec carries `id` meaning THE KMS:
+        #
+        #   CR spec  id = 6ada80c7d94d05eaad355a3b   (the KMS that owns it)
+        #   response id = 07090170-5e71-46a9-8751-... (the Kmip itself)
+        #
+        # One key, present on both sides, two unrelated identities. The comparison can
+        # never be satisfied, so the controller PUT `{"name":"ga-kmip"}` every 180s
+        # forever against a response that already said `name: ga-kmip` -- the same
+        # unsatisfiable-comparison class as Kaas (types) and Job (normalisation),
+        # reached by a third route (oasgen#213).
+        #
+        # A responseTransform cannot fix this one: the response's `id` is what
+        # additionalStatusFields maps to status, so deleting it would break the status
+        # mapping instead. Excluding `id` from the spec is worse -- it is a path
+        # parameter, so the URL could not be built. Narrowing the comparison is the
+        # honest fix, and it costs nothing here: KmipNameDto is `{name}` ONLY and
+        # `name` is the identifier, so there is no non-identifying field left to
+        # converge. Drift is INAPPLICABLE for exactly the reason it is for Key.
+        #
+        # It must be `updatable` and NOT `identifiersAndStatus`, which was tried first
+        # and changed nothing -- four more no-op PUTs. identifiersAndStatus projects
+        # the spec onto `identifiers + additionalStatusFields`, and `id` IS an
+        # additionalStatusField here (that is how the Kmip's own id reaches status to
+        # build {kmipId}). So that scope pulls the colliding key straight back into the
+        # comparison. `updatable` derives its field set from the UPDATE body instead
+        # (UpdatableBodyPaths -> KmipNameDto -> {name}), which is the only set that
+        # excludes `id` without breaking the path or the status mapping.
+        compareScope="updatable",
+        # Kmip is a TOMBSTONE resource: after a successful DELETE it disappears from
+        # its own list -- including with includeDeleted=true -- yet GET on its id
+        # still answers 200, with `status: Deleted` and a `deletionDate` that a live
+        # read does not carry:
+        #
+        #   live:        {"id","name","type","status","creationDate"}
+        #   post-delete: {... ,"deletionDate"}  status: Deleted
+        #
+        # RDC's delete verification read that 200 as "still there" and held the
+        # finalizer forever, which is what made Kmip the one resource whose teardown
+        # wedged the whole security chain (oasgen#111). The fix shipped in 0.27.1 but
+        # is NOT automatic: the controller cannot guess what a tombstone looks like,
+        # so the RestDefinition has to say. Guarded on type, because `status` must not
+        # be assumed a string -- a non-boolean result is a reconcile error, and this
+        # API is already known to omit declared fields conditionally (oasgen#152).
+        #
+        # Keep this predicate even though, on every released version, it is the OBSERVE
+        # path that honours it and the DELETE path that cannot: RDC hands the delete
+        # check the whole restclient.Response struct instead of the body, so the
+        # program errors, the check degrades to "unverifiable", and the finalizer is
+        # released by trusting the DELETE rather than by confirming the tombstone
+        # (oasgen#218, one line, present 0.23.0 through 0.32.0). The CR does delete
+        # cleanly -- for the adjacent reason. This repo's own chain verifies the
+        # tombstone against the API directly, which is how the discrepancy surfaced.
+        notFoundBody={"get": (
+            'if (.status | type) == "string"\n'
+            'then (.status | ascii_downcase) == "deleted"\n'
+            'else false end\n')},
         note=("Kmip create body is flat {name}. Its findby item carries the server id as "
               "plain **id**, even though the path parameter is {kmipId} -- the opposite "
               "of security/keys, which uses {keyId} in BOTH. Assuming the path-parameter "
@@ -738,6 +796,16 @@ def render(r):
         for v in verbs:
             if v["action"] == action:
                 v["responseTransform"] = {"inline": program}
+
+    # A gojq predicate that decides ABSENCE from a 2xx body. Needed for an API that
+    # answers GET for a deleted resource with 200 and a tombstone instead of 404: the
+    # status code alone then reads as "still present" and the CR wedges in Deleting
+    # forever. RDC consults this on both observe and delete verification, so the two
+    # share one definition of absence (oasgen#111).
+    for action, program in (ov.get("notFoundBody") or {}).items():
+        for v in verbs:
+            if v["action"] == action:
+                v["notFoundBody"] = {"inline": program}
 
     resource = {"kind": r["kind"]}
     if r["meta"]:

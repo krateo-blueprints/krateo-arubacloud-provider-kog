@@ -548,11 +548,34 @@ def main():
                     if not url:
                         continue
                     for attempt in range(1, 13):
-                        code, _ = api("GET", url)
+                        code, gbody = api("GET", url)
                         if code == 404:
                             print(f"    delete verified: {url} -> 404"
                                   + (f" (after {attempt} checks)" if attempt > 1 else ""))
                             break
+                        # A TOMBSTONE counts as gone. security/Kmip answers GET with
+                        # 200 after a successful delete, carrying `status: Deleted` and
+                        # a `deletionDate` a live read does not have, while vanishing
+                        # from its own collection -- including with
+                        # includeDeleted=true. Demanding a 404 here would call that an
+                        # unconfirmed delete forever, which is the same mistake RDC
+                        # made upstream (oasgen#111). The resource is absent by the
+                        # API's own accounting; only the status code disagrees.
+                        if code == 200 and isinstance(gbody, dict):
+                            # `status` is a bare string on the security provider and
+                            # an object with `.state` elsewhere, so read both shapes.
+                            st = gbody.get("status")
+                            state = st if isinstance(st, str) else (
+                                st.get("state") if isinstance(st, dict) else None)
+                            if isinstance(state, str) and state.lower() == "deleted":
+                                print(f"    delete verified: {url} -> 200 tombstone "
+                                      f"(status={state}"
+                                      + (", deletionDate set"
+                                         if gbody.get("deletionDate") else "")
+                                      + ")"
+                                      + (f" after {attempt} checks" if attempt > 1
+                                         else ""))
+                                break
                         if code == 0:            # transport blip: ask again
                             time.sleep(15)
                             continue
