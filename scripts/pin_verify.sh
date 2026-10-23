@@ -26,6 +26,11 @@ CLUSTER="${CLUSTER:-aruba-pin}"
 CTX="kind-${CLUSTER}"
 SRC_CTX="${SRC_CONTEXT:-kind-aruba-110}"           # where the credential already lives
 CHAIN="${CHAIN:-tests/ga/chains/network-security.yaml}"
+# Applied AFTER restdefinitions/, so it can replace a committed RestDefinition with an
+# experimental one. That is the only way to try a definition that the pinned version
+# cannot carry without putting it in restdefinitions/, where CI and every other run
+# would pick it up. See tests/experimental/.
+EXTRA_RESTDEFS="${EXTRA_RESTDEFS:-}"
 CHAIN_ARGS="${CHAIN_ARGS:-}"                       # e.g. --with-billable
 KEEP="${KEEP:-1}"
 
@@ -124,6 +129,11 @@ kubectl --context "$CTX" apply -n krateo-system -f configmaps/ >/dev/null \
 # kubectl refuses the directory outright ("recognized file extensions are ...").
 kubectl --context "$CTX" apply -n krateo-system -R -f restdefinitions/ >/dev/null \
   || die "restdefinitions failed"
+if [ -n "$EXTRA_RESTDEFS" ]; then
+  say "applying EXTRA_RESTDEFS over the committed set: ${EXTRA_RESTDEFS}"
+  kubectl --context "$CTX" apply -n krateo-system -f "$EXTRA_RESTDEFS" \
+    || die "extra restdefinitions failed"
+fi
 
 say "waiting for the controllers ${CHAIN} needs"
 # Derived from the chain itself rather than hardcoded, so this works for any chain

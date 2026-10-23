@@ -64,6 +64,13 @@ TOKEN_SECRET = os.environ.get("ARUBA_TOKEN_SECRET", "arubacloud-token")
 TOKEN_SECRET_NS = os.environ.get("ARUBA_TOKEN_SECRET_NS", "default")
 TIMEOUT = int(os.environ.get("TIMEOUT", "420"))
 DRIFT_TIMEOUT = int(os.environ.get("DRIFT_TIMEOUT", "300"))
+# How long a single resource's delete may take to become verifiable. The default is
+# the old fixed budget (12 polls, 15s apart). It is a knob because three minutes
+# cannot distinguish a delete that STALLS from one that is merely slow, and that
+# distinction is the entire open question on schedule/BackupPolicyAssignment: its
+# delete has never once been observed with its referenced volume still alive and a
+# window long enough to finish in.
+DELETE_VERIFY_SECONDS = int(os.environ.get("DELETE_VERIFY_SECONDS", "180"))
 
 
 def kubectl(*args, check=False, stdin=None):
@@ -281,8 +288,79 @@ def wait_settled(url, timeout=None):
         time.sleep(10)
 
 
-def drift_check(kind, name, url, spec=None):
+def _drift_explicit(kind, name, url, body, assertion):
+    """Inject drift with an explicit PUT body and converge on one named field.
+
+    `assertion` is {"path": "<dotted path>", "equals": <value>} -- the value the
+    controller must restore. Both are required: a probe that injects without
+    asserting cannot tell correction from the API quietly ignoring the write.
+    """
+    if not assertion or "path" not in assertion or "equals" not in assertion:
+        print(f"    drift: {kind}/{name} declares driftBody without a complete "
+              f"driftAssert — skipped", file=sys.stderr)
+        return None
+    path, want = assertion["path"], assertion["equals"]
+
+    def read(doc):
+        cur = doc
+        for part in path.split("."):
+            if not isinstance(cur, dict):
+                return None
+            cur = cur.get(part)
+        return cur
+
+    code, resp = None, None
+    for _ in range(3):
+        code, resp = api("PUT", url, body)
+        if code in (200, 202, 204):
+            break
+        if not busy_refusal(resp):
+            break
+        wait_settled(url, 120)
+    if code not in (200, 202, 204):
+        print(f"    drift: PUT returned {code} for {kind}/{name} — cannot inject",
+              file=sys.stderr)
+        return None
+
+    # Prove the write landed. Without this an API that accepts and ignores the PUT
+    # looks identical to a controller that corrected it instantly, and the check
+    # passes having tested nothing -- the same vacuous pass oasgen#76 produced.
+    code, after = api("GET", url)
+    if code == 200 and isinstance(after, dict) and read(after) == want:
+        print(f"    drift: PUT was accepted but {path} is still {want!r} — the API "
+              f"ignored the write, nothing to correct", file=sys.stderr)
+        return None
+    print(f"    drift injected via driftBody ({path}={read(after)!r}); "
+          f"waiting for correction to {want!r}")
+
+    kubectl("annotate", f"{kind}.{GROUP}", name, "-n", NS,
+            f"drift-probe={int(time.time())}", "--overwrite")
+    deadline, cur = time.time() + DRIFT_TIMEOUT, None
+    while time.time() < deadline:
+        code, doc = api("GET", url)
+        if code == 200 and isinstance(doc, dict):
+            cur = read(doc)
+            if cur == want:
+                print(f"    DRIFT CORRECTED for {kind}/{name}")
+                return True
+        time.sleep(20)
+    print(f"    DRIFT NOT CORRECTED for {kind}/{name} ({path} still {cur!r})",
+          file=sys.stderr)
+    return False
+
+
+def drift_check(kind, name, url, spec=None, drift_body=None, drift_assert=None):
     """Set a tag upstream and require the controller to remove it.
+
+    A chain may instead declare `driftBody` + `driftAssert`, which replaces the tag
+    trick with an explicit PUT. That is not a convenience: the tag trick assumes the
+    resource HAS `metadata.tags`, and the flat project-provider resources do not.
+    `FolderUpdateDto` is `{name, default}` with `additionalProperties: false`, so
+    adding a `metadata` key is a 400 and the probe reported drift as untestable --
+    which is how Folder sat at beta on the claim that its only convergeable field was
+    the account-wide `default` switch. It is not: Folder's get/update/delete all build
+    their path from `status.id`, never from `name`, so `name` is an ordinary mutable
+    field that can be perturbed and converged without touching `default` at all.
 
     Deliberately the scenario oasgen-provider#76 got wrong: the CR declares
     `tags: []`, and before 0.22.1 an empty list matched any remote list, so this
@@ -294,6 +372,9 @@ def drift_check(kind, name, url, spec=None):
     if code != 200 or not isinstance(body, dict):
         print(f"    drift: cannot read {kind}/{name} (HTTP {code}) — skipped", file=sys.stderr)
         return None
+
+    if drift_body is not None:
+        return _drift_explicit(kind, name, url, drift_body, drift_assert)
 
     # Build the PUT body from the DECLARED SPEC where we have one, not from the GET
     # response. A response is not necessarily a valid request: Dbaas returns
@@ -497,7 +578,11 @@ def main():
 
             if res.get("drift"):
                 url = expand(res["drift"], variables, ids, kind)
-                drift_results[f"{kind}/{name}"] = drift_check(kind, name, url, spec)
+                drift_results[f"{kind}/{name}"] = drift_check(
+                    kind, name, url, spec,
+                    drift_body=expand(res.get("driftBody"), variables, ids, kind)
+                    if res.get("driftBody") is not None else None,
+                    drift_assert=res.get("driftAssert"))
 
         print(f"\nRESULT: {len(created)} resources created and observed")
         for k, v in drift_results.items():
@@ -547,11 +632,15 @@ def main():
                     url = self_urls.get(name)
                     if not url:
                         continue
-                    for attempt in range(1, 13):
+                    deadline = time.time() + DELETE_VERIFY_SECONDS
+                    attempt, confirmed = 0, False
+                    while time.time() < deadline:
+                        attempt += 1
                         code, gbody = api("GET", url)
                         if code == 404:
                             print(f"    delete verified: {url} -> 404"
                                   + (f" (after {attempt} checks)" if attempt > 1 else ""))
+                            confirmed = True
                             break
                         # A TOMBSTONE counts as gone. security/Kmip answers GET with
                         # 200 after a successful delete, carrying `status: Deleted` and
@@ -575,6 +664,7 @@ def main():
                                       + ")"
                                       + (f" after {attempt} checks" if attempt > 1
                                          else ""))
+                                confirmed = True
                                 break
                         if code == 0:            # transport blip: ask again
                             time.sleep(15)
@@ -582,11 +672,14 @@ def main():
                         if code != 200:
                             print(f"    delete UNVERIFIED: {url} -> HTTP {code}",
                                   file=sys.stderr)
+                            confirmed = True       # answered, just not with a body
                             break
                         time.sleep(15)
-                    else:
-                        print(f"    DELETE NOT CONFIRMED: {url} still reads 200 — the "
-                              f"CR is gone but the resource is not", file=sys.stderr)
+                    if not confirmed:
+                        mins = DELETE_VERIFY_SECONDS / 60
+                        print(f"    DELETE NOT CONFIRMED after {mins:.0f} min: {url} "
+                              f"still reads 200 — the CR is gone but the resource is "
+                              f"not", file=sys.stderr)
                 except Exception as e:                      # never block the teardown
                     print(f"    delete check errored for {kind}/{name}: {e}",
                           file=sys.stderr)

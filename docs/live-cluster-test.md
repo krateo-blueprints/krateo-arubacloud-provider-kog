@@ -1999,3 +1999,65 @@ exercises either caller.
 This repository's chain verifies the tombstone against the API itself, which is how
 the discrepancy surfaced at all: the chain could prove the resource was gone while
 the controller could not.
+
+## Folder reaches GA — 27 (2026-10-23)
+
+`project/Folder` was beta because of a claim in its own chain file, and the claim was
+wrong. Full lifecycle now, on the released 0.27.1 stack:
+
+```
+--- creating Folder/ga-pf-folder
+    Ready, id=6adb13221647a47e76f0c788
+    drift injected via driftBody (name='ga-pf-folder-drifted'); waiting for correction to 'ga-pf-folder'
+    DRIFT CORRECTED for Folder/ga-pf-folder
+--- deleting Folder/ga-pf-folder
+    delete verified: /folders/6adb13221647a47e76f0c788 -> 404
+    attempt 1: leftovers = 0
+    clean
+```
+
+### The note said there was nothing safe to perturb
+
+> no tags to perturb, a name that is the immutable identifier, and a `default` flag
+> that decides account-wide where new projects land. Nothing is safe to change.
+
+Two of those three hold. The name is **not** immutable. It is what `findby` matches
+on, which is where the confusion came from, but Folder's `get`, `update` and `delete`
+all build their path from `status.id` — never from the name — and `FolderUpdateDto`
+is `{name, default}` with `name` plainly writable. So the name can be perturbed
+upstream and converged back, the resource is never lost while it is diverged, and the
+account-wide `default` switch is never touched. The probe sends `default: false`
+through the perturbation deliberately, so the switch is not flipped even momentarily.
+
+### What actually blocked it was the harness
+
+The generic drift injector perturbs `metadata.tags`. `FolderUpdateDto` declares
+`additionalProperties: false`, so adding a `metadata` key is a 400 — and it is a 400
+for **every** body shape the injector tries, since both its candidates carry the tag.
+The probe then reported that drift could not be injected, which read as a property of
+the resource.
+
+This is the second time a harness limitation has been recorded as a resource
+limitation (the first was Dbaas drift sitting SKIPPED for the whole campaign because
+only one of two body shapes was tried). The fix generalises rather than special-cases:
+a chain may now declare
+
+```yaml
+driftBody:            # the exact PUT body to inject
+  name: ga-pf-folder-drifted
+  default: false
+driftAssert:          # the field the controller must restore, and to what
+  path: name
+  equals: ga-pf-folder
+```
+
+and the injector asserts the write actually landed before waiting for correction — an
+API that accepts and silently ignores a PUT must not look like a controller that
+corrected it instantly, which is the vacuous pass oasgen#76 produced.
+
+### Also fixed here: delete verification had a fixed three-minute budget
+
+`DELETE_VERIFY_SECONDS` replaces a hardcoded 12 polls at 15s. Three minutes cannot
+tell a delete that STALLS from one that is merely slow, and that distinction is the
+entire open question on `schedule/BackupPolicyAssignment`. It is a separate finding
+from Folder but it came out of the same read of the teardown path.

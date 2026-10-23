@@ -1,0 +1,86 @@
+# EXPERIMENTAL — CloudServer end to end with a NATIVE create, no Snowplow.
+#
+# Only runnable on a cluster built at oasgen-provider >= 0.31.0, with
+# tests/experimental/cloudserver-native/restdefinition.yaml applied OVER the committed
+# one. See that file for why.
+#
+#   OASGEN_VERSION=0.31.0 CLUSTER=aruba-031 \
+#   CHAIN=tests/experimental/cloudserver-native/chain.yaml CHAIN_ARGS=--with-billable \
+#   scripts/pin_verify.sh
+#
+# The payload is not guesswork: this exact shape was POSTed by hand on 2026-10-22 and
+# returned 201 -> InCreation -> Active (`6a9d9c29260a604a55d6c1c9`). One call, with
+# every association in the body. There is NO power-on step, NO associate step and NO
+# attach step -- those endpoints are day-2, and the multi-call sequence this repo's
+# Snowplow delegation was built around does not exist for create.
+#
+# Two undeclared constraints, both discovered the hard way and both load-bearing:
+#   * the boot volume must be `bootable: true` WITH an image (LU22-001). A plain
+#     volume is accepted by the create and simply never boots.
+#   * `securityGroups` is REQUIRED -- omitting it gives
+#     `GenericResource: securityGroup cannot be null` -- though the request schema
+#     marks nothing required at all.
+#
+# Billable: CSO1A2 server, a 20 GB bootable volume and an elastic IP, all hourly, all
+# deleted by the teardown.
+name: cloudserver-native
+vars:
+  PROJECT: 69a55c8d5e6f0e14f14093ff
+  LOCATION: ITBG-Bergamo
+  DC: ITBG-1
+  VPC_ID: 69a5609fa851081197caa45f
+  SUBNET_ID: 69a560ce2312085699426c28
+  SG_ID: 69a560ce2312085699426c2a
+residue:
+- /projects/${PROJECT}/providers/Aruba.Compute/cloudServers
+- /projects/${PROJECT}/providers/Aruba.Storage/blockStorages
+- /projects/${PROJECT}/providers/Aruba.Network/elasticIps
+resources:
+- kind: BlockStorage
+  name: ga-cs-boot
+  self: /projects/${PROJECT}/providers/Aruba.Storage/blockStorages/${id:self}
+  billable: true
+  spec:
+    configurationRef: {name: blockstorage-config, namespace: default}
+    projectId: "${PROJECT}"
+    metadata: {name: ga-cs-boot, location: {value: "${LOCATION}"}, tags: []}
+    properties:
+      sizeGb: 20
+      billingPeriod: Hour
+      dataCenter: "${DC}"
+      bootable: true
+      image: LU22-001
+
+- kind: ElasticIp
+  name: ga-cs-eip
+  self: /projects/${PROJECT}/providers/Aruba.Network/elasticIps/${id:self}
+  billable: true
+  spec:
+    configurationRef: {name: elasticip-config, namespace: default}
+    projectId: "${PROJECT}"
+    metadata: {name: ga-cs-eip, location: {value: "${LOCATION}"}, tags: []}
+    properties:
+      billingPlan: {billingPeriod: Hour}
+
+- kind: CloudServer
+  name: ga-cs
+  self: /projects/${PROJECT}/providers/Aruba.Compute/cloudServers/${id:self}
+  billable: true
+  spec:
+    configurationRef: {name: cloudserver-config, namespace: default}
+    projectId: "${PROJECT}"
+    metadata: {name: ga-cs, location: {value: "${LOCATION}"}, tags: []}
+    properties:
+      dataCenter: "${DC}"
+      flavorName: CSO1A2
+      vpcPreset: false
+      vpc:
+        uri: /projects/${PROJECT}/providers/Aruba.Network/vpcs/${VPC_ID}
+      subnets:
+      - uri: /projects/${PROJECT}/providers/Aruba.Network/vpcs/${VPC_ID}/subnets/${SUBNET_ID}
+      securityGroups:
+      - uri: /projects/${PROJECT}/providers/Aruba.Network/vpcs/${VPC_ID}/securityGroups/${SG_ID}
+      bootVolume:
+        uri: /projects/${PROJECT}/providers/Aruba.Storage/blockStorages/${id:ga-cs-boot}
+      elasticIp:
+        uri: /projects/${PROJECT}/providers/Aruba.Network/elasticIps/${id:ga-cs-eip}

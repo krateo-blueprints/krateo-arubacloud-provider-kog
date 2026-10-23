@@ -84,13 +84,25 @@ TIERS = {
         "project — [live-cluster-test](live-cluster-test.md)",
     ),
     ("project", "Folder"): (
-        "beta",
-        "create/observe/delete proven live, now under "
-        "`tests/ga/chains/project-folder.yaml`. Drift is **not** exercised and cannot "
-        "be: the body is flat `{name, default}`, with no tags to perturb, a name that "
-        "is the immutable identifier, and a `default` flag that decides account-wide "
-        "where new projects land. Nothing is safe to change, so it stays beta — "
-        "[live-cluster-test](live-cluster-test.md)",
+        "ga",
+        "full lifecycle live incl. drift correction on the **released 0.27.1 stack** "
+        "(2026-10-23, `6adb1322`), under `tests/ga/chains/project-folder.yaml`; delete "
+        "verified 404 at `/folders/{id}`.\n\n"
+        "It sat at beta on a note that was wrong, and the correction is worth keeping. "
+        "That note said drift could not be exercised: flat `{name, default}`, no tags "
+        "to perturb, *\"a name that is the immutable identifier\"*, and `default` an "
+        "account-wide flag deciding where new projects land. The name is **not** "
+        "immutable. It is what findby MATCHES on, but Folder's get, update and delete "
+        "all build their path from `status.id` — never from the name — and "
+        "`FolderUpdateDto` accepts `name` outright. So it can be perturbed upstream "
+        "and converged back without the resource ever being lost and without "
+        "`default` being touched at all.\n\n"
+        "What actually blocked it was the **probe**, not the resource. The generic "
+        "drift injector perturbs `metadata.tags`; `FolderUpdateDto` is "
+        "`additionalProperties: false`, so every body shape it tried was a 400 and the "
+        "result read as a property of the resource rather than a limitation of the "
+        "harness. Chains can now declare `driftBody`/`driftAssert` and name the field "
+        "to perturb — **free** — [live-cluster-test](live-cluster-test.md)",
     ),
     ("baremetal", "Hpc"): (
         "experimental",

@@ -10,10 +10,21 @@
 # residue check matches on the names this chain created, so the real project is never
 # touched.
 #
-# Folder carries no drift block, and that is not an oversight. Its body is flat
-# {name, default}: no tags to perturb, the name is the immutable identifier, and
-# `default` is an account-wide flag that decides where new projects land. There is
-# nothing safe left to change.
+# Folder's drift block is NOT the usual one, and the correction to the old note here
+# is the reason this chain changed. That note said Folder had nothing safe to perturb:
+# flat {name, default}, no tags, "the name is the immutable identifier", and `default`
+# an account-wide flag deciding where new projects land. Two of those three are right.
+#
+# The name is NOT immutable. It is the identifier the findby MATCHES on, but Folder's
+# get, update and delete all build their path from `status.id` -- never from the name
+# -- and FolderUpdateDto accepts `name` outright. So the name can be perturbed upstream
+# and converged back without the resource ever being lost and without `default` being
+# touched at all. What actually blocked this was the probe, not the resource: the
+# generic injector adds `metadata.tags`, and FolderUpdateDto is additionalProperties:
+# false, so every shape it tried was a 400 and drift read as untestable.
+#
+# Hence driftBody/driftAssert: perturb the one field that is safe to perturb, and
+# require the controller to put it back.
 #
 # Free: neither a project nor a folder bills.
 name: project-folder
@@ -32,6 +43,15 @@ resources:
       namespace: default
     name: ga-pf-folder
     default: false
+  drift: /folders/${id:self}
+  # `default: false` is carried through the perturbation deliberately: the whole point
+  # is that this probe never flips the account-wide switch, not even for a moment.
+  driftBody:
+    name: ga-pf-folder-drifted
+    default: false
+  driftAssert:
+    path: name
+    equals: ga-pf-folder
 - kind: Project
   name: ga-pf-project
   spec:

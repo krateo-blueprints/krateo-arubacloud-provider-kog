@@ -1,0 +1,97 @@
+# EXPERIMENTAL — deliberately NOT in restdefinitions/, and must not be moved there
+# while the repository pins oasgen-provider 0.27.1.
+#
+# CloudServer natively, with no Snowplow delegation: findby/get/delete from the 1.0
+# document and CREATE from the 1.1 one, via the per-verb `oasPath` override that
+# oasgen#108 added.
+#
+# WHY IT IS QUARANTINED. The `oasPath` field parses at 0.27.1 and is SILENTLY IGNORED:
+# nothing in 0.27.1's generator reads it (only `cr.Spec.OASPath`), so the create verb
+# would be resolved against the 1.0 document, which has no POST for this path. The
+# machinery that honours it -- internal/controllers/restdefinition/oasdocuments.go,
+# which fetches every distinct document and resolves one per verb -- first ships in
+# 0.31.0. Applying this file to a 0.27.1 cluster does not fail loudly; it produces a
+# CloudServer that cannot create. That is the whole reason it lives here.
+#
+# api-version is the one real subtlety. It cannot stay a configurationField for '*':
+# the 1.0 endpoints want 1.0 and the 1.1 create wants 1.1, and a Configuration CR
+# holds a single value. So the configurationField is narrowed to the three 1.0 verbs
+# and create carries a static `queries` entry instead. That field is also 0.31.0+.
+apiVersion: ogen.krateo.io/v1alpha1
+kind: RestDefinition
+metadata:
+  name: arubacloud-compute-cloudserver
+spec:
+  oasPath: configmap://krateo-system/arubacloud-compute-openapi/compute.json
+  resourceGroup: arubacloud.ogen.krateo.io
+  resource:
+    kind: CloudServer
+    identifiers:
+    - metadata.name
+    additionalStatusFields:
+    - metadata.id
+    excludedSpecFields:
+    - cloudServerId
+    verbsDescription:
+    - action: findby
+      method: GET
+      path: /projects/{projectId}/providers/Aruba.Compute/cloudServers
+    - action: get
+      method: GET
+      path: /projects/{projectId}/providers/Aruba.Compute/cloudServers/{cloudServerId}
+      requestFieldMapping:
+      - inPath: cloudServerId
+        inCustomResource: status.metadata.id
+    # The whole point of the experiment: this one verb, this one document.
+    - action: create
+      method: POST
+      path: /projects/{projectId}/providers/Aruba.Compute/cloudServers
+      oasPath: configmap://krateo-system/arubacloud-compute11-openapi/compute11.json
+      queries:
+      - name: api-version
+        value: '1.1'
+    - action: delete
+      method: DELETE
+      path: /projects/{projectId}/providers/Aruba.Compute/cloudServers/{cloudServerId}
+      requestFieldMapping:
+      - inPath: cloudServerId
+        inCustomResource: status.metadata.id
+    configurationFields:
+    - fromOpenAPI:
+        name: api-version
+        in: query
+      fromRestDefinition:
+        actions:
+        - findby
+        - get
+        - delete
+    - fromOpenAPI:
+        name: filter
+        in: query
+      fromRestDefinition:
+        actions:
+        - findby
+    - fromOpenAPI:
+        name: sort
+        in: query
+      fromRestDefinition:
+        actions:
+        - findby
+    - fromOpenAPI:
+        name: projection
+        in: query
+      fromRestDefinition:
+        actions:
+        - findby
+    - fromOpenAPI:
+        name: offset
+        in: query
+      fromRestDefinition:
+        actions:
+        - findby
+    - fromOpenAPI:
+        name: limit
+        in: query
+      fromRestDefinition:
+        actions:
+        - findby

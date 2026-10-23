@@ -17,16 +17,34 @@
 # and was reported Ready. Observing a resource on its way out of existence as healthy
 # is not a property anyone would want.
 #
-# THE COST OF A VERDICT. BackupPolicyAssignment sits at beta for one measured reason:
-# its delete does not complete. The resource enters `Deleting` and stays there, and
-# every further DELETE returns 400 `Invalid status`. That is exactly how the two
-# September corpses were made. So a run of this chain with working names does not
-# "re-verify" anything -- create, observe and drift are already proven live
-# (`6a9aea83`), and the delete is proven broken. What it would add is a third
-# permanently undeletable resource on the account.
+# THE COST OF A VERDICT. BackupPolicyAssignment sits at beta because its delete has
+# never been observed to COMPLETE. It enters `Deleting`, and every further DELETE
+# returns 400 `Invalid status`.
 #
-# It is therefore deliberately NOT part of routine runs. Run it only to test a FIX to
-# the delete path, where wedging one more resource buys something.
+# An earlier version of this note called that "proven broken". It is not, and the
+# overstatement is worth keeping visible. The 400s are the ordinary state refusal this
+# API gives any write on a resource mid-transition -- the same shape that produced
+# three wrong explanations for VpnTunnel's drift before the right one turned out to be
+# "wait longer". And the one run that could have settled it was spoiled by hand: when
+# teardown stalled, the referenced BlockStorage was force-deleted OUT OF DEPENDENCY
+# ORDER, and an assignment cannot finish deleting once the volume it binds is gone.
+# That is what made `6a9aea83` permanent -- residue of a mistake, not a demonstration
+# of a defect.
+#
+# So the open question is narrow and answerable: does the delete complete if the
+# volume stays alive and the probe waits long enough? Nothing has ever waited more
+# than three minutes, because that was the harness's fixed budget. It is now
+# DELETE_VERIFY_SECONDS, and this chain is the reason.
+#
+# Run it as:
+#   TIMEOUT=3600 DELETE_VERIFY_SECONDS=2700 python3 scripts/ga_chain.py \
+#       tests/ga/chains/backup-assignment.yaml --with-billable
+#
+# and DO NOT intervene when the teardown appears to hang -- the hang IS the
+# measurement. If it still has not completed when the window closes, the verdict is
+# the same as before but now actually earned, and the cost is one more wedged
+# assignment. Do not force-delete the volume to hurry it along; that is precisely the
+# mistake that cost the last verdict.
 # schedule/BackupPolicyAssignment binds a BackupPolicy to a resource. Both parents are
 # already GA-proven, so this chain is the cheapest remaining: one 20 GB volume (hourly,
 # billable) plus a free policy.
