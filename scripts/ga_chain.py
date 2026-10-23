@@ -271,6 +271,7 @@ def wait_settled(url, timeout=None):
     """
     timeout = SETTLE_TIMEOUT if timeout is None else timeout
     deadline = time.time() + timeout
+    started, seen = time.time(), None
     while True:
         code, body = api("GET", url)
         if code == 0:                      # transport blip: ask again
@@ -279,6 +280,16 @@ def wait_settled(url, timeout=None):
         if code != 200 or not isinstance(body, dict):
             return code, body
         state = (body.get("status") or {}).get("state")
+        # Log every TRANSITION. Without this the probe reports only its own verdict
+        # and the state that produced it is lost: KaasBackup's drift came back as "400
+        # for every body shape" with no record of what the resource was doing, which
+        # cannot distinguish "still settling" from "settled and immutable" from
+        # "failed". Printing on change costs one line per transition and is the
+        # difference between a measurement and a guess.
+        if state != seen:
+            print(f"    state {url.rsplit('/', 1)[-1]}: "
+                  f"{seen or '(first read)'} -> {state} at t+{time.time()-started:.0f}s")
+            seen = state
         if state not in BUSY:
             return code, body
         if time.time() >= deadline:
@@ -444,8 +455,12 @@ def drift_check(kind, name, url, spec=None, drift_body=None, drift_assert=None):
         elif isinstance(detail, dict) and detail.get("title"):
             errs = " — " + str(detail["title"])
         tried = ", ".join(l for l, _ in candidates)
+        _, now = api("GET", url)
+        st = (now or {}).get("status") if isinstance(now, dict) else None
+        cur = st.get("state") if isinstance(st, dict) else st
         print(f"    drift: PUT returned {code} for every body shape tried ({tried})"
-              f"{errs} — cannot inject into {kind}/{name}", file=sys.stderr)
+              f"{errs} — cannot inject into {kind}/{name} (state at refusal: {cur})",
+              file=sys.stderr)
         return None
     print(f"    drift injected via {shape} (tags=[drifted-by-hand]); waiting for correction")
 

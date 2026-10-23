@@ -325,7 +325,7 @@ TIERS = {
         "**billable parent** — [live-cluster-test](live-cluster-test.md)",
     ),
     ("container", "KaasBackup"): (
-        "beta",
+        "experimental",
         "create/observe/delete proven live under `tests/ga/chains/container.yaml` "
         "(`Ready, id=6ad7aea9`), which only became reachable once Kaas itself could "
         "report Ready. Two values the OAS cannot give you, both measured 2026-10-20: "
@@ -334,16 +334,31 @@ TIERS = {
         "Full')` — and only **one backup may be in creation at a time** (`There is "
         "another backup in creation`), so backups cannot be created in parallel. "
         "**`billingPeriod` is not validated**: a probe created a backup with "
-        "`billingPeriod: \"NotAPeriod\"` and the API persisted that string, then the "
-        "backup went to `Failed` — almost certainly because of it, since the same "
-        "resource with `Hour` provisions normally. Not GA, and the reason is now measured "
-        "rather than missing: it has an `update` verb and "
-        "`tests/ga/chains/container.yaml` carries a drift block for it, but the probe "
-        "cannot inject. A backup refuses every write while `InCreation` "
-        "(`{fieldName: Status, errorMessage: Invalid status}`) and it stayed "
-        "`InCreation` for over 25 minutes, outlasting a 900s settle wait plus four "
-        "retries. Stretching that window until it passes would buy a drift test nobody "
-        "will re-run, so the window is recorded instead — **billable** — [live-cluster-test](live-cluster-test.md)",
+        "`billingPeriod: \"NotAPeriod\"` and the API persisted that string.\n\n"
+        "**It does not provision on this account**, and that is now measured rather "
+        "than inferred. With a 45-minute settle window and the state logged on every "
+        "transition (2026-10-23, released 0.27.1 stack):\n\n"
+        "```\n"
+        "state 6adb1e4e: (first read) -> InCreation at t+0s\n"
+        "state 6adb1e4e: InCreation   -> Failed     at t+1637s\n"
+        "drift: ... cannot inject (state at refusal: Failed)\n"
+        "```\n\n"
+        "Two earlier claims here were wrong and are worth keeping visible. The first "
+        "was that the backup \"stayed `InCreation` for over 25 minutes, outlasting a "
+        "900s settle wait\", with the implication that a longer window would earn the "
+        "drift test. It leaves `InCreation` promptly enough — into `Failed`. The "
+        "second was blaming the earlier `Failed` on the unvalidated "
+        "`billingPeriod: \"NotAPeriod\"`; this run sent `Hour` and failed identically, "
+        "so that explanation does not survive. The drift PUT was never going to land "
+        "at any timeout, because a `Failed` resource refuses writes with the same "
+        "`{fieldName: Status, errorMessage: Invalid status}` a busy one does.\n\n"
+        "The signature is **identical to `container/Registry`** — accepted, ~30 "
+        "minutes `InCreation`, then `Failed` with no `failureReason` and no `error` — "
+        "on an account where the parent `Kaas` reaches `Active` in 266s. Two "
+        "sub-resources of one provider failing the same way is a stronger signal than "
+        "either alone, and it is with Aruba support. `create`, `observe` and a "
+        "**404-verified delete** all work; what fails is the provisioning behind them "
+        "— **billable** — [live-cluster-test](live-cluster-test.md)",
     ),
     ("container", "Registry"): (
         "experimental",

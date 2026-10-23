@@ -26,11 +26,18 @@ CLUSTER="${CLUSTER:-aruba-pin}"
 CTX="kind-${CLUSTER}"
 SRC_CTX="${SRC_CONTEXT:-kind-aruba-110}"           # where the credential already lives
 CHAIN="${CHAIN:-tests/ga/chains/network-security.yaml}"
-# Applied AFTER restdefinitions/, so it can replace a committed RestDefinition with an
-# experimental one. That is the only way to try a definition that the pinned version
-# cannot carry without putting it in restdefinitions/, where CI and every other run
-# would pick it up. See tests/experimental/.
-EXTRA_RESTDEFS="${EXTRA_RESTDEFS:-}"
+# The directory of RestDefinitions to apply. Point it at a prepared copy to try an
+# experimental definition without putting it in restdefinitions/, where CI and every
+# other run would pick it up. See tests/experimental/.
+#
+# It is a whole DIRECTORY and not an "apply this one afterwards" overlay, which was
+# the first attempt and does not work: configurationFields are IMMUTABLE once the CRD
+# has been generated, so applying a definition that narrows them over one already
+# admitted is rejected outright --
+#   spec.resource.configurationFields: Invalid value: ConfigurationFields are
+#   immutable, you cannot change them once the CRD has been generated
+# The experimental definition has to be the only one the cluster ever sees.
+RESTDEFS_DIR="${RESTDEFS_DIR:-restdefinitions/}"
 CHAIN_ARGS="${CHAIN_ARGS:-}"                       # e.g. --with-billable
 KEEP="${KEEP:-1}"
 
@@ -127,13 +134,9 @@ kubectl --context "$CTX" apply -n krateo-system -f configmaps/ >/dev/null \
   || die "configmaps failed"
 # -R, as CI does: restdefinitions/ is one directory per provider, and without it
 # kubectl refuses the directory outright ("recognized file extensions are ...").
-kubectl --context "$CTX" apply -n krateo-system -R -f restdefinitions/ >/dev/null \
+[ "$RESTDEFS_DIR" = "restdefinitions/" ] || say "RestDefinitions from ${RESTDEFS_DIR}"
+kubectl --context "$CTX" apply -n krateo-system -R -f "$RESTDEFS_DIR" >/dev/null \
   || die "restdefinitions failed"
-if [ -n "$EXTRA_RESTDEFS" ]; then
-  say "applying EXTRA_RESTDEFS over the committed set: ${EXTRA_RESTDEFS}"
-  kubectl --context "$CTX" apply -n krateo-system -f "$EXTRA_RESTDEFS" \
-    || die "extra restdefinitions failed"
-fi
 
 say "waiting for the controllers ${CHAIN} needs"
 # Derived from the chain itself rather than hardcoded, so this works for any chain

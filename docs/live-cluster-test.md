@@ -2061,3 +2061,70 @@ corrected it instantly, which is the vacuous pass oasgen#76 produced.
 tell a delete that STALLS from one that is merely slow, and that distinction is the
 entire open question on `schedule/BackupPolicyAssignment`. It is a separate finding
 from Folder but it came out of the same read of the teardown path.
+
+## KaasBackup does not provision either — and it is the same failure as Registry (2026-10-23)
+
+`container/KaasBackup` was beta with a note promising that a longer settle window
+would earn its drift test. It would not have. The backup **fails**, and the note was
+wrong about why.
+
+With the state logged on every transition, on the released 0.27.1 stack:
+
+```
+--- creating Kaas/ga-kaas
+    state 6adb1c8a: (first read) -> InCreation at t+0s
+    state 6adb1c8a: InCreation   -> Active     at t+266s
+    DRIFT CORRECTED for Kaas/ga-kaas
+--- creating KaasBackup/ga-kaasbackup
+    Ready, id=6adb1e4e8e35c4ce7d33a3ec
+    state 6adb1e4e: (first read) -> InCreation at t+0s
+    state 6adb1e4e: InCreation   -> Failed     at t+1637s
+    drift: PUT returned 400 for every body shape tried — Status: Invalid status
+           — cannot inject (state at refusal: Failed)
+--- deleting KaasBackup/ga-kaasbackup
+    delete verified: .../kaas/6adb1c8a.../backups/6adb1e4e... -> 404
+```
+
+### Two claims of mine that this refutes
+
+**"It stayed `InCreation` for over 25 minutes, outlasting a 900s settle wait."** It
+does leave `InCreation` — into `Failed`, at t+1637s. The window was never the
+obstacle; this run gave it 2700s and the outcome was the same. A `Failed` resource
+refuses writes with exactly the envelope a busy one uses,
+`{fieldName: Status, errorMessage: Invalid status}`, which is why the probe's verdict
+read like impatience.
+
+**"The earlier `Failed` was almost certainly the unvalidated `billingPeriod`."** A
+probe had created a backup with `billingPeriod: "NotAPeriod"`, the API persisted that
+string verbatim, and the backup failed — so the string got the blame. This run sent
+`Hour` and failed identically. That explanation does not survive.
+
+### Why the harness could not tell me this before
+
+The probe reported its own verdict — *400 for every body shape tried* — and discarded
+the state that produced it. That is the same defect as
+[oasgen#213](https://github.com/krateo-platformops/oasgen-provider/issues/213), the
+one this campaign filed against the provider for computing a drift reason and throwing
+it away, reproduced in our own harness. `wait_settled` now logs every state transition
+with a timestamp, and the give-up message names the state at the moment of refusal.
+One line per transition, and it turned a year's worth of plausible guessing into a
+measurement in a single run.
+
+### The pattern that matters
+
+| Resource | `InCreation` | Outcome | Diagnostic |
+|---|---|---|---|
+| `container/Registry` | 1818s | `Failed` | none |
+| `container/KaasBackup` | 1637s | `Failed` | none |
+| `container/Kaas` (parent) | 266s | **`Active`** | — |
+
+Two sub-resources of one provider failing the same way, on an account where the parent
+cluster provisions in four minutes, is a far stronger signal than either alone. Both
+statuses are bare: no `failureReason`, no `error`, though `StatusResponseDto` declares
+both. This is now the central question in the Aruba support request, phrased as
+entitlement/quota/backing-service rather than payload, because the payloads have been
+exhausted.
+
+`create`, `observe` and a 404-verified `delete` all work for KaasBackup. What fails is
+the provisioning behind them, so it moves from beta to **experimental** alongside
+Registry rather than staying beta on a promise of patience.
