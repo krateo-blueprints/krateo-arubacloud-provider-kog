@@ -98,7 +98,18 @@ What actually blocked it was the **probe**, not the resource. The generic drift 
 
 A correction to an earlier, stronger claim here. This note used to say delete was *proven not to complete*; the evidence does not carry that weight. The 400s are the ordinary **state refusal** this API gives to any write on a resource mid-transition — the same shape that produced three wrong explanations for `VpnTunnel`'s drift before the right one turned out to be "wait longer" ([async-readiness](async-readiness.md#every-write-is-refused-mid-transition-not-just-dbaass)). And the one run that could have settled it was spoiled by hand: when teardown stalled, the referenced BlockStorage was force-deleted out of dependency order, and an assignment cannot finish deleting once the volume it binds has vanished. That is what made `6a9aea83` permanent — residue of a mistake, not a demonstration of a defect.
 
-So what is actually established is narrower: delete **stalls**, and has never been observed to complete *with its dependency intact*. Whether it would, given patience, is **unknown** — and that is the one measurement that could still move this resource to GA.
+That correction left one measurement outstanding: does the delete complete if the volume stays alive and the probe waits long enough? **It was taken on 2026-10-23, and the answer is no.**
+
+```
+DRIFT CORRECTED for BackupPolicyAssignment/ga-bpa-b
+--- deleting BackupPolicyAssignment/ga-bpa-b
+    error: timed out waiting for the condition      (30 min, finalizer held)
+    DELETE NOT CONFIRMED after 45 min: .../6adb152d97493a7adf79529d still reads 200
+```
+
+75 minutes, with the referenced BlockStorage alive and the policy `Active` throughout — the dependency order violated in September was respected here. The resource entered `Deleting` and stayed. So the stall is a property of the resource, not residue of the earlier mistake, and this stays beta on a measurement rather than an assumption: `create`, `observe` and `drift` are all proven; only the delete does not complete.
+
+The cost was the one the chain header warns about — a third wedged assignment. Its volume was **deliberately preserved**: the teardown was stopped before it reached the volume, so Aruba support has a case with its dependencies intact, which the September pair is not.
 
 Two attempts to re-verify it on 2026-10-22 produced no new evidence, and the reason is worth recording because it is a provider defect rather than bad luck: `findby` matches by **name**, and the wedged resources hold the fixture's names. Both runs therefore **adopted a resource in `Deleting`** and reported it Ready — first the policy (whose dependent assignment then failed its update with 400), then, after only the policy had been renamed, the assignment itself (`delete of ga-bpa did not remove the external resource, which is still present`, reported while the resource was supposedly being created). Observing a resource on its way out of existence as healthy is a defect in its own right.
 

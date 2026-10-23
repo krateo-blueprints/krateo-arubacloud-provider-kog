@@ -2128,3 +2128,79 @@ exhausted.
 `create`, `observe` and a 404-verified `delete` all work for KaasBackup. What fails is
 the provisioning behind them, so it moves from beta to **experimental** alongside
 Registry rather than staying beta on a promise of patience.
+
+## BackupPolicyAssignment: the delete really does stall (2026-10-23)
+
+The one measurement this resource had never been given: delete the assignment with
+its referenced volume **alive** and wait longer than three minutes. Taken, and the
+answer is no.
+
+```
+--- creating BackupPolicyAssignment/ga-bpa-b
+    Ready, id=6adb152d97493a7adf79529d
+    drift injected via declared spec (tags=[drifted-by-hand]); waiting for correction
+    DRIFT CORRECTED for BackupPolicyAssignment/ga-bpa-b
+--- deleting BackupPolicyAssignment/ga-bpa-b
+    error: timed out waiting for the condition          (TIMEOUT=1800, finalizer held)
+    DELETE NOT CONFIRMED after 45 min: .../6adb152d97493a7adf79529d still reads 200
+```
+
+75 minutes in `Deleting`, with the BlockStorage `NotUsed` (alive) and the policy
+`Active` throughout. The dependency order violated in September was respected here,
+so the stall is a property of the resource rather than residue of that mistake. The
+earlier correction — that calling the delete *proven broken* overstated the evidence —
+was right to make, and the stronger claim is now earned instead of assumed.
+
+`BackupPolicyAssignment` stays **beta**: create, observe and drift all proven live;
+only the delete does not complete.
+
+### What the September pair and this one do NOT share
+
+Both are `Deleting` forever, but they are not behaving identically, and a correction
+to something recorded earlier today matters here.
+
+Earlier this session I wrote that the two September records *"advance together on
+roughly a 15-minute cycle"*, inferred from two samples 14.7 minutes apart
+(`07:20:05Z`, `07:34:47Z`). Later samples do not support a fixed cycle — `09:23:14Z`
+and `09:26:05Z` are three minutes apart. Two points were not a period, and reporting
+them as one was over-reading.
+
+A second guess of mine died the same way. Seeing `ga-bpa-b` sit untouched from
+`08:11:02Z` to `09:27:31Z` — its entire 75-minute stall — until the DELETE on its own
+policy touched it, I concluded the writes were cascade effects rather than a retry
+loop. Then I sampled all four every 60s:
+
+```
+t+0m  ga-bpa=09:26:05  ga-bpa-b=09:28:05  ga-bpa-policy=09:26:05  ga-bpa-policy-b=09:28:04
+t+1m  ga-bpa=09:29:09  ga-bpa-b=09:29:12  ga-bpa-policy=09:29:09  ga-bpa-policy-b=09:29:12
+t+2m  ga-bpa=09:29:09  ga-bpa-b=09:30:03  ga-bpa-policy=09:29:09  ga-bpa-policy-b=09:30:02
+t+3m  ga-bpa=09:29:09  ga-bpa-b=09:30:03  ga-bpa-policy=09:29:09  ga-bpa-policy-b=09:30:02
+```
+
+`ga-bpa` is a seven-week-old corpse with no CR, no controller and nothing of mine
+touching it, and it advanced at `09:29:09Z` anyway — within three seconds of all three
+others. So something server-side does sweep these records; it is not purely cascade.
+
+What is actually observed, and all that should be claimed:
+
+* every record in `Deleting` has its `updateDate` advanced from time to time
+* an assignment and its policy always move together, to the second
+* the intervals are **irregular** — 3 minutes, 1 minute, and a 73-minute gap all occur
+* the `state` never changes
+
+Three readings of this in one session, each confidently wrong before the next sample.
+The mechanism is not established and this is where I stop guessing at it; the table
+above is the evidence, and Aruba can say what it means.
+
+### The volume was kept alive on purpose
+
+The chain's teardown deletes in reverse dependency order, so after the assignment it
+goes for the policy and then the volume. Letting it finish would have reproduced
+exactly the September mistake: an assignment stuck in `Deleting` whose volume no
+longer exists, which is what made that pair unrecoverable.
+
+The run was stopped after the verdict line and before the volume delete. The policy's
+DELETE had already gone out, so `ga-bpa-policy-b` is `Deleting` too, but
+**`ga-bpa-vol` is alive** — Aruba support now has one wedged assignment whose
+referenced resource still exists, next to one whose does not. That contrast is worth
+more than a clean account here.
