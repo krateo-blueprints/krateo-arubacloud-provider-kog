@@ -2421,8 +2421,10 @@ response carries almost no information about whether the delete took:
 - the `kmip` above answered `400` while `InCreation`, then **`500` twice** at
   `CertificateAvailable`, and moved to `Deleting` anyway. The progression
   400 → 500 → `Deleting` → tombstone is the evidence; the 500 alone is not.
-- a `Failed` registry has long been known to need its `DELETE` issued twice (the first
-  returns `202` and leaves the resource in place).
+- a `Failed` registry has long been known to need its `DELETE` issued twice — and on
+  2026-10-26 one took **six**, over roughly 25 minutes, each answering `202` with the
+  resource unchanged between them. "Twice" was never the limit; it was how many times
+  anyone had asked before giving up and calling it done.
 
 This is the premise of [oasgen#111](https://github.com/krateo-platformops/oasgen-provider/issues/111)
 from the other direction, and the argument for `resolveDeleteOutcome` treating the
