@@ -55,6 +55,33 @@ spec:
         ${ { volumesToAttach: [], volumesToDetach: .detach } }
 
     # Delete the server (skipped when already absent).
+    #
+    # PENDING CHANGE, DO NOT MAKE IT BEFORE snowplow 1.12.57.
+    # `dependsOn: server` is wrong and snowplow#904 is why: today a FAILED detach does
+    # not stop this DELETE. The stage error is recorded under errorKey, /call still
+    # answers 200, and the server is deleted with its data volumes still attached --
+    # which RDC's delete verification cannot catch, because it checks the SERVER and
+    # the server is genuinely gone. The finalizer then correctly releases and the
+    # volumes are orphaned with nothing referencing them.
+    #
+    # The two-line fix, once the floor is met:
+    #   dependsOn.name: server  ->  detachVolumes
+    #   remove `continueOnError: true` from THIS step
+    # continueOnError is read on the DEPENDENT step, so leaving it here would exempt
+    # this delete from the very rule that is meant to stop it.
+    #
+    # Safe because of the step semantics snowplow pinned down for #904: an iterator
+    # yielding ZERO items has SUCCEEDED -- nothing to do is not a failure. That was
+    # the open question, and it is the one that matters here, because detachVolumes'
+    # iterator is deliberately empty for a server with no data volumes, which is the
+    # common case and every server the GA chain creates. Then:
+    #   no data volumes  -> detach succeeded with zero items -> delete runs
+    #   detach fails     -> delete is SKIPPED, and the response header says so
+    #   server fails     -> detach skipped -> delete skipped
+    #
+    # Making it earlier buys nothing: on snowplow < 1.12.57 the delete is sent
+    # regardless, so the change would add ordering and no protection, while reading
+    # as though the hole were closed.
     - name: delete
       endpointRef:
         name: arubacloud-endpoint
