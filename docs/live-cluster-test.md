@@ -2477,3 +2477,54 @@ the generated provider docs follow from a regenerate.
 
 Renaming before GA costs nothing. Renaming after costs every user their CRs, because
 a kind rename means a new CRD and the old one's resources do not come with it.
+
+## Hpc and AlertRule: not an entitlement question (2026-10-26)
+
+Both sat at experimental with the note "404 on this account", which framed it as
+something Aruba could grant. Probed properly, it is not.
+
+**Every project, both collections:**
+
+```
+                       hpcs   alertRules
+  default              404    404
+  default-baremetal    404    404
+  cloud-v1             404    404
+  cloudburst           404    404
+  example-project      404    404
+```
+
+Five projects, every one 404. Also tried `api-version=1` as well as `1.0`, because
+`baremetal-provider.json` declares its default as `1` rather than `1.0` — no
+difference, so the version is not the cause.
+
+**But `POST /hpcs` is routed**, and its refusal is the informative part:
+
+```
+POST …/cloudburst/providers/Aruba.Baremetal/hpcs
+→ 400 {"field":"projectId",
+       "errorMessage":"Invalid projectId, must be '69896fd3c4537d4765b2364b'
+                       ('default-baremetal')"}
+```
+
+So the baremetal provider exists, is scoped to exactly one project, and validates
+against it — this is not an unentitled account. Posting a deliberately incomplete
+body into that project gets further still:
+
+```
+POST …/default-baremetal/providers/Aruba.Baremetal/hpcs   (metadata only)
+→ 500 Internal Server Error
+```
+
+Routed, reached the handler, and crashed rather than returning a validation error.
+A metadata-only body cannot describe a bare-metal machine, so a `400` was the
+expected answer; `500` is a defect in its own right and is in the support request.
+
+**What this means for the two tiers.** `Hpc` is not blocked by entitlement, it is
+**unobservable**: the collection read our RestDefinition declares for `findby`
+returns 404 everywhere, so the controller can never confirm what it created, even
+though it could create it in the right project. `AlertRule` has no routing at all in
+any project — neither verb, anywhere. Both stay experimental, but the question for
+Aruba is now specific: *these paths are in your published OAS documents; are they
+deployed?* That is a different question from "may we have access", and only one of
+them has an answer we can act on.
