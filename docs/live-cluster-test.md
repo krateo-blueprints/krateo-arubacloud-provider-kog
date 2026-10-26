@@ -2322,7 +2322,38 @@ Checked against the controller source rather than assumed:
   it to a top-level key with a `responseTransform` would read better but needs a key
   the OAS does not declare, and the CRD's status schema is built from these same paths.
 
-Not applied. It touches every RestDefinition and is a product decision.
+Applied 2026-10-26 to 26 of 34 resources — and then measured, which found the catch
+below.
+
+### It only reaches a CRD that does not yet exist (2026-10-26)
+
+`AdditionalStatusFields` being append-only turns out to permit an edit that does
+nothing. One `kubectl apply -R -f restdefinitions/` on `aruba-nfb`, two outcomes:
+
+```
+RestDefinition arubacloud-container-registry   generation 2
+  additionalStatusFields = ["metadata.id","status.failureReason"]
+CRD registries.arubacloud.ogen.krateo.io       generation 1   <- never updated
+  status properties: [conditions, metadata]                   <- field ABSENT
+
+CRD scheduledjobs.arubacloud.ogen.krateo.io    minted in the same apply
+  status properties: [conditions, metadata, status]
+  status.status:     [failureReason]                          <- field PRESENT
+```
+
+The only difference is that one CRD already existed. oasgen logs `External resource
+is up to date` for the registry and emits no warning, no event and no condition;
+`Synced=True` on a RestDefinition whose spec no longer describes its own CRD.
+
+So **`failureReason` arrives on a fresh install and not on an upgrade**, and the only
+way to force it onto an existing CRD is to delete the RestDefinition and recreate it,
+which destroys the CRD and every CR of that kind. Reported upstream.
+
+Two things follow for this repo. The change is still right — new installations get it
+and it costs nothing. And the *measurement* of a failed resource does not depend on
+it: `failureReason` is in the response body either way, so a chain or a probe reading
+the API directly sees it whatever the CRD says. That is how the Kms `Ecommerce` value
+was captured in the first place, before any of this was declared.
 
 ## `DELETE` returning 2xx means very little on this API (2026-10-26)
 
