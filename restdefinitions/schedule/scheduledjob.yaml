@@ -1,18 +1,19 @@
-# Aruba Cloud Job (schedule provider) - generated, no proxy.
+# Aruba Cloud ScheduledJob (schedule provider) - generated, no proxy.
 # Job reads return values the writes did not send: steps[].actionUri comes back with a leading slash the create REFUSES to accept, and executeUntil comes back as +00:00 where the CR sent Z. Both are keys present on each side, so the drift comparison can never pass and the controller re-PUTs the job on every resync. A responseTransform on the get verb normalises both before the comparison. A step's actionUri must be relative (`poweroff`); only poweron and poweroff are supported, so a Job requires a CloudServer to target -- created out of band by scripts/ga_job_probe.py, since a RestDefinition cannot create one.
 apiVersion: ogen.krateo.io/v1alpha1
 kind: RestDefinition
 metadata:
-  name: arubacloud-schedule-job
+  name: arubacloud-schedule-scheduledjob
 spec:
   oasPath: configmap://krateo-system/arubacloud-schedule-openapi/schedule.json
   resourceGroup: arubacloud.ogen.krateo.io
   resource:
-    kind: Job
+    kind: ScheduledJob
     identifiers:
     - metadata.name
     additionalStatusFields:
     - metadata.id
+    - status.failureReason
     excludedSpecFields:
     - jobId
     verbsDescription:

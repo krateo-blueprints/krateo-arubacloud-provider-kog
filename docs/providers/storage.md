@@ -32,7 +32,7 @@ timestamp: 2026-09-28T00:00:00Z
 | update | PUT | `/projects/{projectId}/providers/Aruba.Storage/backups/{id}` |
 | delete | DELETE | `/projects/{projectId}/providers/Aruba.Storage/backups/{id}` |
 
-status fields: `metadata.id` · excluded from spec: `id`
+status fields: `metadata.id, status.failureReason` · excluded from spec: `id`
 
 Configuration query params: `api-version, filter, includeDeleted, limit, offset, projection, sort`
 
@@ -48,7 +48,7 @@ Sample: [`samples/storage/backup.yaml`](../../samples/storage/backup.yaml) · [`
 | update | PUT | `/projects/{projectId}/providers/Aruba.Storage/blockStorages/{id}` |
 | delete | DELETE | `/projects/{projectId}/providers/Aruba.Storage/blockStorages/{id}` |
 
-status fields: `metadata.id` · excluded from spec: `id`
+status fields: `metadata.id, status.failureReason` · excluded from spec: `id`
 
 Configuration query params: `api-version, filter, includeDeleted, limit, offset, projection, sort`
 
@@ -64,7 +64,7 @@ Sample: [`samples/storage/blockstorage.yaml`](../../samples/storage/blockstorage
 | update | PUT | `/projects/{projectId}/providers/Aruba.Storage/backups/{backupId}/restores/{id}` |
 | delete | DELETE | `/projects/{projectId}/providers/Aruba.Storage/backups/{backupId}/restores/{id}` |
 
-status fields: `metadata.id` · excluded from spec: `id`
+status fields: `metadata.id, status.failureReason` · excluded from spec: `id`
 
 Configuration query params: `api-version, filter, includeDeleted, limit, offset, projection, sort`
 
@@ -80,7 +80,7 @@ Sample: [`samples/storage/restore.yaml`](../../samples/storage/restore.yaml) · 
 | update | PUT | `/projects/{projectId}/providers/Aruba.Storage/snapshots/{id}` |
 | delete | DELETE | `/projects/{projectId}/providers/Aruba.Storage/snapshots/{id}` |
 
-status fields: `metadata.id` · excluded from spec: `id`
+status fields: `metadata.id, status.failureReason` · excluded from spec: `id`
 
 Configuration query params: `api-version, filter, includeDeleted, limit, offset, projection, sort`
 

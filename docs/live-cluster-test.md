@@ -2357,16 +2357,35 @@ to this provider, so generation refuses it. Set spec.resource.kind to a name tha
 collide (for example a vendor prefix such as "ArubacloudJob")
 ```
 
-The RestDefinition goes `Synced=False`, no CRD is minted and no controller starts, so
-`schedule/Job` — **GA** in the coverage table — ceases to exist on upgrade. At the
-pinned 0.27.1 it works, so nothing is broken today.
+**Corrected 2026-10-26, before acting on it.** The first version of this section said
+`Job` "ceases to exist on upgrade". That is wrong, and the error was generalising from
+the only case this cluster could show me: `aruba-nfb` was a *fresh* cluster. The guard
+is asymmetric, in `restdefinition.go:1361-1377`:
+
+- **fresh install**, no CRD yet → refuses. `Synced=False`, no CRD, no controller. This
+  is what we hit.
+- **upgrade** where `jobs.arubacloud.ogen.krateo.io` already exists → a
+  `BuiltInNameCollisionExisting` warning event, and generation **continues**. The CRD
+  and controller keep working.
+
+The asymmetry is deliberate and the event message says why: refusing on an existing
+CRD would block every future update without removing the collision, and renaming the
+kind destroys that CRD's existing resources. So existing installations upgrade fine
+and no one's `Job` resources are destroyed. What breaks is **new installs**, plus a
+permanent warning event on a GA resource — which is still not a place to sit, but it
+is not a race against a release cut.
 
 All 34 kinds were checked against the built-ins; `Job` is the only collision. The
 guard is correct — two groups claiming `jobs` genuinely breaks `kubectl get jobs` for
-the built-in — so the fix is a rename on our side: one `KIND_MAP` entry plus a
-regenerate, touching 16 files. **`ScheduledJob`** reads better than the message's
-suggested `ArubacloudJob`: the resource is a scheduled poweron/poweroff task under
-`Aruba.Schedule`, and the group already carries the vendor. Renaming before GA costs
-nothing; renaming after costs every user their CRs.
+the built-in — so the fix is a rename on our side.
 
-Not applied — it is a user-facing kind rename.
+**Done: `schedule/Job` is now `schedule/ScheduledJob`.** `ArubacloudJob`, which the
+guard's own message suggests, stutters against a group that already reads
+`arubacloud.ogen.krateo.io`; the resource is a scheduled poweron/poweroff task under
+`Aruba.Schedule`, so `ScheduledJob` says what it is. One `KIND_MAP` entry drives the
+rename; `restdefinitions/schedule/job.yaml` → `scheduledjob.yaml`, the sample pair,
+the `job-config` → `scheduledjob-config` configuration reference in both chains, and
+the generated provider docs follow from a regenerate.
+
+Renaming before GA costs nothing. Renaming after costs every user their CRs, because
+a kind rename means a new CRD and the old one's resources do not come with it.

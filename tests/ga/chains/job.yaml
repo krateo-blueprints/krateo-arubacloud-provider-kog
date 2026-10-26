@@ -18,10 +18,10 @@ vars:
 residue:
   - /projects/${PROJECT}/providers/Aruba.Schedule/jobs
 resources:
-  - kind: Job
+  - kind: ScheduledJob
     name: ga-job
     spec:
-      configurationRef: {name: job-config, namespace: default}
+      configurationRef: {name: scheduledjob-config, namespace: default}
       projectId: "${PROJECT}"
       metadata:
         name: ga-job

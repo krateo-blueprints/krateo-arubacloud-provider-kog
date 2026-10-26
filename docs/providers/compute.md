@@ -32,7 +32,7 @@ timestamp: 2026-09-28T00:00:00Z
 | update | *(delegated)* | RESTAction `arubacloud-compute-cloudserver-update` |
 | delete | *(delegated)* | RESTAction `arubacloud-compute-cloudserver-delete` |
 
-status fields: `metadata.id` · excluded from spec: `cloudServerId`
+status fields: `metadata.id, status.failureReason` · excluded from spec: `cloudServerId`
 
 Configuration query params: `api-version, filter, limit, offset, projection, sort`
 
@@ -47,7 +47,7 @@ Sample: [`samples/compute/cloudserver.yaml`](../../samples/compute/cloudserver.y
 | create | POST | `/projects/{projectId}/providers/Aruba.Compute/keyPairs` |
 | delete | DELETE | `/projects/{projectId}/providers/Aruba.Compute/keyPairs/{keyPairId}` |
 
-status fields: `metadata.id` · excluded from spec: `keyPairId`
+status fields: `metadata.id, status.failureReason` · excluded from spec: `keyPairId`
 
 Configuration query params: `api-version, filter, limit, offset, projection, sort`
 

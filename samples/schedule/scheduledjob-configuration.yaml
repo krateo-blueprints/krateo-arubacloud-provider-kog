@@ -1,7 +1,7 @@
 apiVersion: arubacloud.ogen.krateo.io/v1alpha1
-kind: JobConfiguration
+kind: ScheduledJobConfiguration
 metadata:
-  name: job-config
+  name: scheduledjob-config
   namespace: default
 spec:
   authentication:

@@ -229,7 +229,7 @@ TIERS = {
         "account. It is kept for testing a *fix* to the delete path — "
         "[live-cluster-test](live-cluster-test.md)",
     ),
-    ("schedule", "Job"): (
+    ("schedule", "ScheduledJob"): (
         "ga",
         "full lifecycle live incl. drift correction and an API-verified delete, "
         "against a real CloudServer (2026-10-22). Run it with "
@@ -535,6 +535,17 @@ TIERS = {
         "vpc/subnets/securityGroups/bootVolume/elasticIp in one call, and that "
         "document is a second OAS — "
         "[oasgen-provider#108](https://github.com/krateo-platformops/oasgen-provider/issues/108). "
+        "**#108 is half-shipped and this is a standing limitation, not an imminent "
+        "fix** ([#220](https://github.com/krateo-platformops/oasgen-provider/issues/220), "
+        "confirmed open, real and unranked with nobody working it as of 2026-10-26): "
+        "oasgen generates the CRD from both documents — the live CRD carries "
+        "`flavorName`, `bootVolume`, `vpcPreset`, `subnets`, `securityGroups`, "
+        "`userData` and `keyPair`, which exist only in 1.1 — but RDC reads only "
+        "`spec.oasPath`, so a per-verb `oasPath` is never honoured and create fails "
+        "with `operation not found: POST`. Note this is invisible on a released "
+        "stack: the shipped RestDefinition declares no per-verb `oasPath`, so the "
+        "shipped CRD's spec is exactly `configurationRef`, `metadata`, `projectId` "
+        "and no user is offered a field they cannot set. "
         "Undeclared constraints the OAS does not state: the boot volume must be "
         "`bootable: true` **with** an image, and `securityGroups` is **required** "
         "(`GenericResource: securityGroup cannot be null`) though the request schema "

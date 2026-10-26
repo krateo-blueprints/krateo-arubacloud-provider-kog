@@ -1,17 +1,17 @@
 apiVersion: arubacloud.ogen.krateo.io/v1-0-0
-kind: Job
+kind: ScheduledJob
 metadata:
-  name: example-job
+  name: example-scheduledjob
   namespace: default
   annotations:
     krateo.io/connector-verbose: 'true'
 spec:
   configurationRef:
-    name: job-config
+    name: scheduledjob-config
     namespace: default
   projectId: REPLACE
   metadata:
-    name: example-job
+    name: example-scheduledjob
     location: {}
     tags: []
   properties:

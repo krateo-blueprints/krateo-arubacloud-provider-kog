@@ -25,11 +25,11 @@ resources:
         retentionDays: 1
         time: 02:00:00
   drift: /projects/${PROJECT}/providers/Aruba.Schedule/backupPolicies/${id:self}
-- kind: Job
+- kind: ScheduledJob
   name: ga-job
   spec:
     configurationRef:
-      name: job-config
+      name: scheduledjob-config
       namespace: default
     projectId: ${PROJECT}
     metadata:

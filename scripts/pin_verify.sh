@@ -252,10 +252,12 @@ say "applying the generated Configurations (and ONLY those)"
 # and samples/arubacloud-token-secret.yaml, which would clobber the Secret ESO owns.
 # Only the 34 *-configuration.yaml objects are wanted here.
 # A missing CRD is NOT fatal here, and insisting it was cost a whole run: oasgen 0.32.0
-# refuses to generate `Job`, whose plural collides with batch/jobs (oasgen#200), so
-# job-configuration.yaml can never apply on that stack and `|| die` aborted before the
-# chain -- for a resource the chain does not use. Each failure is named instead, and the
-# run only dies if a configuration THIS CHAIN references is among them.
+# refused to generate `Job`, whose plural collides with batch/jobs (oasgen#200), so
+# job-configuration.yaml could never apply on a FRESH cluster and `|| die` aborted
+# before the chain -- for a resource the chain does not use. That particular collision
+# is gone (the kind is `ScheduledJob` now), but the hazard is not: any resource oasgen
+# declines to generate takes the whole run down with it. Each failure is named instead,
+# and the run only dies if a configuration THIS CHAIN references is among them.
 applied=0 missing=""
 while IFS= read -r f; do
   if kubectl --context "$CTX" apply -n default -f "$f" >/dev/null 2>&1; then

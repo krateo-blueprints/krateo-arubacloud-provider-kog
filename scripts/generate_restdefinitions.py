@@ -57,7 +57,14 @@ KIND_MAP = {
     "dbaas": "Dbaas", "databases": "Database", "users": "DatabaseUser", "grants": "Grant",
     "kms": "Kms", "keys": "Key", "kmip": "Kmip",
     "backupPolicies": "BackupPolicy", "backupPolicyAssignments": "BackupPolicyAssignment",
-    "jobs": "Job", "alertRules": "AlertRule",
+    # NOT "Job": the plural `jobs` collides with the built-in batch/jobs, which makes
+    # `kubectl get jobs <name>` ambiguous for the BUILT-IN resource. oasgen refuses to
+    # mint such a CRD from 0.32.0 (#200, 9801a69) -- hard on a FRESH install (no CRD,
+    # no controller, Synced=False) and a permanent BuiltInNameCollisionExisting warning
+    # event where the CRD already exists. `ScheduledJob` rather than the message's
+    # suggested `ArubacloudJob`: the resource is a scheduled poweron/poweroff task
+    # under Aruba.Schedule, and the group already carries the vendor.
+    "jobs": "ScheduledJob", "alertRules": "AlertRule",
     "blockStorages": "BlockStorage", "snapshots": "Snapshot", "restores": "Restore",
     "backups": "Backup", "hpcs": "Hpc", "folders": "Folder", "projects": "Project",
 }
@@ -597,6 +604,8 @@ def build(provider, spec):
             updatableScope=(needs_updatable_scope(spec, coll, put_op[0])
                             if (has_create and put_op) else False),
             respMeta=(response_is_meta_wrapped(spec, coll) if has_list else False),
+            respFailure=(response_has_failure_reason(spec, coll)
+                         if has_list else False),
             get_q=query_params(spec, get_op[0], "get") if get_op else [],
             list_q=query_params(spec, coll, "get") if has_list else [],
         ))
@@ -661,6 +670,45 @@ def response_is_meta_wrapped(spec, coll):
             return True                  # could not resolve -> do not second-guess
         return "metadata" in iprops
     return True
+
+
+def response_has_failure_reason(spec, coll):
+    """True when the findby item's `status` is an OBJECT declaring `failureReason`.
+
+    The API says why a resource failed and nothing surfaced it: StatusResponseDto
+    declares `failureReason` (string, nullable) in all ten provider documents, it is
+    null on a healthy resource and populated on a failed one, and no RestDefinition
+    mapped it -- so every provisioning failure reached a CR as a resource that simply
+    never converged, with the reason sitting unread in the body the controller had
+    already fetched. Measured 2026-10-25: a Kms went Failed with
+    `failureReason: "Ecommerce"` while the CR said only `Creating`.
+
+    Guarded on the response rather than added everywhere, because `status` is NOT an
+    object on every resource: security/keys and security/kmip return it as a bare
+    string ("Deleted", "CertificateAvailable"). Declaring `status.failureReason`
+    there would put a path in the CRD's status schema that cannot resolve against the
+    OAS. RDC itself tolerates a missing field at runtime -- populateStatusFields
+    skips a path it cannot find -- but the generated schema is built from these same
+    paths, so the check belongs here.
+    """
+    op = (spec.get("paths", {}).get(coll) or {}).get("get")
+    if not op:
+        return False
+    for cv in ((op.get("responses", {}).get("200") or {}).get("content") or {}).values():
+        sch = deref(spec, cv.get("schema", {}))
+        props, _ = merged_props(spec, sch)
+        # Not every collection answers with a {total, values:[...]} envelope:
+        # compute/keyPairs returns the {metadata, status, properties} object itself.
+        # Falling through to an empty item there silently decided "no failureReason"
+        # for a resource that has one, which is the quiet-miss this check exists to
+        # avoid -- so with no envelope key, the response schema IS the item.
+        item = deref(spec, (props.get("values") or props.get("value") or {})) or sch
+        item = deref(spec, item.get("items", {})) if item.get("type") == "array" else item
+        iprops, _ = merged_props(spec, item)
+        st = deref(spec, iprops.get("status") or {})
+        sprops, _ = merged_props(spec, st)
+        return "failureReason" in sprops
+    return False
 
 
 def response_id_field(spec, coll):
@@ -846,6 +894,13 @@ def render(r):
             resource["additionalStatusFields"] = ["metadata.id"]
         else:
             resource["identifiers"] = ["name"]
+
+    # Appended LAST, and append-only is not incidental: AdditionalStatusFields carries
+    # a CEL rule allowing new entries at the end but no removal, rename or reorder of
+    # existing ones once the CRD has been generated. Putting it anywhere but the end
+    # would make this an immutable-field rejection on every existing cluster.
+    if r.get("respFailure"):
+        resource.setdefault("additionalStatusFields", []).append("status.failureReason")
 
     if ov.get("compareScope"):
         # An explicit scope is a statement about an API the derivation cannot see --

@@ -50,7 +50,7 @@ Sample: [`samples/database/database.yaml`](../../samples/database/database.yaml)
 | create | POST | `/projects/{projectId}/providers/Aruba.Database/backups` |
 | delete | DELETE | `/projects/{projectId}/providers/Aruba.Database/backups/{id}` |
 
-status fields: `metadata.id` · excluded from spec: `id`
+status fields: `metadata.id, status.failureReason` · excluded from spec: `id`
 
 Configuration query params: `api-version, filter, limit, offset, projection, sort`
 
@@ -85,7 +85,7 @@ Sample: [`samples/database/databaseuser.yaml`](../../samples/database/databaseus
 | update | PUT | `/projects/{projectId}/providers/Aruba.Database/dbaas/{id}` |
 | delete | DELETE | `/projects/{projectId}/providers/Aruba.Database/dbaas/{id}` |
 
-status fields: `metadata.id` · excluded from spec: `id`
+status fields: `metadata.id, status.failureReason` · excluded from spec: `id`
 
 Configuration query params: `api-version, filter, ignoreDeletedStatus, limit, offset, projection, sort`
 

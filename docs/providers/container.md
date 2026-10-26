@@ -33,7 +33,7 @@ timestamp: 2026-09-28T00:00:00Z
 | update | PUT | `/projects/{projectId}/providers/Aruba.Container/kaas/{id}` |
 | delete | DELETE | `/projects/{projectId}/providers/Aruba.Container/kaas/{id}` |
 
-status fields: `metadata.id` · excluded from spec: `id`
+status fields: `metadata.id, status.failureReason` · excluded from spec: `id`
 
 Configuration query params: `api-version, filter, ignoreDeletedStatus, limit, offset, projection, sort`
 
@@ -49,7 +49,7 @@ Sample: [`samples/container/kaas.yaml`](../../samples/container/kaas.yaml) · [`
 | update | PUT | `/projects/{projectId}/providers/Aruba.Container/kaas/{kaasId}/backups/{id}` |
 | delete | DELETE | `/projects/{projectId}/providers/Aruba.Container/kaas/{kaasId}/backups/{id}` |
 
-status fields: `metadata.id` · excluded from spec: `id`
+status fields: `metadata.id, status.failureReason` · excluded from spec: `id`
 
 Configuration query params: `api-version, filter, ignoreDeletedStatus, limit, offset, projection, sort`
 
@@ -67,7 +67,7 @@ Sample: [`samples/container/kaasbackup.yaml`](../../samples/container/kaasbackup
 | update | PUT | `/projects/{projectId}/providers/Aruba.Container/registries/{id}` |
 | delete | DELETE | `/projects/{projectId}/providers/Aruba.Container/registries/{id}` |
 
-status fields: `metadata.id` · excluded from spec: `id`
+status fields: `metadata.id, status.failureReason` · excluded from spec: `id`
 
 Configuration query params: `api-version, filter, ignoreDeletedStatus, limit, loadHarborVersion, offset, projection, sort`
 

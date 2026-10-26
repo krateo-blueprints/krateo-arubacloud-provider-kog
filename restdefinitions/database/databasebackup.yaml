@@ -13,6 +13,7 @@ spec:
     - metadata.id
     additionalStatusFields:
     - metadata.id
+    - status.failureReason
     compareScope: identifiersAndStatus
     excludedSpecFields:
     - id
