@@ -1970,7 +1970,7 @@ scope that drops `id` without breaking either URL construction or the status map
 A `responseTransform` cannot help for the same reason: the response's `id` is what
 populates status.
 
-### The finalizer releases by the fallback, not by the feature — oasgen#218
+### The finalizer released by the fallback, not by the feature — oasgen#218, fixed and verified live
 
 Kmip is a tombstone resource: after a successful DELETE it vanishes from its own
 collection, including with `includeDeleted=true`, while `GET` on its id still answers
@@ -1999,6 +1999,65 @@ exercises either caller.
 This repository's chain verifies the tombstone against the API itself, which is how
 the discrepancy surfaced at all: the chain could prove the resource was gone while
 the controller could not.
+
+#### Verified live on the fix, 2026-10-25
+
+Fixed in oasgen `f97b150` (PR #219) and exercised end to end on a cluster built
+entirely from the fix branch — both images and both charts from `f9c1b70` in a
+detached worktree, so there is no released-oasgen-with-newer-RDC skew to argue about.
+`REST_CONTROLLER_DEBUG=true` in every generated controller, because all three outcomes
+of this code path log at debug and from outside the cluster a verified teardown and a
+fallback-trusted one are indistinguishable.
+
+The Kmip took 102 minutes from create to released finalizer, almost all of it waiting
+on Aruba:
+
+```
+InCreation            (35 min — DELETE answers 400, the state-refusal convention)
+CertificateAvailable  (two DELETEs answer 500)
+Deleting
+Deleted               (tombstone)
+```
+
+`CertificateAvailable`, **not** `Active`, is this resource's healthy state. Anything
+that fills in `successValues` by analogy with the other providers is wrong here.
+
+The body the predicate was finally handed:
+
+```json
+{"id":"9e719afb-97fc-4abd-b84c-cc57ac2d3c39","name":"ga-kmip","type":"KmipVpc",
+ "status":"Deleted","creationDate":"2026-10-25T10:35:06.451+00:00",
+ "deletionDate":"2026-10-25T12:17:32.925+00:00"}
+```
+
+and the two controller lines, consecutive, in the same millisecond:
+
+```
+12:17:33.054 DEBUG Get returned 200 but notFoundBody reports the resource absent; treating as deleted
+12:17:33.054 INFO  Delete returned an error but the external resource is verifiably absent; releasing finalizer
+                   deleteError: "unexpected status: 400: invalid status code: 400"
+```
+
+The second line is the proof, not the first. The DELETE **errored** and the finalizer
+was released anyway, which is only reachable through the verified-absent branch: the
+fallback requires either a successful delete or no get verb, and neither held. Counted
+rather than eyeballed — exactly **1** occurrence of the first message in the whole
+controller log, against **355** of `External resource still present after delete;
+holding finalizer` before it. A non-zero count alone would not have distinguished
+"fired" from "fired on every poll".
+
+This is the wedge, reproduced and then cleared. On every released version 0.23.0
+through 0.32.0 this exact situation holds the finalizer **forever**: DELETE 400, the
+predicate errors on the `restclient.Response` wrapper, the result degrades to
+*unverifiable*, `if deleteErr != nil { return deleteErr }`, and the Kmip answers 200
+for the rest of time so no later poll ever escapes.
+
+Two caveats on what this run does and does not show. The verdict was **called too
+early once**: at `InCreation` the hung delete looked like a predicate failure, and it
+was not — the resource genuinely was still present and holding was correct. And a run
+that stopped there would have proved nothing either way, because with the DELETE
+failing the *old* code also held, via the unverifiable branch. Same outcome, different
+reasoning. Only the tombstone separates them.
 
 ## Folder reaches GA — 27 (2026-10-23)
 
@@ -2204,3 +2263,110 @@ DELETE had already gone out, so `ga-bpa-policy-b` is `Deleting` too, but
 **`ga-bpa-vol` is alive** — Aruba support now has one wedged assignment whose
 referenced resource still exists, next to one whose does not. That contrast is worth
 more than a clean account here.
+
+## `status.failureReason` exists, and we have never surfaced it (2026-10-26)
+
+Found while a KMS refused to provision three times running. The API says why a
+resource failed, in a field declared in **all ten** provider documents:
+
+```
+components.schemas.StatusResponseDto.properties.failureReason
+  {"type": "string", "nullable": true}
+```
+
+It is `null` on a healthy resource and populated on a failed one. No RestDefinition in
+this repository maps it, so every provisioning failure reaches a CR as a resource that
+simply never converges, with the reason sitting unread in the response body the
+controller already fetched.
+
+```
+POST /projects/{project}/providers/Aruba.Security/kms?api-version=1.0
+{"metadata":{"location":{"value":"ITBG-Bergamo"},"name":"ga-kms","tags":[]},
+ "properties":{"billingPeriod":"Hour"}}
+→ 201 Created, status.state = InCreation
+… 112s later: status.state = Failed, status.failureReason = "Ecommerce"
+```
+
+**This corrects an earlier claim in this document and in the support draft** that the
+Registry and KaasBackup failures came "with no diagnostic". They may well have carried
+one; we were not reading the field. What those two held is unknown and now
+unrecoverable — both resources are long deleted.
+
+### `Ecommerce` is intermittent, not an entitlement
+
+Four KMS creates with an identical body on 2026-10-25:
+
+| # | Outcome | Time | `failureReason` |
+|---|---|---|---|
+| 1 | `Failed` | 112s | `Ecommerce` |
+| 2 | **`Active`** | 60s | — |
+| 3 | `Failed` | 429s | `Ecommerce` |
+| 4 | **`Active`** | <60s | — |
+
+A 20 GB `blockStorages` created between #1 and #2 provisioned normally in 75s and
+deleted clean, so the account was able to purchase throughout. An earlier reading of
+this as "the trial can no longer buy KMS" was wrong and was retracted within the hour;
+two of four succeeding is flakiness, not an entitlement boundary.
+
+### Surfacing it is cheap, and the mechanism permits it
+
+Checked against the controller source rather than assumed:
+
+- `AdditionalStatusFields` carries a CEL rule making it **append-only** — new entries
+  at the end are explicitly allowed, unlike `configurationFields`, which is immutable
+  once the CRD exists.
+- `populateStatusFields` skips a path it cannot find (`if err != nil || !found {
+  continue }`), so adding it costs nothing on the resources that never fail.
+- **No OAS change is needed** — the field is already declared. The destination path
+  mirrors the source, so it lands at `status.status.failureReason` on the CR. Lifting
+  it to a top-level key with a `responseTransform` would read better but needs a key
+  the OAS does not declare, and the CRD's status schema is built from these same paths.
+
+Not applied. It touches every RestDefinition and is a product decision.
+
+## `DELETE` returning 2xx means very little on this API (2026-10-26)
+
+Three independent observations, all on 2026-10-25, which together say the delete
+response carries almost no information about whether the delete took:
+
+- a healthy `kms` with **no keys** needed **three** `DELETE`s over ~23 minutes. Each
+  answered `202`. After the first two it still read `state: Active` — not even
+  `Deleting`, so nothing was in progress — and it was gone within a minute of the third.
+- the `kmip` above answered `400` while `InCreation`, then **`500` twice** at
+  `CertificateAvailable`, and moved to `Deleting` anyway. The progression
+  400 → 500 → `Deleting` → tombstone is the evidence; the 500 alone is not.
+- a `Failed` registry has long been known to need its `DELETE` issued twice (the first
+  returns `202` and leaves the resource in place).
+
+This is the premise of [oasgen#111](https://github.com/krateo-platformops/oasgen-provider/issues/111)
+from the other direction, and the argument for `resolveDeleteOutcome` treating the
+observe verb as the only ground truth: a 2xx here is not a promise, and a 5xx is not a
+refusal.
+
+## oasgen 0.32.0 refuses to generate `Job` (2026-10-26)
+
+Not a regression in our definitions — a guard we collide with. `9801a69`
+([oasgen#200](https://github.com/krateo-platformops/oasgen-provider/issues/200)),
+first released in **0.32.0**:
+
+```
+create failed: generated resource name "jobs" (kind "Job", CRD "jobs.arubacloud.ogen.krateo.io")
+is already served by the built-in API group(s) batch; two groups claiming one name makes
+`kubectl get jobs <name>` ambiguous for the BUILT-IN resource, breaking tooling unrelated
+to this provider, so generation refuses it. Set spec.resource.kind to a name that does not
+collide (for example a vendor prefix such as "ArubacloudJob")
+```
+
+The RestDefinition goes `Synced=False`, no CRD is minted and no controller starts, so
+`schedule/Job` — **GA** in the coverage table — ceases to exist on upgrade. At the
+pinned 0.27.1 it works, so nothing is broken today.
+
+All 34 kinds were checked against the built-ins; `Job` is the only collision. The
+guard is correct — two groups claiming `jobs` genuinely breaks `kubectl get jobs` for
+the built-in — so the fix is a rename on our side: one `KIND_MAP` entry plus a
+regenerate, touching 16 files. **`ScheduledJob`** reads better than the message's
+suggested `ArubacloudJob`: the resource is a scheduled poweron/poweroff task under
+`Aruba.Schedule`, and the group already carries the vendor. Renaming before GA costs
+nothing; renaming after costs every user their CRs.
+
+Not applied — it is a user-facing kind rename.

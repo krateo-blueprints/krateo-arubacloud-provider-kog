@@ -442,14 +442,24 @@ OVERRIDES = {
         # be assumed a string -- a non-boolean result is a reconcile error, and this
         # API is already known to omit declared fields conditionally (oasgen#152).
         #
-        # Keep this predicate even though, on every released version, it is the OBSERVE
-        # path that honours it and the DELETE path that cannot: RDC hands the delete
+        # On every RELEASED version (0.23.0 through 0.32.0) it is the OBSERVE path that
+        # honours this predicate and the DELETE path that cannot: RDC hands the delete
         # check the whole restclient.Response struct instead of the body, so the
         # program errors, the check degrades to "unverifiable", and the finalizer is
         # released by trusting the DELETE rather than by confirming the tombstone
-        # (oasgen#218, one line, present 0.23.0 through 0.32.0). The CR does delete
-        # cleanly -- for the adjacent reason. This repo's own chain verifies the
-        # tombstone against the API directly, which is how the discrepancy surfaced.
+        # (oasgen#218, one line). This repo's own chain verifies the tombstone against
+        # the API directly, which is how the discrepancy surfaced at all.
+        #
+        # FIXED in oasgen f97b150 (PR #219) and verified live here on 2026-10-25: the
+        # predicate matched a real tombstone and the finalizer was released BY it,
+        # with the DELETE still erroring 400 --
+        #   Get returned 200 but notFoundBody reports the resource absent
+        #   Delete returned an error but the external resource is verifiably absent;
+        #     releasing finalizer  deleteError: "unexpected status: 400"
+        # That is the wedge oasgen#111 was filed to remove, which was still fully in
+        # force on every release. On a released stack this predicate is dead code that
+        # costs nothing; from the fix on it is load-bearing, so it must stay correct.
+        # See docs/live-cluster-test.md.
         notFoundBody={"get": (
             'if (.status | type) == "string"\n'
             'then (.status | ascii_downcase) == "deleted"\n'

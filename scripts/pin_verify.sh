@@ -24,6 +24,7 @@ NODE_IMAGE="${NODE_IMAGE:-kindest/node:v1.33.12}"   # same pin as CI; see valida
 ESO_VERSION="${ESO_VERSION:-2.11.0}"               # as installed on the evidence cluster
 CLUSTER="${CLUSTER:-aruba-pin}"
 CTX="kind-${CLUSTER}"
+export CTX
 SRC_CTX="${SRC_CONTEXT:-kind-aruba-110}"           # where the credential already lives
 CHAIN="${CHAIN:-tests/ga/chains/network-security.yaml}"
 # The directory of RestDefinitions to apply. Point it at a prepared copy to try an
@@ -38,10 +39,53 @@ CHAIN="${CHAIN:-tests/ga/chains/network-security.yaml}"
 #   immutable, you cannot change them once the CRD has been generated
 # The experimental definition has to be the only one the cluster ever sees.
 RESTDEFS_DIR="${RESTDEFS_DIR:-restdefinitions/}"
+# Install the charts from a LOCAL directory and run LOCALLY BUILT images instead of
+# the released ones. Everything this script exists to prove depends on using neither,
+# so all three are empty by default and the log shouts when they are not.
+#
+# They exist for one job: testing an unreleased controller fix end to end against the
+# live API. oasgen#218 (notFoundBody never evaluated on the delete path) is only
+# observable that way -- the unit tests cover the helper, the fix is in the wiring,
+# and the predicate it switches on is ours.
+#
+# CHART_SRC is a directory holding oasgen-provider/ and oasgen-provider-crds/. The
+# repo's own Chart.yaml carries CHART_VERSION/APP_VERSION placeholders that are
+# substituted at release time, so a checkout cannot be installed as-is -- substitute
+# them in your copy first (helm rejects them as non-semver).
+#
+# PROVIDER_IMAGE and RDC_IMAGE take a full registry/repository:tag reference and are
+# loaded into the kind node with `kind load docker-image`, so pullPolicy is forced to
+# Never: with IfNotPresent a typo in the tag reaches the registry and the failure
+# looks like a network problem.
+CHART_SRC="${CHART_SRC:-}"
+PROVIDER_IMAGE="${PROVIDER_IMAGE:-}"
+RDC_IMAGE="${RDC_IMAGE:-}"
+# Turn on REST_CONTROLLER_DEBUG in every generated controller. The lines that prove
+# which branch of RDC's delete verification ran are all log.Debug, so without this a
+# clean teardown and a teardown that silently fell back to trusting the DELETE are
+# indistinguishable from the outside. It renders into each controller's ConfigMap via
+# rdc.env, so it reaches controllers oasgen generates later too.
+#
+# This dumps HTTP bodies. Safe from 0.26.1 on; below that the dump included the
+# Authorization header (oasgen#214), so do not set it on an older stack.
+RDC_DEBUG="${RDC_DEBUG:-0}"
 CHAIN_ARGS="${CHAIN_ARGS:-}"                       # e.g. --with-billable
 KEEP="${KEEP:-1}"
 
 say() { printf '\n=== %s ===\n' "$*"; }
+# Split registry/repository:tag into --set arguments for one of the chart's image
+# blocks ("image" or "rdc.image"). Appends to the HELM_SETS array.
+img_sets() {
+  local prefix="$1" ref="$2" reg repo tag
+  tag="${ref##*:}"
+  ref="${ref%:*}"
+  reg="${ref%%/*}"
+  repo="${ref#*/}"
+  HELM_SETS+=(--set "${prefix}.registry=${reg}"
+              --set "${prefix}.repository=${repo}"
+              --set "${prefix}.tag=${tag}"
+              --set "${prefix}.pullPolicy=Never")
+}
 die() { printf 'error: %s\n' "$*" >&2; exit 1; }
 
 cleanup() {
@@ -110,17 +154,47 @@ for i in $(seq 1 40); do
   [ "$i" = 40 ] && die "ESO never produced arubacloud-token -- check the credential"
 done
 
-say "installing oasgen-provider ${PIN} (RELEASED images, no overrides)"
+HELM_SETS=()
+if [ -n "$PROVIDER_IMAGE" ] || [ -n "$RDC_IMAGE" ]; then
+  say "loading locally built images into the kind node"
+  for ref in "$PROVIDER_IMAGE" "$RDC_IMAGE"; do
+    [ -n "$ref" ] || continue
+    kind load docker-image "$ref" --name "$CLUSTER" >/dev/null \
+      || die "kind load failed for ${ref} -- is it built?"
+    echo "    loaded ${ref}"
+  done
+  [ -n "$PROVIDER_IMAGE" ] && img_sets image "$PROVIDER_IMAGE"
+  [ -n "$RDC_IMAGE" ] && img_sets rdc.image "$RDC_IMAGE"
+fi
+if [ "$RDC_DEBUG" != "0" ]; then
+  # --set-string, not --set: the values schema types rdc.env as string=>string, and
+  # plain --set coerces `true` to a boolean, which the chart then rejects --
+  #   at '/rdc/env/REST_CONTROLLER_DEBUG': got boolean, want string
+  HELM_SETS+=(--set-string rdc.env.REST_CONTROLLER_DEBUG=true)
+fi
+
+if [ -n "$CHART_SRC" ]; then
+  say "installing oasgen-provider from ${CHART_SRC} -- NOT A RELEASED STACK"
+  echo "    overrides: ${HELM_SETS[*]:-none}"
+  CRDS_CHART="${CHART_SRC}/oasgen-provider-crds"
+  PROV_CHART="${CHART_SRC}/oasgen-provider"
+  VERSION_ARGS=()
+else
+  say "installing oasgen-provider ${PIN} (RELEASED images, no overrides)"
+  CRDS_CHART="oci://ghcr.io/krateo-platformops/charts/oasgen-provider-crds"
+  PROV_CHART="oci://ghcr.io/krateo-platformops/charts/oasgen-provider"
+  VERSION_ARGS=(--version "$PIN")
+fi
 # upgrade --install, not install: this script reuses an existing cluster when one is
 # already there, and a plain install then fails with "cannot re-use a name that is
 # still in use". The whole point is that it can be run again.
 helm --kube-context "$CTX" upgrade --install oasgen-provider-crds \
-  oci://ghcr.io/krateo-platformops/charts/oasgen-provider-crds \
-  --version "$PIN" --namespace krateo-system --create-namespace --wait \
+  "$CRDS_CHART" ${VERSION_ARGS[@]+"${VERSION_ARGS[@]}"} \
+  --namespace krateo-system --create-namespace --wait \
   || die "crds chart failed"
 helm --kube-context "$CTX" upgrade --install oasgen-provider \
-  oci://ghcr.io/krateo-platformops/charts/oasgen-provider \
-  --version "$PIN" --namespace krateo-system --wait --timeout 5m \
+  "$PROV_CHART" ${VERSION_ARGS[@]+"${VERSION_ARGS[@]}"} ${HELM_SETS[@]+"${HELM_SETS[@]}"} \
+  --namespace krateo-system --wait --timeout 5m \
   || die "provider chart failed"
 
 say "images actually running (this is the whole point of the exercise)"
@@ -177,10 +251,44 @@ say "applying the generated Configurations (and ONLY those)"
 # resource -- applying them would create live, billable resources on the account --
 # and samples/arubacloud-token-secret.yaml, which would clobber the Secret ESO owns.
 # Only the 34 *-configuration.yaml objects are wanted here.
-find samples -name '*-configuration.yaml' -print0 \
-  | xargs -0 -n1 -I{} kubectl --context "$CTX" apply -n default -f {} >/dev/null \
-  || die "configurations failed"
-echo "    applied $(find samples -name '*-configuration.yaml' | wc -l | tr -d ' ')"
+# A missing CRD is NOT fatal here, and insisting it was cost a whole run: oasgen 0.32.0
+# refuses to generate `Job`, whose plural collides with batch/jobs (oasgen#200), so
+# job-configuration.yaml can never apply on that stack and `|| die` aborted before the
+# chain -- for a resource the chain does not use. Each failure is named instead, and the
+# run only dies if a configuration THIS CHAIN references is among them.
+applied=0 missing=""
+while IFS= read -r f; do
+  if kubectl --context "$CTX" apply -n default -f "$f" >/dev/null 2>&1; then
+    applied=$((applied + 1))
+  else
+    missing="${missing} $(basename "$f")"
+  fi
+done < <(find samples -name '*-configuration.yaml' | sort)
+echo "    applied ${applied}"
+[ -n "$missing" ] && echo "    NOT applied (no CRD -- fatal only if the chain needs it):${missing}"
+python3 - "$CHAIN" <<'EOF' || die "a configuration this chain references did not apply"
+import sys, yaml
+chain = yaml.safe_load(open(sys.argv[1]))
+need = set()
+for r in chain.get("resources") or []:
+    ref = (r.get("spec") or {}).get("configurationRef") or {}
+    if ref.get("name"):
+        need.add((r["kind"], ref["name"]))
+import subprocess, os
+ctx = os.environ["CTX"]
+bad = []
+for kind, name in sorted(need):
+    rc = subprocess.run(["kubectl", "--context", ctx, "get",
+                         f"{kind.lower()}configurations.arubacloud.ogen.krateo.io",
+                         name, "-n", "default"],
+                        capture_output=True).returncode
+    if rc != 0:
+        bad.append(f"{kind}Configuration/{name}")
+if bad:
+    print("    MISSING, and the chain needs them: " + ", ".join(bad))
+    sys.exit(1)
+print(f"    all {len(need)} configurations this chain references are present")
+EOF
 
 say "running ${CHAIN} on the released stack"
 # CHAIN_ARGS carries flags through to the runner, e.g. --with-billable. Unquoted on
