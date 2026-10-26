@@ -2287,10 +2287,26 @@ POST /projects/{project}/providers/Aruba.Security/kms?api-version=1.0
 … 112s later: status.state = Failed, status.failureReason = "Ecommerce"
 ```
 
-**This corrects an earlier claim in this document and in the support draft** that the
-Registry and KaasBackup failures came "with no diagnostic". They may well have carried
-one; we were not reading the field. What those two held is unknown and now
-unrecoverable — both resources are long deleted.
+**This corrected an earlier claim in this document and in the support draft** that the
+Registry and KaasBackup failures came "with no diagnostic" — and then measurement
+corrected the correction. Probed directly against the API on 2026-10-26:
+
+| resource | time to `Failed` | `status.failureReason` |
+|---|---|---|
+| `security/kms` | 112s | **`"Ecommerce"`** |
+| `container/registries` | **1819s** | **`null`** |
+| `container/kaas/{id}/backups` | 1637s | being measured |
+
+So the original "no diagnostic" claim was right *for Registry* and wrong in general.
+The field works — it carried a real value for the KMS — and is simply empty on a
+genuine terminal failure elsewhere. The useful question is therefore not "why is there
+no diagnostic" but **why is it populated for one resource and null for another**,
+because a client cannot tell a retryable failure from a permanent one.
+
+One more thing fell out of the measurement, and it may matter more than the missing
+field: **1818s then 1819s**, one second apart across runs four days apart. That is not
+how a provisioning error behaves. It is how a **30-minute timeout** behaves, and what
+the registry spends those thirty minutes waiting for is probably the whole story.
 
 ### `Ecommerce` is intermittent, not an entitlement
 
