@@ -2294,8 +2294,8 @@ corrected the correction. Probed directly against the API on 2026-10-26:
 | resource | time to `Failed` | `status.failureReason` |
 |---|---|---|
 | `security/kms` | 112s | **`"Ecommerce"`** |
-| `container/registries` | **1819s** | **`null`** |
-| `container/kaas/{id}/backups` | 1637s | being measured |
+| `container/registries` | 1818s, then 1819s | **`null`** |
+| `container/kaas/{id}/backups` | 1637s, then 1826s | **`null`** |
 
 So the original "no diagnostic" claim was right *for Registry* and wrong in general.
 The field works — it carried a real value for the KMS — and is simply empty on a
@@ -2304,9 +2304,23 @@ no diagnostic" but **why is it populated for one resource and null for another**
 because a client cannot tell a retryable failure from a permanent one.
 
 One more thing fell out of the measurement, and it may matter more than the missing
-field: **1818s then 1819s**, one second apart across runs four days apart. That is not
-how a provisioning error behaves. It is how a **30-minute timeout** behaves, and what
-the registry spends those thirty minutes waiting for is probably the whole story.
+field: **all four failures land at roughly half an hour** — 1637s, 1818s, 1819s,
+1826s — across two different providers' sub-resources. None is a fast rejection. That
+is not how four independent provisioning errors behave; it is how a ~30-minute timeout
+behaves, and an empty `failureReason` is what a timeout has to report.
+
+**A correction, made before this left the building.** The first version of this
+paragraph said "1818s then 1819s, one second apart across runs four days apart" and
+inferred a timeout fixed to the second. That was over-reading the instrument: both
+figures come from probes polling at 15–30s intervals, so the true failure is anywhere
+in the 30s before detection and two samples landing a second apart is alignment, not
+precision. KaasBackup's pair — 1637s and 1826s, 189s apart — is what the same
+measurement looks like without the lucky alignment.
+
+This is the third time in this campaign that two samples have been read as a pattern:
+the BackupPolicyAssignment "15-minute cycle" and the "cascade, not a retry loop" were
+the others, and both died the same way. The range across four samples is the claim
+that survives, and it is still the useful one.
 
 ### `Ecommerce` is intermittent, not an entitlement
 
