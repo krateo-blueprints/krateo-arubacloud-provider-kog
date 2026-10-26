@@ -178,9 +178,35 @@ def wait_ready(kind, name):
         if r.stdout.strip() == "True":
             return True
         if time.time() >= deadline:
-            msg = kubectl("get", f"{kind}.{GROUP}", name, "-n", NS, "-o",
-                          "jsonpath={.status.conditions[*].message}").stdout
-            print(f"    TIMEOUT: {kind}/{name} never became Ready — {msg[:300]}", file=sys.stderr)
+            # Print everything the CR knows, not just the condition MESSAGE. A
+            # Registry run reported `TIMEOUT: ... never became Ready — ` with nothing
+            # after the dash, because the only condition was Creating and its message
+            # is empty: the output discarded the reason, the elapsed time and the
+            # whole status block, and so could not distinguish "this resource failed"
+            # from "TIMEOUT is shorter than this resource takes". It was the latter --
+            # Registry fails at ~1818s against a 420s default -- and that is exactly
+            # the defect this harness has now hit three times: a diagnostic that drops
+            # the one fact needed to read it.
+            conds = kubectl("get", f"{kind}.{GROUP}", name, "-n", NS, "-o",
+                            "jsonpath={range .status.conditions[*]}"
+                            "{.type}={.status}({.reason}): {.message}; {end}").stdout
+            st = kubectl("get", f"{kind}.{GROUP}", name, "-n", NS, "-o",
+                         "json").stdout
+            extra = ""
+            try:
+                status = (json.loads(st) or {}).get("status") or {}
+                rest = {k: v for k, v in status.items() if k != "conditions"}
+                if rest:
+                    extra = f"\n      status (minus conditions): {json.dumps(rest)[:400]}"
+            except Exception:
+                pass
+            print(f"    TIMEOUT: {kind}/{name} never became Ready after {TIMEOUT}s"
+                  f"\n      conditions: {conds.strip()[:400] or '(none reported)'}"
+                  f"{extra}"
+                  f"\n      NOTE: this is a TIMEOUT, not a terminal failure. Raise "
+                  f"TIMEOUT if the resource is still provisioning — Registry reaches "
+                  f"Failed at ~1818s and KaasBackup at ~1637s, both beyond the 420s "
+                  f"default.", file=sys.stderr)
             return False
         time.sleep(10)
 
