@@ -2376,6 +2376,18 @@ it and it costs nothing. The *measurement* of a failed resource does not depend 
 API directly sees it whatever the CRD says, which is how the Kms `Ecommerce` value was
 captured before any of this was declared.
 
+**Fixed upstream, written 2026-10-26, not yet released.** A four-line check in
+`Observe` beside the existing OAS-content one; `Update`'s half already compared the
+hash correctly and needed nothing. What this means for an upgrade here is specific
+and good: `status.resourceHash` shipped in oasgen **0.27.0** and this repo pins
+**0.27.1**, so our RestDefinitions already carry a populated hash. The first reconcile
+after the fix therefore reports drift once, regenerates the CRD — which is what
+finally applies the `status.failureReason` fields added above — and settles. Bounded
+and self-healing, not a loop. Only a RestDefinition created before 0.27.0 has an empty
+hash, and even that converges after one extra regeneration.
+
+Until that release lands, the asymmetry below stands.
+
 And the `Job` → `ScheduledJob` rename has a second, opposite-signed effect that is
 easy to miss: **a renamed kind is a new CRD, so it is minted fresh and does carry the
 new status fields.** `scheduledjobs` has `status.status.failureReason`; `registries`
