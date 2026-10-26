@@ -2349,11 +2349,38 @@ So **`failureReason` arrives on a fresh install and not on an upgrade**, and the
 way to force it onto an existing CRD is to delete the RestDefinition and recreate it,
 which destroys the CRD and every CR of that kind. Reported upstream.
 
-Two things follow for this repo. The change is still right — new installations get it
-and it costs nothing. And the *measurement* of a failed resource does not depend on
-it: `failureReason` is in the response body either way, so a chain or a probe reading
-the API directly sees it whatever the CRD says. That is how the Kms `Ecommerce` value
-was captured in the first place, before any of this was declared.
+Confirmed on a second field, with a controlled before/after rather than an inference.
+All 34 of our resources set `excludedSpecFields` (which is immutable, and mutually
+exclusive with the allowlist), so this needed a throwaway RestDefinition for a
+synthetic kind:
+
+```
+BEFORE  RD  generation 1   includedSpecFields ["metadata"]
+        CRD generation 1   spec: [configurationRef, keyPairId, metadata, projectId]
+        patch -> ["metadata","properties"]      (accepted; the CEL rule is happy)
+AFTER   RD  generation 2   includedSpecFields ["metadata","properties"]
+        CRD generation 1   spec: [configurationRef, keyPairId, metadata, projectId]
+        RD status: Ready=True  Synced=True
+```
+
+`properties` never appears. So it is not something about `additionalStatusFields` —
+both fields carry the same append-only rule, both are spec-only changes that alter
+the generated schema while the OAS is byte-identical, and both are inert. Upstream
+traced it to exactly that: `status.resourceHash` exists for this case and `Update`
+compares it correctly, but `Observe` never does, and the runtime only calls `Update`
+when `Observe` reports not-up-to-date ([oasgen#224](https://github.com/krateo-platformops/oasgen-provider/issues/224)).
+
+Three things follow for this repo. The change is still right — new installations get
+it and it costs nothing. The *measurement* of a failed resource does not depend on it:
+`failureReason` is in the response body either way, so a chain or a probe reading the
+API directly sees it whatever the CRD says, which is how the Kms `Ecommerce` value was
+captured before any of this was declared.
+
+And the `Job` → `ScheduledJob` rename has a second, opposite-signed effect that is
+easy to miss: **a renamed kind is a new CRD, so it is minted fresh and does carry the
+new status fields.** `scheduledjobs` has `status.status.failureReason`; `registries`
+cannot until #224 ships. Do not read "the rename is done" as "the status fields are
+live everywhere" — on an existing cluster it is the one resource where they are.
 
 ## `DELETE` returning 2xx means very little on this API (2026-10-26)
 
