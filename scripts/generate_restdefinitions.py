@@ -43,7 +43,11 @@ PROVIDER_KIND = {
 }
 
 # collections that look like a resource but are really action endpoints - skip.
-SKIP = {"schedule/executions"}
+# storage/associate-clients is GET+POST on .../images/{id}/associate-clients, which
+# passes the observability test (create AND list) and so reads as a resource. It is
+# not one: it is the Image's client-association list, it has no item path and no id
+# of its own, and `kind_for` turns it into the nonsense Kind `Associate-client`.
+SKIP = {"schedule/executions", "storage/associate-clients"}
 
 # seg -> Kind (CamelCase, singular). Only irregular singularisations listed;
 # the rest fall back to a naive de-pluraliser.

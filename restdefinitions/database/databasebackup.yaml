@@ -21,6 +21,12 @@ spec:
     - action: findby
       method: GET
       path: /projects/{projectId}/providers/Aruba.Database/backups
+    - action: get
+      method: GET
+      path: /projects/{projectId}/providers/Aruba.Database/backups/{id}
+      requestFieldMapping:
+      - inPath: id
+        inCustomResource: status.metadata.id
     - action: create
       method: POST
       path: /projects/{projectId}/providers/Aruba.Database/backups
@@ -67,3 +73,9 @@ spec:
       fromRestDefinition:
         actions:
         - findby
+    - fromOpenAPI:
+        name: ignoreDeletedStatus
+        in: query
+      fromRestDefinition:
+        actions:
+        - get

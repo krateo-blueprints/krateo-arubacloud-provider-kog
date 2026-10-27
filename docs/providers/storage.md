@@ -11,13 +11,14 @@ timestamp: 2026-09-28T00:00:00Z
 - **OpenAPI**: `Aruba.StorageProvider.Api` v1.0.0 (`openapi/storage-provider.json`, vendored unmodified — see [OAS policy](../oas-patches.md))
 - **Security scheme**: `Bearer` (HTTP Bearer)
 - **ConfigMap**: `arubacloud-storage-openapi` in `krateo-system`
-- **Resources**: 4
+- **Resources**: 5
 
 
 | Kind | Verbs | Identifier(s) | Delegation |
 |------|-------|---------------|------------|
 | `Backup` | findby, get, create, update, delete | `metadata.name` | — |
 | `BlockStorage` | findby, get, create, update, delete | `metadata.name` | — |
+| `Image` | findby, get, create, update, delete | `metadata.name` | — |
 | `Restore` | findby, get, create, update, delete | `metadata.name` | — |
 | `Snapshot` | findby, get, create, update, delete | `metadata.name` | — |
 
@@ -54,6 +55,22 @@ Configuration query params: `api-version, filter, includeDeleted, limit, offset,
 
 Sample: [`samples/storage/blockstorage.yaml`](../../samples/storage/blockstorage.yaml) · [`blockstorage-configuration.yaml`](../../samples/storage/blockstorage-configuration.yaml)
 
+## Image
+
+| Verb | Method | Path |
+|------|--------|------|
+| findby | GET | `/projects/{projectId}/providers/Aruba.Storage/images` |
+| get | GET | `/projects/{projectId}/providers/Aruba.Storage/images/{id}` |
+| create | POST | `/projects/{projectId}/providers/Aruba.Storage/images` |
+| update | PUT | `/projects/{projectId}/providers/Aruba.Storage/images/{id}` |
+| delete | DELETE | `/projects/{projectId}/providers/Aruba.Storage/images/{id}` |
+
+status fields: `metadata.id, status.failureReason` · excluded from spec: `id`
+
+Configuration query params: `api-version, filter, includeDeleted, limit, offset, projection, sort`
+
+Sample: [`samples/storage/image.yaml`](../../samples/storage/image.yaml) · [`image-configuration.yaml`](../../samples/storage/image-configuration.yaml)
+
 ## Restore
 
 | Verb | Method | Path |
@@ -85,3 +102,14 @@ status fields: `metadata.id, status.failureReason` · excluded from spec: `id`
 Configuration query params: `api-version, filter, includeDeleted, limit, offset, projection, sort`
 
 Sample: [`samples/storage/snapshot.yaml`](../../samples/storage/snapshot.yaml) · [`snapshot-configuration.yaml`](../../samples/storage/snapshot-configuration.yaml)
+
+## Endpoints not exposed as a resource
+
+Action-only, list-only or delegated endpoints (see [lifecycle-beyond-crud](../lifecycle-beyond-crud.md) and [coverage](../coverage.md)):
+
+| Method | Path | Summary |
+|--------|------|---------|
+| GET | `/projects/{projectId}/providers/Aruba.Storage/images/{id}/associate-clients` | Get associated users for an Image |
+| POST | `/projects/{projectId}/providers/Aruba.Storage/images/{id}/associate-clients` | Update associated users for an Image |
+| POST | `/projects/{projectId}/providers/Aruba.Storage/images/{id}/export` | Export image |
+| GET | `/providers/Aruba.Storage/templates/catalog/images` | List images |

@@ -84,4 +84,7 @@ Action-only, list-only or delegated endpoints (see [lifecycle-beyond-crud](../li
 | POST | `/projects/{projectId}/providers/Aruba.Container/kaas/{id}/nodePools/{nodePoolId}/nodes/{nodeId}/attach` | Attach Volume |
 | POST | `/projects/{projectId}/providers/Aruba.Container/kaas/{id}/nodePools/{nodePoolId}/nodes/{nodeId}/detach` | Detach a volume from a kaas node |
 | PUT | `/projects/{projectId}/providers/Aruba.Container/kaas/{id}/nodePools/{nodePoolName}` | Update kaas nodepool |
+| PATCH | `/projects/{projectId}/providers/Aruba.Container/registries/{id}` | Patch Registry |
 | PUT | `/projects/{projectId}/providers/Aruba.Container/registries/{id}/resetAdminPassword` | Update Admin Password Registry |
+| GET | `/providers/Aruba.Container/catalog/kaasFlavors` | List kaas flavors |
+| GET | `/providers/Aruba.Container/catalog/kubernetesVersions` | List kubernetes versions |

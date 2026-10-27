@@ -67,7 +67,7 @@ Sample: [`samples/schedule/backuppolicyassignment.yaml`](../../samples/schedule/
 
 status fields: `metadata.id, status.failureReason` · excluded from spec: `jobId`
 
-Configuration query params: `api-version, filter, limit, offset, projection, sort`
+Configuration query params: `api-version, filter, ignoreDeletedStatus, limit, offset, projection, sort`
 
 Sample: [`samples/schedule/scheduledjob.yaml`](../../samples/schedule/scheduledjob.yaml) · [`scheduledjob-configuration.yaml`](../../samples/schedule/scheduledjob-configuration.yaml)
 

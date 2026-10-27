@@ -71,3 +71,9 @@ spec:
       fromRestDefinition:
         actions:
         - findby
+    - fromOpenAPI:
+        name: ignoreDeletedStatus
+        in: query
+      fromRestDefinition:
+        actions:
+        - get

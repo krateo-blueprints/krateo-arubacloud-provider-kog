@@ -17,7 +17,7 @@ timestamp: 2026-09-28T00:00:00Z
 | Kind | Verbs | Identifier(s) | Delegation |
 |------|-------|---------------|------------|
 | `Database` | findby, get, create, delete | `name` | — |
-| `DatabaseBackup` | findby, create, delete | `metadata.id` | — |
+| `DatabaseBackup` | findby, get, create, delete | `metadata.id` | — |
 | `DatabaseUser` | findby, get, create, delete | `username` | — |
 | `Dbaas` | findby, get, create, update, delete | `metadata.name` | — |
 | `Grant` | findby, get, create, delete | `user.username` | — |
@@ -47,12 +47,13 @@ Sample: [`samples/database/database.yaml`](../../samples/database/database.yaml)
 | Verb | Method | Path |
 |------|--------|------|
 | findby | GET | `/projects/{projectId}/providers/Aruba.Database/backups` |
+| get | GET | `/projects/{projectId}/providers/Aruba.Database/backups/{id}` |
 | create | POST | `/projects/{projectId}/providers/Aruba.Database/backups` |
 | delete | DELETE | `/projects/{projectId}/providers/Aruba.Database/backups/{id}` |
 
 status fields: `metadata.id, status.failureReason` · excluded from spec: `id`
 
-Configuration query params: `api-version, filter, limit, offset, projection, sort`
+Configuration query params: `api-version, filter, ignoreDeletedStatus, limit, offset, projection, sort`
 
 Sample: [`samples/database/databasebackup.yaml`](../../samples/database/databasebackup.yaml) · [`databasebackup-configuration.yaml`](../../samples/database/databasebackup-configuration.yaml)
 
@@ -122,3 +123,5 @@ Action-only, list-only or delegated endpoints (see [lifecycle-beyond-crud](../li
 | GET | `/projects/{projectId}/providers/Aruba.Database/dbaas/{dbaasId}/users/{username}/grants` | List Grants by User |
 | GET | `/projects/{projectId}/providers/Aruba.Database/dbaas/{dbaasId}/users/{username}/grants/{databaseName}` | Get Grant by User |
 | PUT | `/projects/{projectId}/providers/Aruba.Database/dbaas/{dbaasId}/users/{username}/password` | Set Password |
+| GET | `/providers/Aruba.Database/catalog/dbaasengines` | List Dbaas Engine |
+| GET | `/providers/Aruba.Database/catalog/dbaasflavors` | List Dbaas flavor |
