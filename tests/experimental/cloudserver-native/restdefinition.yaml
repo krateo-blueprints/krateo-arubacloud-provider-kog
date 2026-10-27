@@ -1,5 +1,12 @@
 # EXPERIMENTAL — deliberately NOT in restdefinitions/, and must not be moved there
-# while the repository pins oasgen-provider 0.27.1.
+# while the repository pinned oasgen-provider 0.27.1.
+#
+# THE BLOCKER IS GONE as of the 0.34.0 pin: oasgen#227 carries a per-verb oasPath
+# through to the controller, which is the whole reason this file was quarantined.
+# It has NOT been promoted out of tests/experimental/ yet, deliberately: nothing
+# here has been exercised against a live API on 0.34.0, and CloudServer's create
+# is the one verb this repository has never once performed natively. Promoting it
+# needs a billable live run, not a version bump.
 #
 # CloudServer natively, with no Snowplow delegation: findby/get/delete from the 1.0
 # document and CREATE from the 1.1 one, via the per-verb `oasPath` override that

@@ -585,8 +585,7 @@ TIERS = {
         "then and is now superseded: oasgen-provider reports "
         "[#227](https://github.com/krateo-platformops/oasgen-provider/pull/227) merged "
         "on 2026-10-27, carrying per-verb `oasPath` through to the controller, and "
-        "heading for 0.34.0. We pin 0.27.1, so it stays a limitation for us until the "
-        "pin moves — a scheduling question now, not an engineering one): "
+        "and shipped in 0.34.0, which we now pin. The PROVIDER-SIDE blocker is therefore gone — but CloudServer create is still not wired here, and that is the honest state: the shipped RestDefinition declares no per-verb `oasPath`, and the one that does is quarantined under `tests/experimental/` because it has never been exercised against the live API. Create is the single verb this repository has never performed natively, so promoting it needs a billable live run, not a version bump): "
         "oasgen generates the CRD from both documents — the live CRD carries "
         "`flavorName`, `bootVolume`, `vpcPreset`, `subnets`, `securityGroups`, "
         "`userData` and `keyPair`, which exist only in 1.1 — but RDC reads only "
@@ -894,7 +893,8 @@ def make_cr(spec, prov, doc, apiver):
             # MEASURED, so nobody has to rediscover it:
             #   oasgen 0.22.2  flat is correct    (the old pin)
             #   oasgen 0.24.0  NESTED is correct  (kind-aruba-110)
-            #   oasgen 0.27.1  NESTED is correct  (the pin now)
+            #   oasgen 0.27.1  NESTED is correct  (the previous pin)
+            #   oasgen 0.34.0  NESTED is correct  (the pin now)
             #   oasgen 0.30.0  NESTED is correct  (kind-aruba-030)
             # Above 0.22.x the flat form is refused as `unknown field
             # "spec.metadata.name"` -- a message that reads identically whether the key

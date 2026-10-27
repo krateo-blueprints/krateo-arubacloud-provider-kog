@@ -42,10 +42,11 @@ PROVIDERS = {
 #    Pointer is not form data, so the lookup searched for `ApiKeyQuotasDto QuotaValue`
 #    and failed on a component that is plainly present. It fails in BuildV3Model,
 #    before generation runs, which is why no controller was ever created.
-#    Fix: krateo-platformops/libopenapi#2 (PathUnescape). Verified end to end against
-#    our real 45 KB document -- patched parser returns crds: 1, errors: [] -- but that
-#    PR is OPEN and the fork's newest tag is still v0.21.8, which is what oasgen pins.
-#    So no RELEASED oasgen build parses this document today.
+#    Fix: krateo-platformops/libopenapi#2 (PathUnescape), MERGED and tagged v0.21.9.
+#    Verified end to end against our real 45 KB document -- the patched parser returns
+#    crds: 1, errors: [], so the document builds a V3 model and not merely a passing
+#    unit test. But 0.34.0, which we now pin, shipped BEFORE the parser bump, so no
+#    RELEASED oasgen build parses this document yet. Restorable when one does.
 #    Also reported to Aruba as Arubacloud/api#25, framed as a consumer bug rather than
 #    a defect in their spec, because it is one.
 #

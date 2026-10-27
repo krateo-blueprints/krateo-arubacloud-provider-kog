@@ -116,27 +116,46 @@ patched OAS, every `requestFieldMapping.inPath` against the path parameters, eve
 
 ## Compatibility
 
-These manifests require **oasgen-provider ≥ 0.23.0**, and are validated against
-**0.27.1** (see [Usage](usage.md#prerequisites)). It is no longer a fork:
+These manifests require **oasgen-provider >= 0.34.0**, which is also what CI
+validates (see [Usage](usage.md#prerequisites)). It is no longer a fork:
 rest-dynamic-controller and both charts live in the oasgen-provider monorepo, and the
 chart derives the RDC image tag from its own `appVersion`, so the two cannot drift
 apart.
 
-0.22.2 used to be the floor, for three fixes this repository found and verified live —
-read-only identifiers (#75), empty-array drift (#76) and delete verification (#77,
-plus the #98 regression fix that made it usable). Below that, resources are silently
-unenforceable or undeletable.
+**This release raises the Kubernetes floor to 1.36.** Measured from the published
+charts rather than inferred:
 
-The floor is now **0.23.0**, because the samples emit dotted identifiers as nested
-objects (`metadata: {name: ...}`), which is what RDC reads and what #109 made the
-generator produce. On 0.22.x those samples are refused as `unknown field
-"spec.metadata.name"`. Only the two resources with a dotted selector are affected,
-LoadBalancer and CloudServer, but a sample that cannot be applied is not a sample.
+| oasgen-provider | `kubeVersion` |
+|---|---|
+| 0.27.1 (the previous pin) | `>=1.33.0-0` |
+| 0.34.0 | `>=1.36.0-0` |
 
-0.27.1 is what CI validates against: it is the top of the range that still installs
-on Kubernetes 1.33, and it adds envelope unwrapping (#146), jq-shaped request bodies
-(#148) and credential-header redaction (#166) over the old pin. 0.28.0 raises the
-chart floor to 1.36 (#178).
+The floor rose in chart 0.28.0 (oasgen#178), because version-scoped watching needs a
+MutatingAdmissionPolicy that 1.33-1.35 do not serve. On an older cluster Helm refuses
+the chart outright. That cost is passed to every user, and it was taken deliberately
+for two things that cannot be had otherwise:
+
+* **oasgen#227** — a per-verb `oasPath` finally reaches the controller. This is what
+  makes CloudServer's create reachable at all: the create endpoint exists only in
+  `compute-provider_v1.1.json`, and below 0.34.0 RDC reads only `spec.oasPath`, so
+  the verb fails with `operation not found: POST`.
+* **oasgen#225** — an appended `additionalStatusFields` entry now regenerates an
+  EXISTING CRD. Below it the append is accepted and silently does nothing, which
+  would have left our `status.error` mapping inert on every cluster that already had
+  these CRDs.
+
+Expect a **one-time CRD regeneration per RestDefinition** on upgrade. It is expected,
+it happens once, and it is what applies spec changes previously accepted and dropped.
+It runs on the next reconcile rather than at apply time, so on the default 3-minute
+poll an operator who applies and immediately inspects the CRD sees the old schema.
+That is not a failure.
+
+Earlier floors, kept because they explain why each one moved: 0.22.2 for read-only
+identifiers (#75), empty-array drift (#76) and delete verification (#77 plus the #98
+regression fix); 0.23.0 because the samples emit dotted identifiers as nested objects
+(#109), which 0.22.x refuses as `unknown field "spec.metadata.name"`; 0.27.1 for
+envelope unwrapping (#146), jq-shaped request bodies (#148) and credential-header
+redaction (#166).
 
 **A release must state the provider version it was validated against.** The CI gate
 pins it in one place (`OASGEN_VERSION` in `.github/workflows/validate.yaml`) and the

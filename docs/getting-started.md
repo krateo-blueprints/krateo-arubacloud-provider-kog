@@ -18,9 +18,9 @@ This walks through installing the provider and managing your first resource (a
 
   | chart | `kubeVersion` | effect |
   |-------|---------------|--------|
-  | ≤ 0.24.0 | none | installs anywhere; **this is what we pin** |
+  | ≤ 0.24.0 | none | installs anywhere |
   | 0.25.0 – 0.27.1 | `>=1.33.0-0` | excludes only versions already out of support |
-  | **0.28.0 +** | `>=1.36.0-0` | **excludes 1.33, 1.34 and 1.35, all currently supported** |
+  | **0.28.0 +** | `>=1.36.0-0` | **excludes 1.33, 1.34 and 1.35, all currently supported — this is what we pin** |
 
   The 1.33 bound came from CRD **validation ratcheting**, which is what lets a CR whose
   stored status no longer matches a tightened schema be rewritten instead of rejected.
@@ -37,11 +37,21 @@ This walks through installing the provider and managing your first resource (a
   green while reconciling no instance at all. Upstream's own framing, which is the right
   one: a refused install is the better failure.
 
-  > So **1.36+ for anything current**. We pin 0.27.1, whose charts declare
-  > `kubeVersion: '>=1.33.0-0'`, which is why this repo still verifies on 1.33 in CI.
-  > 0.28.0 is where the 1.36 floor lands, so taking it means raising `node_image` in
-  > the same commit — see the note on `node_image` in
-  > `.github/workflows/validate.yaml`.
+  > **You need Kubernetes 1.36 or newer.** We pin oasgen-provider 0.34.0, whose chart
+  > declares `kubeVersion: '>=1.36.0-0'`, and Helm refuses the chart on anything older.
+  > CI verifies on `kindest/node:v1.36.4`.
+  >
+  > This bound is newer than most clusters, and it was taken deliberately rather than
+  > inherited. Below 0.34.0 two things we depend on do not work: a per-verb `oasPath`
+  > never reaches the controller ([#227](https://github.com/krateo-platformops/oasgen-provider/pull/227)),
+  > which is what makes CloudServer's create reachable at all, and an appended
+  > `additionalStatusFields` entry is accepted but silently never regenerates an
+  > existing CRD ([#225](https://github.com/krateo-platformops/oasgen-provider/pull/225)),
+  > which would leave our `status.error` mapping inert on every cluster that already
+  > had these CRDs.
+  >
+  > If you are on 1.33–1.35 and cannot move, pin this repository at **0.2.0**, which
+  > validates against oasgen-provider 0.27.1 and installs on `>=1.33`.
 
 - The Krateo **oasgen-provider** and its rest-dynamic-controller, **≥ 0.21.1**.
 

@@ -19,8 +19,9 @@
 #   KEEP=0 scripts/pin_verify.sh     # delete the cluster afterwards
 set -uo pipefail
 
-PIN="${OASGEN_VERSION:-0.27.1}"
-NODE_IMAGE="${NODE_IMAGE:-kindest/node:v1.33.12}"   # same pin as CI; see validate.yaml
+PIN="${OASGEN_VERSION:-0.34.0}"
+NODE_IMAGE="${NODE_IMAGE:-kindest/node:v1.36.4}"    # same pin as CI; see validate.yaml
+                                                    # 1.36 is REQUIRED by chart 0.28.0+
 ESO_VERSION="${ESO_VERSION:-2.11.0}"               # as installed on the evidence cluster
 CLUSTER="${CLUSTER:-aruba-pin}"
 CTX="kind-${CLUSTER}"

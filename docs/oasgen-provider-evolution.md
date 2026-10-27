@@ -453,9 +453,14 @@ fork's Snowplow `*ApiRef` delegation rather than a bespoke web service.
 
 ---
 
-## Appendix — evidence for the 0.27.1 → 0.34.0 pin decision
+## Appendix — the 0.27.1 → 0.34.0 pin move, and the evidence behind it
 
-We pin oasgen-provider **0.27.1**. Two fixes we now depend on land above it:
+**The move was made.** We now pin **0.34.0**, and the Kubernetes floor rose from
+1.33 to 1.36 with it — a real cost passed to users, taken for the two fixes below.
+What follows is the evidence the decision rested on, kept because the reasoning is
+what makes it reviewable.
+
+We used to pin **0.27.1**. Two fixes we depend on land above it:
 [#225](https://github.com/krateo-platformops/oasgen-provider/pull/225) (the
 `resourceHash` gate, released in 0.33.0), which is what makes the
 `status.error` field appended on 2026-10-27 actually reach CRDs that already
