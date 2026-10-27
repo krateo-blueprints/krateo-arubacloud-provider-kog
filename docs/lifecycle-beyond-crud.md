@@ -162,7 +162,7 @@ For "give me a whole environment", use the **composition concept**: a
 `CompositionDefinition` registers a Helm chart whose templates render the
 single-purpose Aruba CRs together, from one set of inputs.
 
-- Chart: [`compositions/aruba-cloudserver-environment/`](../compositions/aruba-cloudserver-environment/)
+- Chart: [`compositions/aruba-network-environment/`](../compositions/aruba-network-environment/)
   renders a `Vpc`, `Subnet`, `SecurityGroup` and `CloudServer` plus their
   `*Configuration` resources, all parameterised by shared values
   (`projectId`, `location`, `name`, CIDRs, flavor…).

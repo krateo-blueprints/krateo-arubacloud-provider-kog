@@ -2,7 +2,7 @@
 type: API
 title: krateo-arubacloud-provider-kog — API
 description: The CRD contracts this blueprint relies on and produces — the RestDefinition CRD it authors, the CompositionDefinition CRD for whole-environment provisioning, and the per-resource CRDs oasgen-provider generates from them.
-resource: oci://ghcr.io/krateo-blueprints/charts/aruba-cloudserver-environment
+resource: oci://ghcr.io/krateo-blueprints/charts/aruba-network-environment
 tags: [api, crd, restdefinition, compositiondefinition, restaction]
 timestamp: 2026-08-11T00:00:00Z
 ---
@@ -100,7 +100,7 @@ times — "create only if absent"). See `restactions/compute/` and
 
 ## `CompositionDefinition` — `core.krateo.io/v1alpha1`
 
-Owned by **core-provider**. Registers the `aruba-cloudserver-environment` Helm
+Owned by **core-provider**. Registers the `aruba-network-environment` Helm
 chart as a Composition. Applying the definition generates a CRD; applying one
 instance of it provisions the whole environment from a single input set.
 
@@ -108,11 +108,11 @@ instance of it provisions the whole environment from a single input set.
 apiVersion: core.krateo.io/v1alpha1
 kind: CompositionDefinition
 metadata:
-  name: aruba-cloudserver-environment
+  name: aruba-network-environment
   namespace: krateo-system
 spec:
   chart:
-    url: oci://ghcr.io/krateo-blueprints/charts/aruba-cloudserver-environment
+    url: oci://ghcr.io/krateo-blueprints/charts/aruba-network-environment
     version: "0.1.0"
 ```
 

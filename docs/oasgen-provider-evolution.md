@@ -508,6 +508,29 @@ the comparison is demonstrably performed rather than inferred from an empty
 attributes nothing about it to the upgrade; generate it at both to separate
 "this document is new" from "this version changed it".
 
+### What upgrading actually does to existing CRDs
+
+oasgen-provider's 0.33.0 release note (amended in their #235 — point at the section
+on `main`, not the originally released text, which omitted this) records the
+behaviour we depend on:
+
+* appending to `additionalStatusFields` was accepted and **silently did nothing**
+  before #225, and `includedSpecFields` the same — which is why our
+  `status.error` append needs the pin to move to take effect;
+* on upgrade, expect a **one-time CRD regeneration per RestDefinition**. It is
+  expected, it happens once, and it is the thing that finally applies spec changes
+  previously accepted and dropped;
+* an appended entry now reaches an **existing** CRD: `resourceHash` covers the whole
+  of `spec.resource`, so the append changes it, `Observe` reports drift and `Update`
+  regenerates. No manual step and no delete-and-recreate — which matters, because
+  delete-and-recreate was previously the only route and it destroys the CRD and every
+  CR of that kind.
+
+One operational caveat worth repeating to anyone doing the upgrade: the regeneration
+happens on the **next reconcile**, not at apply time. On the default 3-minute poll, an
+operator who applies and immediately inspects the CRD sees the old schema and may
+conclude it is stuck. It is not.
+
 Reproduce the table with:
 
 ```sh

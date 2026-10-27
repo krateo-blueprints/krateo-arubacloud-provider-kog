@@ -50,7 +50,7 @@ VpnTunnel/VpnRoute.
 
 ### Experimental
 
-`compute/CloudServer` and the `aruba-cloudserver-environment` Composition — see
+`compute/CloudServer` and the `aruba-network-environment` Composition — see
 blocker P0-3 — and `network/LoadBalancer`, see P0-4.
 
 **P0-4 in detail.** The generator gives every read-only resource

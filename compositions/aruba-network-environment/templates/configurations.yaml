@@ -1,0 +1,24 @@
+{{/*
+  Per-kind Configuration objects. Everything that can drift from the generated CRDs
+  -- the Configuration apiVersion, the authentication shape, and which verbs this
+  resource actually accepts a query for -- comes from templates/_generated.tpl,
+  which scripts/gen_composition.py derives from the OAS and the RestDefinitions.
+
+  Typing any of them here is what broke the 0.2.0 chart: it sent authentication.bearer
+  to resources whose document declares apiKey, and query entries for CloudServer's
+  create/update/delete, which are delegated to RESTActions and are strict-decoding
+  errors on its Configuration CRD.
+*/}}
+{{- range $kind := splitList "," (include "aruba.gen.kinds" $) }}
+---
+apiVersion: {{ include (printf "aruba.gen.configApiVersion.%s" $kind) $ }}
+kind: {{ $kind }}Configuration
+metadata:
+  name: {{ $.Values.name }}-{{ $kind | lower }}-config
+  namespace: {{ $.Values.namespace }}
+spec:
+  {{- include (printf "aruba.gen.auth.%s" $kind) $ | nindent 2 }}
+  configuration:
+    {{- $verbs := splitList "," (include (printf "aruba.gen.verbs.%s" $kind) $) }}
+    {{- include "aruba.queryConfig" (dict "apiVersion" $.Values.apiVersion "verbs" $verbs) | nindent 4 }}
+{{- end }}

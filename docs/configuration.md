@@ -2,7 +2,7 @@
 type: Configuration
 title: krateo-arubacloud-provider-kog — configuration
 description: The whole config surface — the Aruba token Secret, the per-kind <Kind>Configuration (authentication + per-verb query config), the RestDefinition fields that shape a CRD, and the Composition chart values.
-resource: oci://ghcr.io/krateo-blueprints/charts/aruba-cloudserver-environment
+resource: oci://ghcr.io/krateo-blueprints/charts/aruba-network-environment
 tags: [configuration, secret, configuration-cr, restdefinition, chart-values]
 timestamp: 2026-08-11T00:00:00Z
 ---
@@ -97,9 +97,9 @@ Each `RestDefinition` (`ogen.krateo.io/v1alpha1`) declares:
 
 ## 4. Composition chart values {#composition-chart-values}
 
-The `aruba-cloudserver-environment` chart takes one high-level input set and fans
+The `aruba-network-environment` chart takes one high-level input set and fans
 it out into `Vpc` + `Subnet` + `SecurityGroup` + `CloudServer` and their
-Configurations. Values (`compositions/aruba-cloudserver-environment/values.yaml`,
+Configurations. Values (`compositions/aruba-network-environment/values.yaml`,
 typed by `values.schema.json`):
 
 | Value | Required | Default | Meaning |

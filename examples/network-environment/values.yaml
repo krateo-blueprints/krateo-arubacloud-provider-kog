@@ -1,0 +1,45 @@
+# Values for the aruba-network-environment composition.
+# One input set fans out into VPC + Subnet + SecurityGroup plus their per-kind
+# Configuration resources.
+
+# Target namespace for the generated Custom Resources.
+namespace: default
+
+# Aruba project the environment lives in.
+projectId: REPLACE_PROJECT_ID
+
+# Location/region value.
+location: ITBG-Bergamo
+
+tags: []
+
+# Reference to the Secret holding the Aruba token (created separately). The
+# authentication SHAPE is derived per provider document, not set here.
+tokenSecret:
+  name: arubacloud-token
+  namespace: default
+  key: token
+
+apiVersion: "1.0"
+
+# Environment name prefix applied to every generated resource.
+name: demo
+
+# Subnet and SecurityGroup take vpcId as a PATH parameter, and the id only exists
+# once the Vpc is created. Apply, read the Vpc's status.metadata.id, set this,
+# re-apply.
+vpcId: REPLACE_WITH_VPC_ID
+
+vpc:
+  # Aruba's VPC create body is {default, preset}. There is no CIDR here.
+  default: false
+  preset: false
+
+subnet:
+  type: Advanced
+  cidr: 10.0.1.0/24
+  default: false
+
+securityGroup:
+  default: false
+  preset: false

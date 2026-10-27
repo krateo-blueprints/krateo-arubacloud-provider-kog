@@ -2,7 +2,7 @@
 type: ExampleIndex
 title: krateo-arubacloud-provider-kog — examples
 description: Index of the runnable examples under examples/ — self-contained walkthroughs that provision real Aruba Cloud resources through this blueprint.
-resource: oci://ghcr.io/krateo-blueprints/charts/aruba-cloudserver-environment
+resource: oci://ghcr.io/krateo-blueprints/charts/aruba-network-environment
 tags: [examples, composition, cloudserver]
 timestamp: 2026-08-11T00:00:00Z
 ---
@@ -15,7 +15,7 @@ Runnable, self-contained walkthroughs live under
 
 | Example | What it does |
 |---------|--------------|
-| [cloudserver-environment](../examples/cloudserver-environment/README.md) | Provisions a complete Aruba environment (`Vpc` + `Subnet` + `SecurityGroup` + `CloudServer` + their Configurations) from one input set, via the `aruba-cloudserver-environment` Composition |
+| [network-environment](../examples/network-environment/README.md) | Provisions a complete Aruba environment (`Vpc` + `Subnet` + `SecurityGroup` + `CloudServer` + their Configurations) from one input set, via the `aruba-network-environment` Composition |
 
 ## Per-resource samples
 

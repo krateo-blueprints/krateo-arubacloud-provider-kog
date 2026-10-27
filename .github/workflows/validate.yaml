@@ -192,6 +192,40 @@ jobs:
           done
           exit $fail
 
+      - name: Composition charts render against the generated CRDs
+        # The gap that let a broken chart ship twice. `helm lint` and `helm template`
+        # both pass on a chart that no cluster will accept -- neither knows what a CRD
+        # contains. The published 0.2.0 chart sent apiVersion v1alpha1 where the CRDs
+        # serve v1-0-0, authentication.bearer to three resources whose document
+        # declares apiKey, query verbs to a Configuration that has none, and
+        # properties.network to a Vpc whose create body is {default, preset}. Every
+        # one of those renders cleanly and every one is rejected by the API server.
+        #
+        # So the chart is now applied, server-side dry run, against the CRDs this very
+        # job generated. Nothing is created, in Kubernetes or at Aruba.
+        run: |
+          set -uo pipefail
+          fail=0
+          for chart in compositions/*/; do
+            [ -f "${chart}Chart.yaml" ] || continue
+            work=$(mktemp -d)
+            cp -r "$chart" "$work/c"
+            # Same placeholder substitution validate.py does: the tree never holds a
+            # version, so an unstamped chart cannot be rendered as-is.
+            sed -i "s/^version: CHART_VERSION$/version: 0.0.0/" "$work/c/Chart.yaml"
+            if ! rendered=$(helm template ci "$work/c" 2>&1); then
+              echo "::error file=${chart}Chart.yaml::render failed: ${rendered}"
+              fail=1; continue
+            fi
+            if ! out=$(printf '%s' "$rendered" | kubectl apply --dry-run=server -f - 2>&1); then
+              echo "::error file=${chart}Chart.yaml::rejected by the generated CRDs: ${out}"
+              fail=1
+            else
+              echo "  ${chart} accepted by the generated CRDs"
+            fi
+          done
+          exit $fail
+
       - name: Provider logged no errors
         # A controller that starts, serves, and logs errors on every reconcile still
         # reports Ready. The RBAC watch defect looked exactly like this.

@@ -1,6 +1,6 @@
 # krateo-arubacloud-provider-kog — LLM doc index
 # One line per file. Read files at the tag matching the deployed Composition chart:
-# CompositionDefinition.spec.chart.version == compositions/aruba-cloudserver-environment/Chart.yaml version.
+# CompositionDefinition.spec.chart.version == compositions/aruba-network-environment/Chart.yaml version.
 docs/index.md: the map — what the blueprint is + links to the whole bundle and repo layout
 docs/overview.md: architecture — RestDefinition to generated CRD + controller, the metadata pattern, proxy elimination, *ApiRef delegation, the Composition
 docs/usage.md: install the krateo fork, apply ConfigMaps + RestDefinitions, manage a resource, provision an environment
@@ -21,12 +21,12 @@ docs/oasgen-provider-evolution.md: every issue that requires an oasgen-provider 
 docs/adversarial-review.md: every load-bearing claim attacked against the fork's executor source
 docs/troubleshooting.md: common failures and how to diagnose them
 docs/providers/README.md: provider reference index (per-provider pages)
-examples/cloudserver-environment/README.md: runnable whole-environment Composition walkthrough
+examples/network-environment/README.md: runnable whole-environment Composition walkthrough
 # Source (read at the same tag; the docs above are derived from these):
 README.md: the top-level intro, install and layout
-compositions/compositiondefinition.yaml: registers the aruba-cloudserver-environment chart as a Composition
-compositions/aruba-cloudserver-environment/Chart.yaml: the Composition chart metadata (version = the doc pin)
-compositions/aruba-cloudserver-environment/values.yaml: the environment input set with rationale
+compositions/compositiondefinition.yaml: registers the aruba-network-environment chart as a Composition
+compositions/aruba-network-environment/Chart.yaml: the Composition chart metadata (version = the doc pin)
+compositions/aruba-network-environment/values.yaml: the environment input set with rationale
 restdefinitions/network/subnet.yaml: the canonical metadata-pattern RestDefinition (no proxy)
 restdefinitions/compute/cloudserver.yaml: the *ApiRef-delegated CloudServer RestDefinition
 restactions/compute/cloudserver-create.restaction.yaml: the idempotent delegated CREATE sequence

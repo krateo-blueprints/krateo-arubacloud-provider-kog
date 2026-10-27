@@ -1,0 +1,99 @@
+{{/*
+  The environment resources: a VPC, a subnet inside it, and a security group.
+
+  Every field below exists in Aruba's create body for that resource -- checked
+  against the vendored OAS, not assumed. The previous version of this file sent
+  `properties.network.address` on the Vpc, which Aruba has never accepted: a VPC
+  takes {default, preset}, and the CIDR belongs to the SUBNET. Nothing caught it
+  because `helm lint` and `helm template` do not know what a CRD accepts; the
+  `composition renders against the generated CRDs` job in CI now does.
+
+  apiVersion comes from templates/_generated.tpl, which scripts/gen_composition.py
+  derives from each document's info.version. Do NOT type one here: a resource CRD
+  is served at v1-0-0, not v1alpha1, and a hard-coded v1alpha1 is what made the
+  first 0.2.0 chart uninstallable -- every object rejected with "no matches for
+  kind ... in version". Only <Kind>Configuration is v1alpha1.
+
+  NOTE on cross-resource references: Aruba refers to a VPC by a runtime URI that
+  only exists after creation, and Subnet/SecurityGroup take `vpcId` as a PATH
+  parameter. Helm cannot know it at render time, so both carry a placeholder the
+  operator fills once the Vpc reports status.metadata.id. Wiring that automatically
+  needs a composition-level reference the chart cannot express -- see
+  docs/lifecycle-beyond-crud.md, "Cross-resource references".
+
+  NOTE on CloudServer: it is deliberately absent. Its create exists only in
+  compute-provider_v1.1.json, which the controller cannot reach until oasgen#227
+  ships in 0.34.0, so on the current pin its CRD spec is exactly
+  {configurationRef, metadata.name, projectId}. A composition could create the
+  object but not give it a flavor or a boot volume, which is not a cloud server.
+*/}}
+apiVersion: {{ include "aruba.gen.apiVersion.Vpc" . }}
+kind: Vpc
+metadata:
+  name: {{ .Values.name }}-vpc
+  namespace: {{ .Values.namespace }}
+  annotations:
+    krateo.io/connector-verbose: "true"
+spec:
+  configurationRef:
+    name: {{ .Values.name }}-vpc-config
+    namespace: {{ .Values.namespace }}
+  projectId: {{ .Values.projectId | quote }}
+  metadata:
+    name: {{ .Values.name }}-vpc
+    location:
+      value: {{ .Values.location | quote }}
+    tags: {{ .Values.tags | default list | toYaml | nindent 6 }}
+  properties:
+    default: {{ .Values.vpc.default }}
+    preset: {{ .Values.vpc.preset }}
+---
+apiVersion: {{ include "aruba.gen.apiVersion.Subnet" . }}
+kind: Subnet
+metadata:
+  name: {{ .Values.name }}-subnet
+  namespace: {{ .Values.namespace }}
+  annotations:
+    krateo.io/connector-verbose: "true"
+spec:
+  configurationRef:
+    name: {{ .Values.name }}-subnet-config
+    namespace: {{ .Values.namespace }}
+  projectId: {{ .Values.projectId | quote }}
+  # Path parameter, not a body field: set once the Vpc above reports
+  # status.metadata.id. Aruba has no way to express "the VPC this chart just made".
+  vpcId: {{ .Values.vpcId | quote }}
+  metadata:
+    name: {{ .Values.name }}-subnet
+    location:
+      value: {{ .Values.location | quote }}
+    tags: {{ .Values.tags | default list | toYaml | nindent 6 }}
+  properties:
+    # `Advanced` with an explicit CIDR on purpose: `Basic` lets the CMP pick the
+    # address, which makes the declared value unmatchable and drift uncorrectable.
+    type: {{ .Values.subnet.type | quote }}
+    default: {{ .Values.subnet.default }}
+    network:
+      address: {{ .Values.subnet.cidr | quote }}
+---
+apiVersion: {{ include "aruba.gen.apiVersion.SecurityGroup" . }}
+kind: SecurityGroup
+metadata:
+  name: {{ .Values.name }}-sg
+  namespace: {{ .Values.namespace }}
+  annotations:
+    krateo.io/connector-verbose: "true"
+spec:
+  configurationRef:
+    name: {{ .Values.name }}-securitygroup-config
+    namespace: {{ .Values.namespace }}
+  projectId: {{ .Values.projectId | quote }}
+  vpcId: {{ .Values.vpcId | quote }}
+  metadata:
+    name: {{ .Values.name }}-sg
+    location:
+      value: {{ .Values.location | quote }}
+    tags: {{ .Values.tags | default list | toYaml | nindent 6 }}
+  properties:
+    default: {{ .Values.securityGroup.default }}
+    preset: {{ .Values.securityGroup.preset }}

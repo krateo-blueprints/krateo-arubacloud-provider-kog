@@ -123,7 +123,7 @@ neither is a clear winner, and it is **not** an area where Terraform does more.
 - **Kubernetes-native / GitOps** — resources are CRs reconciled continuously
   (drift correction), not applied by an external CLI.
 - **Composable** — a Krateo [Composition](lifecycle-beyond-crud.md#2-cross-resource-a-krateo-composition)
-  provisions a whole environment (VPC + Subnet + SecurityGroup + CloudServer) from
+  provisions a network environment (VPC + Subnet + SecurityGroup) from
   one high-level input.
 
 ## Bottom line

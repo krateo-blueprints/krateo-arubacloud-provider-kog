@@ -2,7 +2,7 @@
 type: Usage
 title: krateo-arubacloud-provider-kog — usage
 description: Install the krateo oasgen-provider fork, apply the OAS ConfigMaps and RestDefinitions, manage your first resource end to end, and provision a whole environment through the Composition.
-resource: oci://ghcr.io/krateo-blueprints/charts/aruba-cloudserver-environment
+resource: oci://ghcr.io/krateo-blueprints/charts/aruba-network-environment
 tags: [usage, install, restdefinition, composition, kubectl]
 timestamp: 2026-09-05T00:00:00Z
 ---
@@ -89,7 +89,7 @@ kubectl apply -f compositions/compositiondefinition.yaml
 
 The chart values that drive the environment are documented in
 [Configuration](configuration.md#composition-chart-values); a runnable walkthrough
-is under [`examples/`](../examples/cloudserver-environment/README.md).
+is under [`examples/`](../examples/network-environment/README.md).
 
 ## Regenerating everything
 

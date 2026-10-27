@@ -172,7 +172,7 @@ needsWork:
     \ is NOT vendored here \u2014 a scan of every path in all 13 OAS files finds only `/folders/metadata`\
     \ in project.json. `grep -ro 'ITBG[-A-Za-z0-9]*' openapi/` returns exactly one token across all providers:\
     \ `ITBG-Bergamo`. `K1A2` and `1.32.3` return nothing anywhere. Worse, `ITBG-1` contradicts the repo's\
-    \ ONLY precedent for a `dataCenter` value: /Users/diegobraga/krateo/krateo-arubacloud-provider-kog/compositions/aruba-cloudserver-environment/templates/resources.yaml:83\
+    \ ONLY precedent for a `dataCenter` value: /Users/diegobraga/krateo/krateo-arubacloud-provider-kog/compositions/aruba-network-environment/templates/resources.yaml:83\
     \ passes the *location* value through \u2014 `dataCenter: {{ .Values.location | quote }}` with `location:\
     \ ITBG-Bergamo`. These three must be read from the live Aruba metadata API before any run; they cannot\
     \ be derived from this repo."
@@ -2542,7 +2542,7 @@ needsWork:
     - 'properties.flavorName: OAS declares a bare nullable string. API enforces the CSO<vCPU>A<GB> set
       sourced from https://arubacloud.github.io/api/docs/metadata (#cloudserver-flavors): Linux CSO1A2,
       CSO1A4, CSO2A4, CSO2A8, CSO4A8, CSO4A16, CSO8A16, CSO8A32, CSO12A24, CSO16A32, CSO16A64, CSO24A48,
-      CSO32A64; Windows is the same set MINUS CSO1A2. The repo''s composition default (compositions/aruba-cloudserver-environment/values.yaml
+      CSO32A64; Windows is the same set MINUS CSO1A2. The repo''s composition default (compositions/aruba-network-environment/values.yaml
       -> cloudServer.flavorName: A1) is NOT a valid value.'
     - 'properties.dataCenter: OAS declares a bare string and only links to the docs. It is the DATA CENTER
       code, not the location: valid values for ITBG-Bergamo are ITBG-1, ITBG-2, ITBG-3. The repo composition
@@ -2621,7 +2621,7 @@ needsWork:
       \ it is declared in the v1.1 OAS as a nullable boolean with no description, so treat it as medium-confidence\
       \ and prefer explicit subnets[]/securityGroups[] URIs if the first live run rejects it. CSO1A2 is\
       \ the smallest flavor and is Linux-only, which is why the image is alma9 rather than a WS* Windows\
-      \ image.\n\nAlso worth fixing while you are in there: compositions/aruba-cloudserver-environment/values.yaml\
+      \ image.\n\nAlso worth fixing while you are in there: compositions/aruba-network-environment/values.yaml\
       \ + templates/resources.yaml are wrong on all three sourced values (flavorName: A1, dataCenter:\
       \ {{ .Values.location }} = ITBG-Bergamo, bootVolume: {sizeGb: 40}), and templates/resources.yaml\
       \ still emits spec.metadata/spec.properties on CloudServer plus REPLACE_WITH_VPC_ID placeholders\
