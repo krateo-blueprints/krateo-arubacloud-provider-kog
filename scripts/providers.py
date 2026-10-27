@@ -26,11 +26,30 @@ PROVIDERS = {
     "baremetal": "baremetal-provider.json",
     "project": "project.json",
     "metering": "metering.json",
-    # AI keys live under the Profile service rather than an Aruba.<Provider>
-    # namespace. Same host and the same metadata/status/properties envelope as
-    # everything else, so it is an ordinary entry here; only the service differs.
-    "profile": "profile.json",
+    # "profile": "profile.json" -- HELD BACK, see below.
 }
+
+# profile.json is vendored (and checksummed, and drift-checked) but deliberately NOT
+# generated from, the same way auditing.json has always been.
+#
+# Aruba.Profile/aiKeys is genuinely resource-shaped -- {metadata, status, properties},
+# a {total, values} list, the same host -- and it generated cleanly. It does not WORK:
+# on the CI smoke test `arubacloud-profile-aikey` was the one RestDefinition of 36
+# that never reached Ready in 10 minutes, and no controller was created for it. Every
+# other definition, including the new storage/Image and the read-only
+# network/LoadBalancer, went Ready.
+#
+# The structural difference is that aiKeys has no POST, so the definition declares
+# `update` and `delete` with NO `create`. LoadBalancer is read-only too and is fine,
+# but it declares only findby+get. We have not confirmed the mechanism -- CI's
+# diagnostics truncate the conditions dump before the failing resource's message --
+# so this is an observation, not a diagnosis, and the question is with
+# oasgen-provider.
+#
+# Held back rather than shipped broken: AiKey was experimental and unexercised, it is
+# not in the 27 GA resources, and a RestDefinition that never goes Ready is a
+# permanently degraded object in a user's cluster. One line restores it once the
+# mechanism is known and the shape is right.
 
 # compute-provider_v1.1.json is deliberately NOT in PROVIDERS. It is a second
 # document for the SAME provider, consumed through a per-verb oasPath rather than
