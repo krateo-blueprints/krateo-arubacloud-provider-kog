@@ -1,0 +1,18 @@
+apiVersion: arubacloud.ogen.krateo.io/v1-0-0
+kind: Image
+metadata:
+  name: example-image
+  namespace: default
+  annotations:
+    krateo.io/connector-verbose: 'true'
+spec:
+  configurationRef:
+    name: image-config
+    namespace: default
+  projectId: REPLACE
+  metadata:
+    name: example-image
+    location: {}
+    tags: []
+  properties:
+    # fill from openapi/storage.json

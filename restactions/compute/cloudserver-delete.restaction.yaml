@@ -55,6 +55,91 @@ spec:
         ${ { volumesToAttach: [], volumesToDetach: .detach } }
 
     # Delete the server (skipped when already absent).
+    #
+    # PENDING CHANGE, DO NOT MAKE IT BEFORE snowplow 1.12.57.
+    # `dependsOn: server` is wrong and snowplow#904 is why: today a FAILED detach does
+    # not stop this DELETE. The stage error is recorded under errorKey, /call still
+    # answers 200, and the server is deleted with its data volumes still attached --
+    # which RDC's delete verification cannot catch, because it checks the SERVER and
+    # the server is genuinely gone. The finalizer then correctly releases and the
+    # volumes are orphaned with nothing referencing them.
+    #
+    # The fix is THREE lines, once the floor is met:
+    #   delete.dependsOn.name: server  ->  detachVolumes
+    #   remove `continueOnError: true` from THIS step
+    #   remove `continueOnError: true` from detachVolumes
+    #
+    # The third line was missing from an earlier version of this note, which called it
+    # a two-line fix. Corrected against snowplow#911 (the #904 fix), where it was
+    # measured: leave continueOnError on detachVolumes and a FAILED SERVER READ still
+    # deletes the server. detachVolumes runs anyway -- that is what the flag means --
+    # its iterator over an absent server yields ZERO items, zero items SUCCEEDS, and
+    # the delete, now correctly depending on detachVolumes, is waved through. Observed
+    # on that chain: POST 0, DELETE 1. The outcome table below was always what we
+    # wanted; the two-line edit did not produce it.
+    #
+    # continueOnError is read on the DEPENDENT step: it means "run me even though the
+    # step I depend on failed". It belongs only where a step must genuinely survive its
+    # dependency failing, which is nowhere in this chain.
+    #
+    # Safe because of the step semantics snowplow pinned down for #904: an iterator
+    # yielding ZERO items has SUCCEEDED -- nothing to do is not a failure. That cuts
+    # both ways, which is the trap above, but it is also what keeps the common case
+    # working, because detachVolumes' iterator is deliberately empty for a server with
+    # no data volumes -- the common case, and every server the GA chain creates. With
+    # all three lines:
+    #   no data volumes   -> detach succeeded with zero items -> delete runs
+    #   detach fails      -> delete is SKIPPED, and the response header says so
+    #   server read fails -> detach SKIPPED -> delete SKIPPED, no write is sent
+    #
+    # Chain writes directly to the writes they depend on: a skip does NOT propagate
+    # through an intervening read. GET -> failed POST -> GET -> DELETE still sends the
+    # DELETE, because that second read succeeded and the delete hangs off it.
+    #
+    # Tests to add with the change:
+    #   server read fails -> no POST and no DELETE is sent
+    #   detach fails      -> DELETE is not sent
+    #   no data volumes   -> no POST, DELETE is sent
+    #
+    # Assert them on `X-Snowplow-Stage-Outcomes` (snowplow, against the reviewed #911):
+    # a skipped write is listed as `Skipped` WITH ITS dependsOn, so "delete skipped
+    # because detach failed" is distinguishable from "delete ran and succeeded". Only
+    # non-succeeded stages appear, so `[]` is the all-succeeded case.
+    #
+    # About that `[]`: a resolve that ABORTS before running any stage -- a dependency
+    # cycle, or a dependsOn naming a step that does not exist -- used to report `[]`
+    # as well, which reads as success. snowplow confirms the explicit abort entry is
+    # part of the #911 follow-up and that 1.12.57 will not be tagged without it, so AT
+    # THE FLOOR `[]` means all stages succeeded and nothing else. That is stated, not
+    # yet seen on a tagged build; snowplow will confirm it there.
+    #
+    # Assert on the explicit `Skipped` entry regardless, never on `[]`. It is the
+    # stronger test -- it names the dependsOn that caused the skip -- and it does not
+    # rest on the guarantee above holding.
+    #
+    # AND THE HEADER IS NOT ALWAYS AN ARRAY. When the list would exceed 4 KiB it is
+    # instead the object {"truncated":true,"failed":N}, where N stages did not
+    # succeed (snowplow, 2026-10-27, found by frontend). A parser that checks
+    # `isArray` and treats anything else as "no outcomes" reads that object as
+    # SUCCESS -- the failure mode this whole chain exists to prevent, arriving
+    # through the instrument meant to detect it. The truncated object must FAIL the
+    # assertion, not error past it:
+    #   array     -> any entry with outcome Skipped/Failed -> assert on it
+    #   object    -> truncated:true with failed:N > 0      -> FAIL
+    #   []        -> all succeeded, but never assert the delete was SENT from this
+    #   anything else -> FAIL, do not assume success from a shape you cannot read
+    #
+    # Either way the ambiguity was never dangerous here, and it is worth knowing why:
+    # an aborted resolve sends NOTHING, so the server is still
+    # there, and RDC's delete verification refuses to release the finalizer on a
+    # resource it can still observe. Our net catches "the delete did not happen"; the
+    # hole #904 is about is "the delete happened and left the wrong things behind",
+    # which an abort cannot produce. A rename of any step here is therefore a loud
+    # failure, not a silent orphan.
+    #
+    # Making it earlier buys nothing: on snowplow < 1.12.57 the delete is sent
+    # regardless, so the change would add ordering and no protection, while reading
+    # as though the hole were closed.
     - name: delete
       endpointRef:
         name: arubacloud-endpoint

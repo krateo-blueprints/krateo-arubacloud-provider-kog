@@ -1,3 +1,16 @@
+# KaasBackup's `type` accepts exactly one value, `Full` — measured 2026-10-20, and
+# the API says so itself once you read the error body:
+#
+#   ('RetentionDays', 'Type is not valid. Allowed values are Full')
+#
+# Note the field name: the complaint about `Type` arrives attached to
+# `RetentionDays`. The OAS declares `type` as a bare string with no enum.
+#
+# Two more undeclared rules from the same probe:
+#   * only ONE backup may be in creation at a time ("There is another backup in
+#     creation"), so a chain cannot create two in parallel
+#   * `billingPeriod` is NOT VALIDATED. A backup was created with
+#     billingPeriod: "NotAPeriod" and the API persisted that value verbatim.
 name: container
 vars:
   PROJECT: 69a55c8d5e6f0e14f14093ff
@@ -9,6 +22,11 @@ vars:
 residue:
 - /projects/${PROJECT}/providers/Aruba.Container/kaas
 - /projects/${PROJECT}/providers/Aruba.Container/registries
+# Backups live under their cluster, so this endpoint 404s once the cluster is gone --
+# which the residue check reports as UNVERIFIED rather than clean. That is the right
+# way round: a backup outliving its cluster is exactly what we would want to hear
+# about, and an endpoint that cannot be read proves nothing either way.
+- /projects/${PROJECT}/providers/Aruba.Container/kaas/${id:ga-kaas}/backups
 resources:
 - kind: Kaas
   name: ga-kaas
@@ -46,3 +64,27 @@ resources:
         name: ganodecidr
         address: 192.168.50.0/24
   drift: /projects/${PROJECT}/providers/Aruba.Container/kaas/${id:self}
+
+- kind: KaasBackup
+  name: ga-kaasbackup
+  billable: true
+  spec:
+    configurationRef:
+      name: kaasbackup-config
+      namespace: default
+    projectId: ${PROJECT}
+    kaasId: ${id:ga-kaas}
+    metadata:
+      name: ga-kaasbackup
+      location:
+        value: ${LOCATION}
+      tags: []
+    properties:
+      billingPeriod: Hour
+      type: Full
+      retentionDays: 7
+  # KaasBackup HAS an update verb, so drift is testable and its absence was the only
+  # thing keeping this at beta. Expect the probe to wait: a backup refuses every write
+  # while it is InCreation, with the container provider's
+  # {"fieldName": "Status", "errorMessage": "Invalid status"}.
+  drift: /projects/${PROJECT}/providers/Aruba.Container/kaas/${id:ga-kaas}/backups/${id:self}

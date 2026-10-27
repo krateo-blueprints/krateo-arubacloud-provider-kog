@@ -16,23 +16,9 @@ OUT = os.path.join(ROOT, "configmaps")
 NS = "krateo-system"
 
 # short provider name -> published filename (consumed UNMODIFIED)
-PROVIDERS = {'network': 'network-provider.json',
-             'compute': 'compute-provider.json',
-             # Aruba splits CloudServer across two API versions: everything except
-             # create is in compute-provider.json (1.0.0), and POST .../cloudServers
-             # exists ONLY in compute-provider_v1.1.json (1.1.0). The 1.1 document
-             # contains that single path and nothing else. It is vendored and was never
-             # shipped as a ConfigMap, so oasgen could not see the create endpoint at
-             # all -- which is why this repo concluded CloudServer had none.
-             'compute11': 'compute-provider_v1.1.json',
-             'container': 'container-provider.json',
-             'database': 'database-provider.json',
-             'storage': 'storage-provider.json',
-             'security': 'security-provider.json',
-             'schedule': 'schedule-provider.json',
-             'baremetal': 'baremetal-provider.json',
-             'project': 'project.json',
-             'metering': 'metering.json'}
+import os as _os, sys as _sys
+_sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+from providers import CONFIGMAP_PROVIDERS as PROVIDERS  # one list; see scripts/providers.py
 
 
 def main():

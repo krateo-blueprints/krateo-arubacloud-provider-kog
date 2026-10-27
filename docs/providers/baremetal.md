@@ -29,7 +29,7 @@ timestamp: 2026-09-28T00:00:00Z
 | get | GET | `/projects/{projectId}/providers/Aruba.Baremetal/hpcs/{id}` |
 | create | POST | `/projects/{projectId}/providers/Aruba.Baremetal/hpcs` |
 
-status fields: `metadata.id` · excluded from spec: `id`
+status fields: `metadata.id, status.failureReason, status.error` · excluded from spec: `id`
 
 Configuration query params: `api-version, calculatePrices, filter, limit, offset, projection, sort`
 

@@ -67,7 +67,7 @@ Sample: [`samples/security/kmip.yaml`](../../samples/security/kmip.yaml) · [`km
 | update | PUT | `/projects/{projectId}/providers/Aruba.Security/kms/{id}` |
 | delete | DELETE | `/projects/{projectId}/providers/Aruba.Security/kms/{id}` |
 
-status fields: `metadata.id` · excluded from spec: `id`
+status fields: `metadata.id, status.failureReason` · excluded from spec: `id`
 
 Configuration query params: `api-version, filter, ignoreDeletedStatus, limit, offset, projection, sort`
 

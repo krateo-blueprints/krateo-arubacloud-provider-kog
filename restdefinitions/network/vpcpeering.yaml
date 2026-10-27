@@ -12,6 +12,8 @@ spec:
     - metadata.name
     additionalStatusFields:
     - metadata.id
+    - status.failureReason
+    - status.error
     compareScope: updatable
     excludedSpecFields:
     - id

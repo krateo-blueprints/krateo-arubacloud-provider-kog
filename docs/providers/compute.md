@@ -32,9 +32,9 @@ timestamp: 2026-09-28T00:00:00Z
 | update | *(delegated)* | RESTAction `arubacloud-compute-cloudserver-update` |
 | delete | *(delegated)* | RESTAction `arubacloud-compute-cloudserver-delete` |
 
-status fields: `metadata.id` · excluded from spec: `cloudServerId`
+status fields: `metadata.id, status.failureReason, status.error` · excluded from spec: `cloudServerId`
 
-Configuration query params: `api-version, filter, limit, offset, projection, sort`
+Configuration query params: `api-version, filter, ignoreDeletedStatus, limit, offset, projection, sort`
 
 Sample: [`samples/compute/cloudserver.yaml`](../../samples/compute/cloudserver.yaml) · [`cloudserver-configuration.yaml`](../../samples/compute/cloudserver-configuration.yaml)
 
@@ -47,9 +47,9 @@ Sample: [`samples/compute/cloudserver.yaml`](../../samples/compute/cloudserver.y
 | create | POST | `/projects/{projectId}/providers/Aruba.Compute/keyPairs` |
 | delete | DELETE | `/projects/{projectId}/providers/Aruba.Compute/keyPairs/{keyPairId}` |
 
-status fields: `metadata.id` · excluded from spec: `keyPairId`
+status fields: `metadata.id, status.failureReason, status.error` · excluded from spec: `keyPairId`
 
-Configuration query params: `api-version, filter, limit, offset, projection, sort`
+Configuration query params: `api-version, filter, ignoreDeletedStatus, limit, offset, projection, sort`
 
 Sample: [`samples/compute/keypair.yaml`](../../samples/compute/keypair.yaml) · [`keypair-configuration.yaml`](../../samples/compute/keypair-configuration.yaml)
 
@@ -59,6 +59,7 @@ Action-only, list-only or delegated endpoints (see [lifecycle-beyond-crud](../li
 
 | Method | Path | Summary |
 |--------|------|---------|
+| PATCH | `/projects/{projectId}/providers/Aruba.Compute/cloudServers/{cloudServerId}` | Patch CloudServer |
 | POST | `/projects/{projectId}/providers/Aruba.Compute/cloudServers/{cloudServerId}/associateDisassociateElasticIPs` | Manage ElasticIPs |
 | POST | `/projects/{projectId}/providers/Aruba.Compute/cloudServers/{cloudServerId}/associateDisassociateSecurityGroups` | Manage SecurityGroups |
 | POST | `/projects/{projectId}/providers/Aruba.Compute/cloudServers/{cloudServerId}/associateDisassociateSubnets` | Manage Subnets |
@@ -67,3 +68,4 @@ Action-only, list-only or delegated endpoints (see [lifecycle-beyond-crud](../li
 | POST | `/projects/{projectId}/providers/Aruba.Compute/cloudServers/{cloudServerId}/poweroff` | Power off CloudServer |
 | POST | `/projects/{projectId}/providers/Aruba.Compute/cloudServers/{cloudServerId}/poweron` | Power on CloudServer |
 | POST | `/projects/{projectId}/providers/Aruba.Compute/cloudServers/{cloudServerId}/restore` | Restore snapshot from a created volume |
+| GET | `/providers/Aruba.Compute/catalog/cloudServerFlavors` | List CloudServer Flavors |

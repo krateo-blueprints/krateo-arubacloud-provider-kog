@@ -1,17 +1,20 @@
-# Aruba Cloud Job (schedule provider) - generated, no proxy.
+# Aruba Cloud ScheduledJob (schedule provider) - generated, no proxy.
+# Job reads return values the writes did not send: steps[].actionUri comes back with a leading slash the create REFUSES to accept, and executeUntil comes back as +00:00 where the CR sent Z. Both are keys present on each side, so the drift comparison can never pass and the controller re-PUTs the job on every resync. A responseTransform on the get verb normalises both before the comparison. A step's actionUri must be relative (`poweroff`); only poweron and poweroff are supported, so a Job requires a CloudServer to target -- created out of band by scripts/ga_job_probe.py, since a RestDefinition cannot create one.
 apiVersion: ogen.krateo.io/v1alpha1
 kind: RestDefinition
 metadata:
-  name: arubacloud-schedule-job
+  name: arubacloud-schedule-scheduledjob
 spec:
   oasPath: configmap://krateo-system/arubacloud-schedule-openapi/schedule.json
   resourceGroup: arubacloud.ogen.krateo.io
   resource:
-    kind: Job
+    kind: ScheduledJob
     identifiers:
     - metadata.name
     additionalStatusFields:
     - metadata.id
+    - status.failureReason
+    - status.error
     excludedSpecFields:
     - jobId
     verbsDescription:
@@ -24,6 +27,11 @@ spec:
       requestFieldMapping:
       - inPath: jobId
         inCustomResource: status.metadata.id
+      responseTransform:
+        inline: "if (.properties.steps | type) == \"array\" then\n  .properties.steps |= map(\n    if\
+          \ (.actionUri | type) == \"string\" then .actionUri |= ltrimstr(\"/\")\n    else . end\n  )\n\
+          else . end\n| if (.properties.executeUntil | type) == \"string\"\n     and (.properties.executeUntil\
+          \ | endswith(\"+00:00\")) then\n    .properties.executeUntil |= (.[:-6] + \"Z\")\n  else . end\n"
     - action: create
       method: POST
       path: /projects/{projectId}/providers/Aruba.Schedule/jobs
@@ -76,3 +84,9 @@ spec:
       fromRestDefinition:
         actions:
         - findby
+    - fromOpenAPI:
+        name: ignoreDeletedStatus
+        in: query
+      fromRestDefinition:
+        actions:
+        - get

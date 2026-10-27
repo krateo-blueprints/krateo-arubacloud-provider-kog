@@ -13,6 +13,8 @@ spec:
     - metadata.name
     additionalStatusFields:
     - metadata.id
+    - status.failureReason
+    - status.error
     excludedSpecFields:
     - cloudServerId
     createApiRef:
@@ -77,3 +79,9 @@ spec:
       fromRestDefinition:
         actions:
         - findby
+    - fromOpenAPI:
+        name: ignoreDeletedStatus
+        in: query
+      fromRestDefinition:
+        actions:
+        - get

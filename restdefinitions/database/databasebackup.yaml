@@ -1,4 +1,5 @@
 # Aruba Cloud DatabaseBackup (database provider) - generated, no proxy.
+# Aruba names a backup itself: a create asking for 'ga-dbbackup' produces 'mysql_<database>_<UTC timestamp>'. The requested name is accepted and discarded, and the OAS does not say so. With the default identifier metadata.name the spec can therefore never equal the response, so every reconcile reads as drift and the controller requests an update -- and there is no update verb to call, because Aruba exposes only DELETE on /backups/{id}. Observed live: one create, then 'API action update not found' once per reconcile while the CR sat at Ready=False/Creating, with the backup Active on Aruba twelve seconds after creation. metadata.id is the server-assigned key the delete verb already takes; findby matches it through isInResource's status fallback, exactly as it matched the renamed metadata.name before. compareScope must move with it: identifiersAndStatus restricts drift to identifiers plus additionalStatusFields, and every other spec field here is create-only (projectId, properties.dbaas, properties.database, billingPlan, dataCenter). 'updatable' is the closer fit in spirit but is refused by CEL without an update verb. Both keys are needed: identifiersAndStatus alone still compares metadata.name and still reports drift forever.
 apiVersion: ogen.krateo.io/v1alpha1
 kind: RestDefinition
 metadata:
@@ -9,15 +10,24 @@ spec:
   resource:
     kind: DatabaseBackup
     identifiers:
-    - metadata.name
+    - metadata.id
     additionalStatusFields:
     - metadata.id
+    - status.failureReason
+    - status.error
+    compareScope: identifiersAndStatus
     excludedSpecFields:
     - id
     verbsDescription:
     - action: findby
       method: GET
       path: /projects/{projectId}/providers/Aruba.Database/backups
+    - action: get
+      method: GET
+      path: /projects/{projectId}/providers/Aruba.Database/backups/{id}
+      requestFieldMapping:
+      - inPath: id
+        inCustomResource: status.metadata.id
     - action: create
       method: POST
       path: /projects/{projectId}/providers/Aruba.Database/backups
@@ -64,3 +74,9 @@ spec:
       fromRestDefinition:
         actions:
         - findby
+    - fromOpenAPI:
+        name: ignoreDeletedStatus
+        in: query
+      fromRestDefinition:
+        actions:
+        - get

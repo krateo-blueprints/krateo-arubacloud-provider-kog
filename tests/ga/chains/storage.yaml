@@ -1,3 +1,6 @@
+# Restore carries a `self:` URL: the residue list covers blockStorages, snapshots and
+# backups, but never restores, so its delete was the one claim in this chain resting on
+# the parent being torn down afterwards.
 name: storage
 vars:
   PROJECT: 69a55c8d5e6f0e14f14093ff
@@ -64,6 +67,7 @@ resources:
   drift: /projects/${PROJECT}/providers/Aruba.Storage/backups/${id:self}
 - kind: Restore
   name: ga-restore
+  self: /projects/${PROJECT}/providers/Aruba.Storage/backups/${id:ga-backup}/restores/${id:self}
   billable: true
   spec:
     configurationRef:

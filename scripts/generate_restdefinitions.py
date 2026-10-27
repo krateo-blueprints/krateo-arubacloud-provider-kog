@@ -43,7 +43,11 @@ PROVIDER_KIND = {
 }
 
 # collections that look like a resource but are really action endpoints - skip.
-SKIP = {"schedule/executions"}
+# storage/associate-clients is GET+POST on .../images/{id}/associate-clients, which
+# passes the observability test (create AND list) and so reads as a resource. It is
+# not one: it is the Image's client-association list, it has no item path and no id
+# of its own, and `kind_for` turns it into the nonsense Kind `Associate-client`.
+SKIP = {"schedule/executions", "storage/associate-clients"}
 
 # seg -> Kind (CamelCase, singular). Only irregular singularisations listed;
 # the rest fall back to a naive de-pluraliser.
@@ -57,29 +61,22 @@ KIND_MAP = {
     "dbaas": "Dbaas", "databases": "Database", "users": "DatabaseUser", "grants": "Grant",
     "kms": "Kms", "keys": "Key", "kmip": "Kmip",
     "backupPolicies": "BackupPolicy", "backupPolicyAssignments": "BackupPolicyAssignment",
-    "jobs": "Job", "alertRules": "AlertRule",
+    # NOT "Job": the plural `jobs` collides with the built-in batch/jobs, which makes
+    # `kubectl get jobs <name>` ambiguous for the BUILT-IN resource. oasgen refuses to
+    # mint such a CRD from 0.32.0 (#200, 9801a69) -- hard on a FRESH install (no CRD,
+    # no controller, Synced=False) and a permanent BuiltInNameCollisionExisting warning
+    # event where the CRD already exists. `ScheduledJob` rather than the message's
+    # suggested `ArubacloudJob`: the resource is a scheduled poweron/poweroff task
+    # under Aruba.Schedule, and the group already carries the vendor.
+    "jobs": "ScheduledJob", "alertRules": "AlertRule",
+    "aiKeys": "AiKey",
     "blockStorages": "BlockStorage", "snapshots": "Snapshot", "restores": "Restore",
     "backups": "Backup", "hpcs": "Hpc", "folders": "Folder", "projects": "Project",
 }
 
-# Which spec file each provider resource set comes from and the resource kind
-# prefix used to disambiguate collections that repeat a name (e.g. "backups"
-# exists in database, storage and container).
-# Aruba's published OAS documents, consumed UNMODIFIED. The key is the short
-# provider name used in ConfigMap/RestDefinition names; the value is the exact
-# filename as published at https://api.arubacloud.com/openapi/.
-PROVIDERS = {
-    "network": "network-provider.json",
-    "compute": "compute-provider.json",
-    "container": "container-provider.json",
-    "database": "database-provider.json",
-    "storage": "storage-provider.json",
-    "security": "security-provider.json",
-    "schedule": "schedule-provider.json",
-    "baremetal": "baremetal-provider.json",
-    "project": "project.json",
-    "metering": "metering.json",
-}
+import os as _os, sys as _sys
+_sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+from providers import PROVIDERS  # one list; see scripts/providers.py
 
 # Explicit overrides for resources that do not follow the metadata-wrapper CRUD
 # pattern. Keyed by "<provider>/<seg>".
@@ -87,6 +84,9 @@ PROVIDERS = {
 #   statusId     - JSONPath in status holding the server id ("" = none)
 #   metaWrap     - True if the create body wraps name in a metadata object
 #   secretFields - body fields to source from a Kubernetes Secret via secretRef
+#   metaIdent    - identifier for a metadata-wrapped resource, when metadata.name
+#                  is not usable (e.g. the server assigns the name itself)
+#   compareScope - drift comparison scope, when the default would never converge
 #   note         - short rationale, echoed into the generated file header
 OVERRIDES = {
     "compute/cloudServers": dict(
@@ -155,13 +155,225 @@ OVERRIDES = {
         note=("Database is name-keyed: create body {name}; there is no server id and "
               "no update verb. NOTE the source OAS is inconsistent - GET uses "
               "{databaseName} while DELETE uses {name} for the same path segment.")),
+    "database/dbaas": dict(
+        # Dbaas provisioning is asynchronous and the OAS does not say so: create
+        # returns the object immediately, findby resolves it immediately, and the CR
+        # therefore reported Ready within seconds. Measured live: the resource stayed
+        # status.state = "InCreation" for over fourteen minutes after the CR said
+        # Ready, and every PUT in that window is refused with
+        # 400 DBaaS.Read.InvalidStatus, "DBaaS has an invalid status: InCreation".
+        # Ready that does not mean usable is worse than slow: it is the signal every
+        # dependent step keys off.
+        #
+        # The poll targets the resource's own item path -- there is no monitor
+        # endpoint here, unlike baremetal/hpcs -- with the handle taken from the
+        # create response's metadata.id.
+        #
+        # The state vocabulary is NOT declared in database-provider.json. It is taken
+        # from security-provider.json, which declares the same platform-wide set
+        # (Active, InCreation, Deleting, Deleted, Failed) for an analogous resource.
+        # "Active" and "Failed" are both confirmed present there; "Active" and
+        # "InCreation" are additionally confirmed by live observation. If Aruba has a
+        # database-specific terminal failure state outside that set, a failed
+        # provisioning polls until maxAttempts instead of failing fast -- which is the
+        # safe direction to be wrong in, but it is a guess the OAS cannot settle.
+        async_=dict(
+            action="create",
+            mode="requeue",
+            operationRef=dict(In="body", path="metadata.id"),
+            poll=dict(
+                method="GET",
+                path="/projects/{projectId}/providers/Aruba.Database/dbaas/{id}",
+                handleParam="id",
+                statusPath="status.state",
+                successValues=["Active"],
+                failureValues=["Failed"],
+                intervalSeconds=15, maxAttempts=120),
+            postGet=True),
+        note=("Dbaas creation is asynchronous: the API returns the object while "
+              "status.state is still InCreation, and refuses every update until it "
+              "reaches Active (400 DBaaS.Read.InvalidStatus). Without the async block "
+              "the CR reports Ready in seconds for a resource that is unusable for a "
+              "quarter of an hour. Polls its own item path, since this provider "
+              "publishes no monitor endpoint. State values come from "
+              "security-provider.json, which declares the vocabulary the database "
+              "spec omits.")),
+    "schedule/jobs": dict(
+        # Job never reached Ready, and the cause is the one the oasgen peer predicted
+        # for Kaas and was wrong about there: genuine server normalisation of values,
+        # on keys present in both the request and the response.
+        #
+        #   steps[].actionUri   sent "poweroff"             returned "/poweroff"
+        #   executeUntil        sent "...T00:00:00Z"        returned "...T00:00:00+00:00"
+        #
+        # The first is the API contradicting itself: a step is REFUSED unless actionUri
+        # is relative with no leading slash ("The action /projects/.../poweroff with
+        # http verb POST is not configured for this resource typology"), and the read
+        # then hands it back with one. The second is the same instant in two encodings.
+        # Either one alone makes the drift comparison unsatisfiable, so the controller
+        # PUT the job on every resync -- five accepted updates in one short run, all
+        # 200, all no-ops (see oasgen#213).
+        #
+        # Both are states about the API that are true, which is what makes a
+        # responseTransform the right tool rather than a narrowed compareScope: we are
+        # telling the controller how to read Aruba's answer, not telling it to stop
+        # looking. Guarded on type so the program is idempotent and cannot corrupt a
+        # body with no steps.
+        responseTransform={"get": (
+            'if (.properties.steps | type) == "array" then\n'
+            '  .properties.steps |= map(\n'
+            '    if (.actionUri | type) == "string" then .actionUri |= ltrimstr("/")\n'
+            '    else . end\n'
+            '  )\n'
+            'else . end\n'
+            '| if (.properties.executeUntil | type) == "string"\n'
+            '     and (.properties.executeUntil | endswith("+00:00")) then\n'
+            '    .properties.executeUntil |= (.[:-6] + "Z")\n'
+            '  else . end\n')},
+        note=("Job reads return values the writes did not send: steps[].actionUri "
+              "comes back with a leading slash the create REFUSES to accept, and "
+              "executeUntil comes back as +00:00 where the CR sent Z. Both are keys "
+              "present on each side, so the drift comparison can never pass and the "
+              "controller re-PUTs the job on every resync. A responseTransform on the "
+              "get verb normalises both before the comparison. A step's actionUri must "
+              "be relative (`poweroff`); only poweron and poweroff are supported, so a "
+              "Job requires a CloudServer to target -- created out of band by "
+              "scripts/ga_job_probe.py, since a RestDefinition cannot create one.")),
+    "container/kaas": dict(
+        # Kaas could never reach Ready, and the cause is in Aruba's spec, not ours:
+        # the node pool's `instance` and `dataCenter` are STRINGS in
+        # NodePoolsDto (what create and update send) and OBJECTS in
+        # NodePoolsResponseDto (what every read returns). RDC's drift comparison
+        # walks the CR's keys, so a key present on both sides with a different type
+        # is drift -- and no compareScope helps, because KaasUpdatePropertiesDto
+        # declares exactly one property, nodePools, which is the field that differs.
+        #
+        # Measured consequence before this fix: the controller PUT a healthy cluster
+        # every 180s forever, each accepted write driving it from Active into
+        # Updating, which then refused the next one. Not merely a stuck condition --
+        # a live resource being rewritten indefinitely. See oasgen#213.
+        #
+        # The transform states what the two shapes have in common, which is a true
+        # statement about the API rather than a way of silencing the comparison:
+        # the scalar the request sends is the `name` of the object the response
+        # returns. Guarded on type so it is idempotent and cannot corrupt a body
+        # that is already request-shaped, or one with no node pools at all.
+        #
+        # NOT included, because they are already tolerated: properties.nodeCidr
+        # (the response spells it `nodecidr`, so the key is absent from the response
+        # and the comparison skips it) and securityGroup.name (the response carries
+        # only `uri`). Adding them would be inventing drift fixes for drift that
+        # does not occur.
+        responseTransform={"get": (
+            'if (.properties.nodePools | type) == "array" then\n'
+            '  .properties.nodePools |= map(\n'
+            '    (if (.instance | type) == "object" then .instance = .instance.name\n'
+            '     else . end)\n'
+            '    | (if (.dataCenter | type) == "object"\n'
+            '       then .dataCenter = .dataCenter.name else . end)\n'
+            '  )\n'
+            'else . end\n')},
+        note=("Kaas reads return a different shape than its writes accept: "
+              "nodePools[].instance and nodePools[].dataCenter are strings in "
+              "NodePoolsDto and objects in NodePoolsResponseDto. RDC compares the "
+              "CR's keys against the response, so those two are permanent drift, and "
+              "no compareScope avoids them because KaasUpdatePropertiesDto declares "
+              "only nodePools. A responseTransform on the get verb folds each object "
+              "back to its .name before the comparison runs. nodeCidr (returned as "
+              "`nodecidr`) and securityGroup.name (returned as `uri`) need no "
+              "handling: those keys are absent from the response and are skipped.")),
+    "container/registries": dict(
+        # Same defect as database/dbaas, found the same way: the CR reported Ready
+        # while Aruba still had the registry at status.state = InCreation, and every
+        # PUT in that window is refused with 400 {"fieldName": "Size"... no --
+        # {"fieldName": "Status", "errorMessage": "Invalid status"}. Measured live
+        # 2026-10-20: Ready at the CR, InCreation upstream more than ten minutes
+        # later, and the DELETE refused for the same reason, which is why teardown
+        # takes so long.
+        #
+        # Note the envelope: the container provider answers errors:[{fieldName,
+        # errorMessage}] where network and storage answer errors:[{field, message}],
+        # and it capitalises the message differently ("Invalid status" vs "invalid
+        # status"). Anything matching on those strings must handle both.
+        #
+        # Polls its own item path; this provider publishes no monitor endpoint.
+        # "InCreation" and "Failed" are both CONFIRMED by live observation, and the
+        # guess that the platform-wide vocabulary applies here turned out right:
+        # measured 2026-10-20, a registry sits InCreation for 1818s and then goes
+        # straight to Failed. So failureValues is doing real work -- without it the
+        # gate would poll a dead registry for its full 30 minutes.
+        #
+        # "Active" is NOT confirmed for this resource. No registry has reached it on
+        # this account; see the coverage note. maxAttempts stays at 120 (30 minutes)
+        # rather than being trimmed to the observed failure time, because a slower
+        # account that does succeed must not be cut off by a bound derived from a
+        # failure here.
+        async_=dict(
+            action="create",
+            mode="requeue",
+            operationRef=dict(In="body", path="metadata.id"),
+            poll=dict(
+                method="GET",
+                path="/projects/{projectId}/providers/Aruba.Container/registries/{id}",
+                handleParam="id",
+                statusPath="status.state",
+                successValues=["Active"],
+                failureValues=["Failed"],
+                intervalSeconds=15, maxAttempts=120),
+            postGet=True),
+        note=("Registry creation is asynchronous and the OAS does not say so: the "
+              "create returns the object while status.state is still InCreation, and "
+              "both update and delete are refused until it leaves that state with 400 "
+              "{fieldName: Status, errorMessage: Invalid status}. Without the async "
+              "block the CR reports Ready for a registry nothing can use yet. "
+              "Measured: InCreation for 1818s, then Failed -- no registry has reached "
+              "Active on this account, so the gate's value here is failing fast "
+              "rather than gating Ready. "
+              "Separately: properties.size takes Small, Medium or HighPerf, "
+              "case-sensitive -- measured, because the OAS describes it as a "
+              "connection count and its RegistrySize catalogue is referenced by no "
+              "path.")),
+    "database/backups": dict(
+        metaIdent="metadata.id", compareScope="identifiersAndStatus",
+        note=("Aruba names a backup itself: a create asking for 'ga-dbbackup' produces "
+              "'mysql_<database>_<UTC timestamp>'. The requested name is accepted and "
+              "discarded, and the OAS does not say so. With the default identifier "
+              "metadata.name the spec can therefore never equal the response, so every "
+              "reconcile reads as drift and the controller requests an update -- and "
+              "there is no update verb to call, because Aruba exposes only DELETE on "
+              "/backups/{id}. Observed live: one create, then 'API action update not "
+              "found' once per reconcile while the CR sat at Ready=False/Creating, "
+              "with the backup Active on Aruba twelve seconds after creation. "
+              "metadata.id is the server-assigned key the delete verb already takes; "
+              "findby matches it through isInResource's status fallback, exactly as it "
+              "matched the renamed metadata.name before. compareScope must move with "
+              "it: identifiersAndStatus restricts drift to identifiers plus "
+              "additionalStatusFields, and every other spec field here is create-only "
+              "(projectId, properties.dbaas, properties.database, billingPlan, "
+              "dataCenter). 'updatable' is the closer fit in spirit but is refused by "
+              "CEL without an update verb. Both keys are needed: identifiersAndStatus "
+              "alone still compares metadata.name and still reports drift forever.")),
     "database/users": dict(
         metaWrap=False, idField="username", statusId="",
-        note=("DatabaseUser is name-keyed (create {username, password}). 'password' is a "
-              "plaintext spec field in the source OAS; sourcing it from a Kubernetes "
-              "Secret needs the secretRef resolver plus an OAS-declared *SecretRef field "
-              "- see docs/oasgen-provider-evolution.md. No update verb (password change "
-              "is a separate PUT .../password sub-endpoint).")),
+        secretFields=[dict(inBody="password", nameFrom="metadata.name",
+                           keyFrom="spec.username")],
+        note=("DatabaseUser is name-keyed (create {username, password}). 'password' is "
+              "dropped from the spec and sourced from a Secret at create time via the "
+              "secretRef resolver. The Secret is named after the CR and keyed by the "
+              "username, both read from the CR itself - which is what makes this work "
+              "without adding a *SecretRef field the source OAS does not declare, and "
+              "the OAS is not ours to change. Its VALUE must be the base64 of the "
+              "password: Aruba requires that and does not document it (their Terraform "
+              "provider encodes client-side, dbaasuser_resource.go:130). A jq "
+              "valueMapping of @base64 could not do that encoding for us on 0.22.2, "
+              "which ran jq on the response direction only and silently skipped it on "
+              "a request. oasgen#148 implements the request direction and shipped in "
+              "0.26.0, so the 0.27.1 we now pin CAN do it and this Secret could hold "
+              "the plaintext instead. It still does not: that change alters what every "
+              "existing DatabaseUser Secret must contain, so it gets its own commit "
+              "and its own live run rather than riding along with the version bump - "
+              "see docs/authentication.md. No update verb (password change is a "
+              "separate PUT .../password sub-endpoint).")),
     "database/grants": dict(
         metaWrap=False, idField="user.username", statusId="",
         note=("Grant is name-keyed. The create body nests the name as {user:{username}} "
@@ -181,6 +393,74 @@ OVERRIDES = {
               "turn blocks deleting its Kms ('Some kms keys are not deleted').")),
     "security/kmip": dict(
         metaWrap=False, idField="name",
+        # Kmip never reported Ready, and the cause is a NAME COLLISION between a path
+        # parameter and a response field. Its path is
+        # `/kms/{id}/kmip/{kmipId}`, so the spec carries `id` meaning THE KMS:
+        #
+        #   CR spec  id = 6ada80c7d94d05eaad355a3b   (the KMS that owns it)
+        #   response id = 07090170-5e71-46a9-8751-... (the Kmip itself)
+        #
+        # One key, present on both sides, two unrelated identities. The comparison can
+        # never be satisfied, so the controller PUT `{"name":"ga-kmip"}` every 180s
+        # forever against a response that already said `name: ga-kmip` -- the same
+        # unsatisfiable-comparison class as Kaas (types) and Job (normalisation),
+        # reached by a third route (oasgen#213).
+        #
+        # A responseTransform cannot fix this one: the response's `id` is what
+        # additionalStatusFields maps to status, so deleting it would break the status
+        # mapping instead. Excluding `id` from the spec is worse -- it is a path
+        # parameter, so the URL could not be built. Narrowing the comparison is the
+        # honest fix, and it costs nothing here: KmipNameDto is `{name}` ONLY and
+        # `name` is the identifier, so there is no non-identifying field left to
+        # converge. Drift is INAPPLICABLE for exactly the reason it is for Key.
+        #
+        # It must be `updatable` and NOT `identifiersAndStatus`, which was tried first
+        # and changed nothing -- four more no-op PUTs. identifiersAndStatus projects
+        # the spec onto `identifiers + additionalStatusFields`, and `id` IS an
+        # additionalStatusField here (that is how the Kmip's own id reaches status to
+        # build {kmipId}). So that scope pulls the colliding key straight back into the
+        # comparison. `updatable` derives its field set from the UPDATE body instead
+        # (UpdatableBodyPaths -> KmipNameDto -> {name}), which is the only set that
+        # excludes `id` without breaking the path or the status mapping.
+        compareScope="updatable",
+        # Kmip is a TOMBSTONE resource: after a successful DELETE it disappears from
+        # its own list -- including with includeDeleted=true -- yet GET on its id
+        # still answers 200, with `status: Deleted` and a `deletionDate` that a live
+        # read does not carry:
+        #
+        #   live:        {"id","name","type","status","creationDate"}
+        #   post-delete: {... ,"deletionDate"}  status: Deleted
+        #
+        # RDC's delete verification read that 200 as "still there" and held the
+        # finalizer forever, which is what made Kmip the one resource whose teardown
+        # wedged the whole security chain (oasgen#111). The fix shipped in 0.27.1 but
+        # is NOT automatic: the controller cannot guess what a tombstone looks like,
+        # so the RestDefinition has to say. Guarded on type, because `status` must not
+        # be assumed a string -- a non-boolean result is a reconcile error, and this
+        # API is already known to omit declared fields conditionally (oasgen#152).
+        #
+        # On every RELEASED version (0.23.0 through 0.32.0) it is the OBSERVE path that
+        # honours this predicate and the DELETE path that cannot: RDC hands the delete
+        # check the whole restclient.Response struct instead of the body, so the
+        # program errors, the check degrades to "unverifiable", and the finalizer is
+        # released by trusting the DELETE rather than by confirming the tombstone
+        # (oasgen#218, one line). This repo's own chain verifies the tombstone against
+        # the API directly, which is how the discrepancy surfaced at all.
+        #
+        # FIXED in oasgen f97b150 (PR #219) and verified live here on 2026-10-25: the
+        # predicate matched a real tombstone and the finalizer was released BY it,
+        # with the DELETE still erroring 400 --
+        #   Get returned 200 but notFoundBody reports the resource absent
+        #   Delete returned an error but the external resource is verifiably absent;
+        #     releasing finalizer  deleteError: "unexpected status: 400"
+        # That is the wedge oasgen#111 was filed to remove, which was still fully in
+        # force on every release. On a released stack this predicate is dead code that
+        # costs nothing; from the fix on it is load-bearing, so it must stay correct.
+        # See docs/live-cluster-test.md.
+        notFoundBody={"get": (
+            'if (.status | type) == "string"\n'
+            'then (.status | ascii_downcase) == "deleted"\n'
+            'else false end\n')},
         note=("Kmip create body is flat {name}. Its findby item carries the server id as "
               "plain **id**, even though the path parameter is {kmipId} -- the opposite "
               "of security/keys, which uses {keyId} in BOTH. Assuming the path-parameter "
@@ -314,6 +594,10 @@ def build(provider, spec):
             updatableScope=(needs_updatable_scope(spec, coll, put_op[0])
                             if (has_create and put_op) else False),
             respMeta=(response_is_meta_wrapped(spec, coll) if has_list else False),
+            respFailure=(response_has_failure_reason(spec, coll)
+                         if has_list else False),
+            respError=(response_has_status_error(spec, coll)
+                       if has_list else False),
             get_q=query_params(spec, get_op[0], "get") if get_op else [],
             list_q=query_params(spec, coll, "get") if has_list else [],
         ))
@@ -378,6 +662,74 @@ def response_is_meta_wrapped(spec, coll):
             return True                  # could not resolve -> do not second-guess
         return "metadata" in iprops
     return True
+
+
+def response_status_props(spec, coll):
+    """Properties of the findby item's `status`, or {} when it is not an object.
+
+    Shared by the two status detectors below so they cannot disagree about what the
+    item schema is -- the envelope fallback took one quiet miss already (see
+    response_has_failure_reason).
+    """
+    op = (spec.get("paths", {}).get(coll) or {}).get("get")
+    if not op:
+        return {}
+    for cv in ((op.get("responses", {}).get("200") or {}).get("content") or {}).values():
+        sch = deref(spec, cv.get("schema", {}))
+        props, _ = merged_props(spec, sch)
+        # Not every collection answers with a {total, values:[...]} envelope:
+        # compute/keyPairs returns the {metadata, status, properties} object itself.
+        # Falling through to an empty item there silently decided "no failureReason"
+        # for a resource that has one, which is the quiet-miss this check exists to
+        # avoid -- so with no envelope key, the response schema IS the item.
+        item = deref(spec, (props.get("values") or props.get("value") or {})) or sch
+        item = deref(spec, item.get("items", {})) if item.get("type") == "array" else item
+        iprops, _ = merged_props(spec, item)
+        st = deref(spec, iprops.get("status") or {})
+        sprops, _ = merged_props(spec, st)
+        return sprops
+    return {}
+
+
+def response_has_status_error(spec, coll):
+    """True when the findby item's `status` declares the `error` object.
+
+    `failureReason` is a bare string and it is not the only diagnostic: the same
+    StatusResponseDto also carries `error` -> {reason, message}, declared in nine of
+    the twelve published documents (all but auditing, metering and security). We
+    surfaced `failureReason` and never looked at this one, which is how a Registry
+    and a KaasBackup were reported upstream as failing with "failureReason: null"
+    when the structured field beside it had never been read.
+
+    Measured 2026-10-27 against live resources: the API OMITS both keys from `status`
+    rather than sending them as null when it has nothing to say, so an absent `error`
+    on a healthy resource is expected and costs nothing. Whether it is populated on a
+    failure is NOT yet established -- no failed resource has been read with this field
+    in hand. Surfacing it is what makes that observable at all.
+    """
+    return "error" in response_status_props(spec, coll)
+
+
+def response_has_failure_reason(spec, coll):
+    """True when the findby item's `status` is an OBJECT declaring `failureReason`.
+
+    The API says why a resource failed and nothing surfaced it: StatusResponseDto
+    declares `failureReason` (string, nullable) in all ten provider documents, it is
+    null on a healthy resource and populated on a failed one, and no RestDefinition
+    mapped it -- so every provisioning failure reached a CR as a resource that simply
+    never converged, with the reason sitting unread in the body the controller had
+    already fetched. Measured 2026-10-25: a Kms went Failed with
+    `failureReason: "Ecommerce"` while the CR said only `Creating`.
+
+    Guarded on the response rather than added everywhere, because `status` is NOT an
+    object on every resource: security/keys and security/kmip return it as a bare
+    string ("Deleted", "CertificateAvailable"). Declaring `status.failureReason`
+    there would put a path in the CRD's status schema that cannot resolve against the
+    OAS. RDC itself tolerates a missing field at runtime -- populateStatusFields
+    skips a path it cannot find -- but the generated schema is built from these same
+    paths, so the check belongs here.
+    """
+    return "failureReason" in response_status_props(spec, coll)
 
 
 def response_id_field(spec, coll):
@@ -469,7 +821,21 @@ def render(r):
         elif idp != ov["idField"]:
             excluded.add(idp)
     if r["has_create"]:
-        verbs.append({"action": "create", "method": "POST", "path": r["coll"]})
+        create = {"action": "create", "method": "POST", "path": r["coll"]}
+        # Body fields sourced from a Secret rather than from the spec. The field is
+        # dropped from the CRD entirely, so there is no plaintext-in-spec form of it
+        # left to use by mistake -- the resolver is the only way to supply it.
+        for sf in ov.get("secretFields", []):
+            create.setdefault("fieldMapping", []).append({
+                "inBody": sf["inBody"],
+                "resolver": {
+                    "type": "secretRef",
+                    "secretRef": {"nameFromCustomResource": sf["nameFrom"],
+                                  "keyFromCustomResource": sf["keyFrom"]},
+                },
+            })
+            excluded.add(sf["inBody"])
+        verbs.append(create)
     if r["put_op"]:
         path, idp = r["put_op"]
         verbs.append({"action": "update", "method": "PUT", "path": path,
@@ -502,9 +868,27 @@ def render(r):
             if v["action"] == a["action"]:
                 v["async"] = async_cfg
 
+    # Whole-document gojq applied to a response BEFORE drift comparison. This is the
+    # declarative answer to an API that returns a different shape than it accepts:
+    # without it the comparison is unsatisfiable and the controller updates forever.
+    for action, program in (ov.get("responseTransform") or {}).items():
+        for v in verbs:
+            if v["action"] == action:
+                v["responseTransform"] = {"inline": program}
+
+    # A gojq predicate that decides ABSENCE from a 2xx body. Needed for an API that
+    # answers GET for a deleted resource with 200 and a tombstone instead of 404: the
+    # status code alone then reads as "still present" and the CR wedges in Deleting
+    # forever. RDC consults this on both observe and delete verification, so the two
+    # share one definition of absence (oasgen#111).
+    for action, program in (ov.get("notFoundBody") or {}).items():
+        for v in verbs:
+            if v["action"] == action:
+                v["notFoundBody"] = {"inline": program}
+
     resource = {"kind": r["kind"]}
     if r["meta"]:
-        resource["identifiers"] = ["metadata.name"]
+        resource["identifiers"] = [ov.get("metaIdent", "metadata.name")]
         # Also for read-only resources when the response carries metadata: their get
         # verb binds {id} from status.metadata.id, and without this the field is never
         # populated, so the mapping is dead config and get can never run.
@@ -532,7 +916,24 @@ def render(r):
         else:
             resource["identifiers"] = ["name"]
 
-    if r.get("updatableScope"):
+    # Appended LAST, and append-only is not incidental: AdditionalStatusFields carries
+    # a CEL rule allowing new entries at the end but no removal, rename or reorder of
+    # existing ones once the CRD has been generated. Putting it anywhere but the end
+    # would make this an immutable-field rejection on every existing cluster.
+    if r.get("respFailure"):
+        resource.setdefault("additionalStatusFields", []).append("status.failureReason")
+
+    # Appended after failureReason, and last, because additionalStatusFields is
+    # append-only under the CRD's CEL rule: an existing RestDefinition accepts the
+    # new entry at the end, where inserting it earlier would be rejected.
+    if r.get("respError"):
+        resource.setdefault("additionalStatusFields", []).append("status.error")
+
+    if ov.get("compareScope"):
+        # An explicit scope is a statement about an API the derivation cannot see --
+        # e.g. a server-assigned name that makes fullSpec diverge forever. It wins.
+        resource["compareScope"] = ov["compareScope"]
+    elif r.get("updatableScope"):
         resource["compareScope"] = "updatable"
 
     if excluded:

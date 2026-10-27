@@ -3,7 +3,7 @@ type: Usage
 title: Getting started
 description: Install the CRD chart, token, ConfigMaps and RestDefinitions, then manage the first resource.
 tags: [aruba, kog]
-timestamp: 2026-08-31T00:00:00Z
+timestamp: 2026-10-15T00:00:00Z
 ---
 
 # Getting started
@@ -13,7 +13,36 @@ This walks through installing the provider and managing your first resource (a
 
 ## Prerequisites
 
-- A Kubernetes cluster (v1.20+).
+- A Kubernetes cluster. Which version depends entirely on the chart version, and the
+  bound has moved twice:
+
+  | chart | `kubeVersion` | effect |
+  |-------|---------------|--------|
+  | ≤ 0.24.0 | none | installs anywhere; **this is what we pin** |
+  | 0.25.0 – 0.27.1 | `>=1.33.0-0` | excludes only versions already out of support |
+  | **0.28.0 +** | `>=1.36.0-0` | **excludes 1.33, 1.34 and 1.35, all currently supported** |
+
+  The 1.33 bound came from CRD **validation ratcheting**, which is what lets a CR whose
+  stored status no longer matches a tightened schema be rewritten instead of rejected.
+  It is GA with `LockToDefault: true` only from 1.33; on 1.30–1.32 an operator can
+  disable it, and below 1.30 it does not exist — so on an older cluster a status-schema
+  change can wedge existing resources. See
+  [live-cluster-test](live-cluster-test.md#crd-validation-ratcheting).
+
+  The 1.36 bound is a different and sharper requirement: version-scoped watching
+  ([oasgen#178](https://github.com/krateo-platformops/oasgen-provider/pull/178)) starts
+  each controller with an exact match on `krateo.io/oas-version`, and that label is
+  stamped by a `MutatingAdmissionPolicy`, which 1.33–1.35 do not serve. Without it
+  nothing stamps the label, the exact selector matches nothing, and the install comes up
+  green while reconciling no instance at all. Upstream's own framing, which is the right
+  one: a refused install is the better failure.
+
+  > So **1.36+ for anything current**. We pin 0.27.1, whose charts declare
+  > `kubeVersion: '>=1.33.0-0'`, which is why this repo still verifies on 1.33 in CI.
+  > 0.28.0 is where the 1.36 floor lands, so taking it means raising `node_image` in
+  > the same commit — see the note on `node_image` in
+  > `.github/workflows/validate.yaml`.
+
 - The Krateo **oasgen-provider** and its rest-dynamic-controller, **≥ 0.21.1**.
 
   > oasgen-provider is a **monorepo**: rest-dynamic-controller and both Helm charts

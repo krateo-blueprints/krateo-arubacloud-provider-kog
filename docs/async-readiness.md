@@ -139,3 +139,106 @@ is why `baremetal/Hpc` is wired with no hand-entered value set.
 Readiness waiting is exactly what controllers are for. See
 [oasgen-provider-evolution §C2](oasgen-provider-evolution.md) for the one residual
 ergonomic gap (the open-string `status.state` above).
+
+## A changed RestDefinition does not restart its controller
+
+Adding the async block to `Dbaas` appeared to do nothing. The RestDefinition applied
+cleanly, oasgen reported `Ready=True` within six seconds, the block was visibly
+present in-cluster on the create verb — and a full chain run behaved exactly as
+before: `Ready` in seconds, drift refused with `400 DBaaS.Read.InvalidStatus`.
+
+The controller pod was thirteen days old. Applying the RestDefinition does not roll
+the generated deployment, so the running process kept serving the configuration it
+started with. After `kubectl rollout restart`, the same unchanged RestDefinition
+produced the intended behaviour immediately:
+
+```
+t=10s … t=120s   Ready=False/Pending
+                 krateo.io/async-operation-id: 6ad689bae40e2c610d13ef9a
+```
+
+The failure mode is quiet in the worst way: every surface you would check says the
+change landed. `kubectl apply` reports `configured`, the RestDefinition reports Ready,
+and `kubectl get restdefinition -o yaml` shows the new block. Only the behaviour is
+stale, and nothing logs a reason.
+
+**After changing a RestDefinition's verb configuration, restart its controller:**
+
+```
+kubectl rollout restart deploy <provider>-<resource>-controller -n krateo-system
+```
+
+This applies to verb-level configuration — `async`, `fieldMapping`, `compareScope`.
+A change to `identifiers` is a separate matter: those are immutable once the CRD
+exists, so the RestDefinition must be deleted and recreated, which replaces the
+deployment anyway and does not need this.
+
+## Deletion is refused mid-provision too
+
+`DBaaS.Read.InvalidStatus` has a delete counterpart, `DBaaS.Delete.InvalidStatus`,
+with the same cause and the same wording. A Dbaas cannot be deleted while it is
+`InCreation`; the controller retries and succeeds once the resource reaches `Active`.
+
+A teardown that gives up after a fixed interval will therefore leave a billable
+resource behind — observed with a 180s timeout against a provisioning window that has
+measured anywhere from 7.5 to 14+ minutes. `scripts/ga_chain.py` allows for async
+deletion and re-checks residue against the API rather than trusting the delete call,
+which is the behaviour to copy. Do not clear the finalizer to force it: that removes
+the controller's delete path and orphans the remote resource, which has happened here
+before.
+
+## Every write is refused mid-transition, not just Dbaas's
+
+The `InvalidStatus` family is not specific to DBaaS. The same refusal appears across
+providers, in the generic validation envelope rather than a typed error code:
+
+```
+400 {"type": ".../400", "title": "One or more validation errors occurred.",
+     "status": 400,
+     "errors": [{"field": "Status", "message": "invalid status"}]}
+```
+
+Observed by hand against a live account, all in one sitting:
+
+| call | state at the time | answer |
+|------|-------------------|--------|
+| `PUT` securityRule | `Active` | 200 |
+| `PUT` securityRule, same body, immediately after | `Updating` | 400 `Status: invalid status` |
+| `PUT` securityRule, same body, once `Active` again | `Active` | 200 |
+| `DELETE` vpc while its securityGroup was still deleting | — | 400, then 202 on retry |
+
+Two consequences for anything that writes to this API:
+
+**A 400 is not evidence about the body.** The identical payload earns 200 or 400
+depending only on when it arrives. `scripts/ga_chain.py` chased this as a body-shape
+bug through two wrong explanations because it only looked at the status code; it now
+waits for a settled state before writing, and retries rather than concluding when the
+refusal names the `Status` field. Read the `errors` array before theorising.
+
+**`Ready` on the CR does not mean writable upstream.** The controller reports Ready
+once its observe succeeds, which can be while the resource is still `Updating`. Code
+that reconciles immediately after Ready must tolerate this refusal and retry.
+
+### There is no single error envelope — there are at least three
+
+This is worth more care than it sounds, because every one of them has cost a wrong
+diagnosis here:
+
+| provider | envelope | wording |
+|---|---|---|
+| network, storage | `errors: [{field, message}]` | `invalid status` |
+| container | `errors: [{fieldName, errorMessage}]` | `Invalid status` |
+| compute, `api-version=1.1` | neither — matched no key we tried | — |
+
+Reading the wrong keys turns a precise, actionable message into `None: None`. That
+happened three times in one campaign: first with `fieldName` against a network
+resource, then with the corrected `field` against 1.1 compute, and then again inside
+`scripts/ga_chain.py`, whose retry test matched `field == "Status"` and therefore
+returned False for every container resource — so Registry's drift was reported as
+"400 for every body shape tried" when the API had plainly said "ask again in a
+minute". Note the casing differs too, so match on the field name and never on the
+prose.
+
+**Do not key into an error body blind.** Try the known spellings, and dump whatever
+arrived when none of them match — an over-long error message costs a line of log, a
+swallowed one costs a day.

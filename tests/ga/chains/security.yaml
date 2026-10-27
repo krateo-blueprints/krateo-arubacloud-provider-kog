@@ -2,9 +2,17 @@
 # children, so the whole provider sits behind a paid parent. That correction is why
 # this is not in Wave 2.
 #
-# Only Kms can be drift-tested by the generic mechanism: Key and Kmip have flat
-# name/algorithm specs with no metadata.tags to perturb, so they can reach beta but
-# not GA until a per-resource drift field is declared for them.
+# Only Kms is drift-tested here, and for Key and Kmip that is the FINAL answer rather
+# than a gap. Their update bodies are KeyNameDto and KmipNameDto -- `{name}` only --
+# and `name` is the identifier, so there is no non-identifying field left to converge.
+# driftBody/driftAssert (added for Folder, which had the same flat shape) does not
+# help: the only field it could perturb here is the identifier itself, and correcting
+# that is renaming, not converging. Drift is INAPPLICABLE, which is a GA bar met, not
+# a GA bar skipped -- the same reasoning as Restore and KeyPair.
+#
+# An earlier version of this header said both could "reach beta but not GA until a
+# per-resource drift field is declared". All three are GA; what unblocked Kmip was
+# compareScope: updatable, not a drift field (oasgen#213).
 name: security
 vars:
   PROJECT: 69a55c8d5e6f0e14f14093ff
@@ -25,6 +33,7 @@ resources:
 
   - kind: Key
     name: ga-key
+    self: /projects/${PROJECT}/providers/Aruba.Security/kms/${id:ga-kms}/keys/ga-key
     billable: true
     spec:
       configurationRef: {name: key-config, namespace: default}
@@ -35,6 +44,7 @@ resources:
 
   - kind: Kmip
     name: ga-kmip
+    self: /projects/${PROJECT}/providers/Aruba.Security/kms/${id:ga-kms}/kmip/${id:self}
     billable: true
     spec:
       configurationRef: {name: kmip-config, namespace: default}

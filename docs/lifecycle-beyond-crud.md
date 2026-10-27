@@ -211,6 +211,49 @@ Two non-obvious contracts govern `*ApiRef` delegation — both found by the
    carry a static `deleteApiRef.extras.projectId` — now removed
    ([rdc#41](https://github.com/krateo-platformops/rest-dynamic-controller/issues/41)).
 
+3. **Snowplow must be >= 1.12.57**, a version floor rather than a preference, for two
+   defects confirmed in snowplow's own code on 2026-10-26.
+
+   **[snowplow#904](https://github.com/krateo-platformops/snowplow/issues/904) — a
+   failed stage does not stop a later write, and `/call` still answers 200.** Verified
+   upstream against a read → detach (409) → delete sequence: the DELETE is sent anyway,
+   the stage error is recorded under `errorKey`, and a filter can hide it completely.
+   No header marks it today.
+
+   For CloudServer the consequence is specific, and **our existing safety net does not
+   catch it**. RDC's delete verification checks the *server* via the observe verb, so a
+   failed volume detach followed by a successful server delete verifies as clean: the
+   server is genuinely gone, the finalizer correctly releases, and the data volumes are
+   orphaned with nothing referencing them. The net catches "the delete did not happen",
+   not "the delete happened and left the wrong things behind".
+
+   Note that #904's fix does **not** automatically cover
+   `cloudserver-delete.restaction.yaml`. It skips a write step whose `dependsOn` step
+   failed, unless `continueOnError` is set — and here `delete` depends on `server`, not
+   on `detachVolumes` (they are siblings off the same read), with `continueOnError:
+   true` on all three stages. Both exemptions apply. The correction is three lines, not
+   the two an earlier version of this note claimed: `continueOnError` has to come off
+   `detachVolumes` as well, or a **failed server read** still deletes the server —
+   detach runs anyway, its iterator over an absent server yields zero items, zero items
+   succeeds, and the delete is waved through. That was measured on
+   [snowplow#911](https://github.com/krateo-platformops/snowplow/pull/911) (POST 0,
+   DELETE 1). The exact diff, the outcome table and the tests to add with it are
+   recorded in that manifest, along with why it must not be made before the floor.
+
+   **[snowplow#903](https://github.com/krateo-platformops/snowplow/issues/903) —
+   background work can send write stages.** Below 1.12.57 Snowplow's background workers
+   can run a RESTAction's write stages with the endpointRef credential; the "background
+   only reads" guard covers only snowplow's own service account. CloudServer's three
+   RESTActions are not exposed in normal operation — no widget references them, they
+   carry no `userAccessFilter`, and a resolve that reached the Aruba API is never
+   cached — but if the endpointRef Secret is absent during a resolve the result can be
+   cached truncated, and a later refresh would run the full read → detach → delete
+   against a live server with no user action. **Never let a widget reference these
+   RESTActions.**
+
+   There is no runtime assertion for this floor: a RestDefinition cannot read
+   snowplow's version, and `/call` exposes none. It is documented and not enforced.
+
 ## Caveats
 
 - The Composition chart is validated with `helm lint` and `helm template`

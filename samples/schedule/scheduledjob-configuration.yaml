@@ -1,0 +1,24 @@
+apiVersion: arubacloud.ogen.krateo.io/v1alpha1
+kind: ScheduledJobConfiguration
+metadata:
+  name: scheduledjob-config
+  namespace: default
+spec:
+  authentication:
+    bearer:
+      tokenRef:
+        name: arubacloud-token
+        namespace: default
+        key: token
+  configuration:
+    query:
+      findby:
+        api-version: '1.0'
+      get:
+        api-version: '1.0'
+      create:
+        api-version: '1.0'
+      update:
+        api-version: '1.0'
+      delete:
+        api-version: '1.0'

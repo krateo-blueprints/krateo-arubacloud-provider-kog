@@ -1,15 +1,17 @@
 apiVersion: arubacloud.ogen.krateo.io/v1alpha1
-kind: JobConfiguration
+kind: ImageConfiguration
 metadata:
-  name: job-config
+  name: image-config
   namespace: default
 spec:
   authentication:
-    bearer:
+    apiKey:
       tokenRef:
         name: arubacloud-token
         namespace: default
         key: token
+      header: Authorization
+      valuePrefix: 'Bearer '
   configuration:
     query:
       findby:

@@ -14,6 +14,8 @@ spec:
     query:
       findby:
         api-version: '1.0'
+      get:
+        api-version: '1.0'
       create:
         api-version: '1.0'
       delete:

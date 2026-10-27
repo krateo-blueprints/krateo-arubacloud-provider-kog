@@ -22,20 +22,14 @@ RD = os.path.join(ROOT, "restdefinitions")
 DOCS = os.path.join(ROOT, "docs", "providers")
 
 # short provider name -> published filename (consumed UNMODIFIED)
-PROVIDERS = {'network': 'network-provider.json',
-    'compute': 'compute-provider.json',
-    'container': 'container-provider.json',
-    'database': 'database-provider.json',
-    'storage': 'storage-provider.json',
-    'security': 'security-provider.json',
-    'schedule': 'schedule-provider.json',
-    'baremetal': 'baremetal-provider.json',
-    'project': 'project.json',
-    'metering': 'metering.json'}
+import os as _os, sys as _sys
+_sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+from providers import PROVIDERS  # one list; see scripts/providers.py
 TITLES = {
     "network": "Network", "compute": "Compute", "container": "Container (Kubernetes)",
     "database": "Database (DBaaS)", "storage": "Storage", "security": "Security (KMS)",
     "schedule": "Schedule", "baremetal": "Bare Metal", "project": "Project", "metering": "Metering (Insight)",
+    "profile": "Profile (AI keys)",
 }
 
 

@@ -18,7 +18,7 @@ timestamp: 2026-09-28T00:00:00Z
 |------|-------|---------------|------------|
 | `BackupPolicy` | findby, get, create, update, delete | `metadata.name` | — |
 | `BackupPolicyAssignment` | findby, get, create, update, delete | `metadata.name` | — |
-| `Job` | findby, get, create, update, delete | `metadata.name` | — |
+| `ScheduledJob` | findby, get, create, update, delete | `metadata.name` | — |
 
 
 ## BackupPolicy
@@ -31,7 +31,7 @@ timestamp: 2026-09-28T00:00:00Z
 | update | PUT | `/projects/{projectId}/providers/Aruba.Schedule/backupPolicies/{backupPolicyId}` |
 | delete | DELETE | `/projects/{projectId}/providers/Aruba.Schedule/backupPolicies/{backupPolicyId}` |
 
-status fields: `metadata.id` · excluded from spec: `backupPolicyId, id`
+status fields: `metadata.id, status.failureReason, status.error` · excluded from spec: `backupPolicyId, id`
 
 Configuration query params: `api-version, filter, includeDeleted, limit, offset, projection, sort`
 
@@ -47,13 +47,15 @@ Sample: [`samples/schedule/backuppolicy.yaml`](../../samples/schedule/backuppoli
 | update | PUT | `/projects/{projectId}/providers/Aruba.Schedule/backupPolicyAssignments/{id}` |
 | delete | DELETE | `/projects/{projectId}/providers/Aruba.Schedule/backupPolicyAssignments/{id}` |
 
-status fields: `metadata.id` · excluded from spec: `id`
+status fields: `metadata.id, status.failureReason, status.error` · excluded from spec: `id`
 
 Configuration query params: `api-version, filter, limit, offset, projection, sort`
 
 Sample: [`samples/schedule/backuppolicyassignment.yaml`](../../samples/schedule/backuppolicyassignment.yaml) · [`backuppolicyassignment-configuration.yaml`](../../samples/schedule/backuppolicyassignment-configuration.yaml)
 
-## Job
+## ScheduledJob
+
+> Job reads return values the writes did not send: steps[].actionUri comes back with a leading slash the create REFUSES to accept, and executeUntil comes back as +00:00 where the CR sent Z. Both are keys present on each side, so the drift comparison can never pass and the controller re-PUTs the job on every resync. A responseTransform on the get verb normalises both before the comparison. A step's actionUri must be relative (`poweroff`); only poweron and poweroff are supported, so a Job requires a CloudServer to target -- created out of band by scripts/ga_job_probe.py, since a RestDefinition cannot create one.
 
 | Verb | Method | Path |
 |------|--------|------|
@@ -63,11 +65,11 @@ Sample: [`samples/schedule/backuppolicyassignment.yaml`](../../samples/schedule/
 | update | PUT | `/projects/{projectId}/providers/Aruba.Schedule/jobs/{jobId}` |
 | delete | DELETE | `/projects/{projectId}/providers/Aruba.Schedule/jobs/{jobId}` |
 
-status fields: `metadata.id` · excluded from spec: `jobId`
+status fields: `metadata.id, status.failureReason, status.error` · excluded from spec: `jobId`
 
-Configuration query params: `api-version, filter, limit, offset, projection, sort`
+Configuration query params: `api-version, filter, ignoreDeletedStatus, limit, offset, projection, sort`
 
-Sample: [`samples/schedule/job.yaml`](../../samples/schedule/job.yaml) · [`job-configuration.yaml`](../../samples/schedule/job-configuration.yaml)
+Sample: [`samples/schedule/scheduledjob.yaml`](../../samples/schedule/scheduledjob.yaml) · [`scheduledjob-configuration.yaml`](../../samples/schedule/scheduledjob-configuration.yaml)
 
 ## Endpoints not exposed as a resource
 
