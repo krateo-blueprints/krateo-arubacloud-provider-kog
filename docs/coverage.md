@@ -20,8 +20,8 @@ A tier states what has actually been *executed* against the live Aruba API, not 
 |------|-----|-------|
 | **GA** | full `create → observe → drift → delete` against the live API | 27 |
 | beta | observe verified live; mutation unproven | 2 |
-| experimental | generated, valid, reaches `Ready`, sample admitted | 5 |
-| **blocked** | known non-functional, reason recorded | 1 |
+| experimental | generated, valid, reaches `Ready`, sample admitted | 4 |
+| **blocked** | known non-functional, reason recorded | 2 |
 
 Where the API has **no update verb**, drift is *inapplicable* rather than unproven and the GA bar is `create → observe → delete`, re-runnable from a chain: nothing can diverge that a controller could correct. That rule is stated because the table was inconsistent without it — `KeyPair` was GA on that basis while `Database`, `DatabaseUser`, `Grant` and `DatabaseBackup` sat at beta on the same verb shape. It also raises the bar in one respect: *delete* must be **verified against the API while the resource's parent still exists**, because from Kubernetes a cascade and a real DELETE look identical.
 
@@ -143,7 +143,11 @@ Fixed with `compareScope: updatable`, and the choice of scope is the whole fix: 
 | security | `Kms` | **GA** | findby,get,create,update,delete | `metadata.name` | full lifecycle in one clean run incl. drift correction (`6a9ae569`) — **billable** — [live-cluster-test](live-cluster-test.md) |
 | storage | `Backup` | **GA** | findby,get,create,update,delete | `metadata.name` | full lifecycle live incl. drift correction — **billable** — [live-cluster-test](live-cluster-test.md) |
 | storage | `BlockStorage` | **GA** | findby,get,create,update,delete | `metadata.name` | full lifecycle live incl. drift correction — **billable** (`billingPeriod`), run at 20 GB and deleted immediately — [live-cluster-test](live-cluster-test.md) |
-| storage | `Image` | experimental | findby,get,create,update,delete | `metadata.name` | applies and reaches `Ready`; sample admitted by its CRD |
+| storage | `Image` | **blocked** | findby,get,create,update,delete | `metadata.name` | **create works and delete does not — do not ship this resource.** Probed at the API level on 2026-10-27. `POST .../images` with `source: {type: Volume, value: <full volume URI>}` returns **201** and the image goes straight to `InCreation`, where it has now stayed for **78 minutes and counting**, through **54 DELETEs**, every one refused with `400 {"field":"Status","errorMessage":"Status is invalid"}` — the transitional-state refusal. Its `status` never carried more than `{creationDate, state}`: no `failureReason`, no `error`, no terminal state. It never reached `Failed`, so it is not even the ~30-minute failure band that registries and KaaS backups land in.
+
+A controller cannot own a resource it can create but not delete: the finalizer would never release and the CR would wedge with it. That is why this is `blocked` and not `experimental`, despite the RestDefinition generating cleanly with a full verb set.
+
+**One confound, stated because it cannot be ruled out.** The probe's own teardown deleted the source volume ~13 minutes in, while the image was still `InCreation` — out of dependency order, the same mistake that wedged `ga-bpa` in September. The image was *already* `InCreation` with its DELETE already refused before the volume went, so the wedge was not obviously caused by it, but whether the capture would have completed otherwise is **unknown**. A clean re-probe that leaves the volume alone is what would settle it, and until someone runs one this tier rests on a single contaminated observation. The live record is `ga-image` (`6ae04d3e984f54e9730dfce5`) — [live-cluster-test](live-cluster-test.md) |
 | storage | `Restore` | **GA** | findby,get,create,update,delete | `metadata.name` | create → observe → delete proven live in the storage chain. Drift is **not applicable**: its update body (`RestoreUpdatePropertiesDto`) is an empty schema with zero properties, so there is nothing to converge — the same bar as the resources with no update verb. Delete re-verified 2026-10-22 against the API at `.../backups/{id}/restores/{id}` (→ 404) **while the parent backup was still alive**: the residue list covers blockStorages, snapshots and backups but never restores, so this was the one claim in that chain resting on the parent being torn down afterwards — [live-cluster-test](live-cluster-test.md) |
 | storage | `Snapshot` | **GA** | findby,get,create,update,delete | `metadata.name` | full lifecycle live incl. drift correction — **billable** — [live-cluster-test](live-cluster-test.md) |
 

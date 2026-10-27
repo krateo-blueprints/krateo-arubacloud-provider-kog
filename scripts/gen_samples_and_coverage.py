@@ -257,6 +257,33 @@ TIERS = {
         "full lifecycle live incl. drift correction — **billable** (`billingPeriod`), "
         "run at 20 GB and deleted immediately — [live-cluster-test](live-cluster-test.md)",
     ),
+    ("storage", "Image"): (
+        "blocked",
+        "**create works and delete does not — do not ship this resource.** Probed at "
+        "the API level on 2026-10-27. `POST .../images` with "
+        "`source: {type: Volume, value: <full volume URI>}` returns **201** and the "
+        "image goes straight to `InCreation`, where it has now stayed for **78 "
+        "minutes and counting**, through **54 DELETEs**, every one refused with "
+        "`400 {\"field\":\"Status\",\"errorMessage\":\"Status is invalid\"}` — the "
+        "transitional-state refusal. Its `status` never carried more than "
+        "`{creationDate, state}`: no `failureReason`, no `error`, no terminal state. "
+        "It never reached `Failed`, so it is not even the ~30-minute failure band "
+        "that registries and KaaS backups land in.\n\n"
+        "A controller cannot own a resource it can create but not delete: the "
+        "finalizer would never release and the CR would wedge with it. That is why "
+        "this is `blocked` and not `experimental`, despite the RestDefinition "
+        "generating cleanly with a full verb set.\n\n"
+        "**One confound, stated because it cannot be ruled out.** The probe's own "
+        "teardown deleted the source volume ~13 minutes in, while the image was still "
+        "`InCreation` — out of dependency order, the same mistake that wedged "
+        "`ga-bpa` in September. The image was *already* `InCreation` with its DELETE "
+        "already refused before the volume went, so the wedge was not obviously "
+        "caused by it, but whether the capture would have completed otherwise is "
+        "**unknown**. A clean re-probe that leaves the volume alone is what would "
+        "settle it, and until someone runs one this tier rests on a single "
+        "contaminated observation. The live record is `ga-image` "
+        "(`6ae04d3e984f54e9730dfce5`) — [live-cluster-test](live-cluster-test.md)",
+    ),
     ("storage", "Snapshot"): (
         "ga",
         "full lifecycle live incl. drift correction — **billable** — "
