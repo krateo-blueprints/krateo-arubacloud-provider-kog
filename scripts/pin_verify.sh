@@ -71,6 +71,20 @@ RDC_IMAGE="${RDC_IMAGE:-}"
 # Authorization header (oasgen#214), so do not set it on an older stack.
 RDC_DEBUG="${RDC_DEBUG:-0}"
 CHAIN_ARGS="${CHAIN_ARGS:-}"                       # e.g. --with-billable
+# Install Snowplow and the CloudServer RESTActions. OFF by default: the free
+# network-security chain does not need them, and snowplow is a second deployment to
+# wait for. Required for any chain touching CloudServer, whose update and delete are
+# delegated through *ApiRef -- without it RDC hard-errors with "no snowplow client is
+# configured" and the CR wedges on its finalizer with a live billable server behind
+# it. This is docs/ga-readiness.md P0-3, which is why those RESTActions had never
+# executed before this script learned to install their dependency.
+WITH_SNOWPLOW="${WITH_SNOWPLOW:-0}"
+SNOWPLOW_VERSION="${SNOWPLOW_VERSION:-1.12.56}"
+AUTHN_VERSION="${AUTHN_VERSION:-0.27.3}"
+# The endpoint the RESTActions call. Same host the Configurations use; named here
+# rather than inherited, because an empty server-url fails at delegation time
+# with a live resource already created.
+ARUBA_API="${ARUBA_API:-https://api.arubacloud.com}"
 KEEP="${KEEP:-1}"
 
 say() { printf '\n=== %s ===\n' "$*"; }
@@ -98,12 +112,18 @@ die() { printf 'error: %s\n' "$*" >&2; exit 1; }
 # peer had to restore it by hand. Nothing about building a throwaway cluster
 # should reach into a file other people depend on.
 #
-# So kind reads and writes its own file, named after the cluster, and KUBECONFIG
-# puts that file FIRST with the user's config after it. kubectl then still
-# resolves ${SRC_CTX} -- the credential source lives in the shared config and is
-# not ours to copy around -- while every write kind makes lands in ours.
+# So kind reads and writes its OWN file, named after the cluster, and KUBECONFIG
+# points at that file ALONE.
+#
+# An earlier version of this put the user's config second in the list so that
+# ${SRC_CTX} would resolve. That worked, but it left the shared file in scope for
+# every kubectl and helm call in a script whose whole job is creating and
+# destroying clusters -- one `kubectl config use-context` anywhere and the user's
+# default moves. The credential read is ONE command, so it names the shared file
+# explicitly (SRC_KUBECONFIG) instead, and nothing else can reach it.
 PIN_KUBECONFIG="${PIN_KUBECONFIG:-${TMPDIR:-/tmp}/kind-${CLUSTER}.kubeconfig}"
-export KUBECONFIG="${PIN_KUBECONFIG}:${HOME}/.kube/config"
+SRC_KUBECONFIG="${SRC_KUBECONFIG:-${HOME}/.kube/config}"
+export KUBECONFIG="${PIN_KUBECONFIG}"
 
 cleanup() {
   if [ "$KEEP" = "0" ]; then
@@ -122,7 +142,8 @@ trap cleanup EXIT
 for bin in kind helm kubectl python3; do
   command -v "$bin" >/dev/null || die "$bin is not on PATH"
 done
-kubectl --context "$SRC_CTX" get secret aruba-client-credentials -n krateo-system \
+kubectl --kubeconfig "$SRC_KUBECONFIG" --context "$SRC_CTX" \
+  get secret aruba-client-credentials -n krateo-system \
   >/dev/null 2>&1 || die "no aruba-client-credentials in ${SRC_CTX}/krateo-system to copy"
 
 say "creating ${CLUSTER} on ${NODE_IMAGE}"
@@ -146,7 +167,8 @@ say "copying the client credential from ${SRC_CTX} (never touches disk)"
 kubectl --context "$CTX" create namespace krateo-system >/dev/null 2>&1
 # -o yaml straight into apply. The pipe is the point: the secret is never written to a
 # file, never passed as an argument, and never echoed.
-kubectl --context "$SRC_CTX" get secret aruba-client-credentials -n krateo-system -o yaml \
+kubectl --kubeconfig "$SRC_KUBECONFIG" --context "$SRC_CTX" \
+  get secret aruba-client-credentials -n krateo-system -o yaml \
   | python3 -c '
 import sys, yaml
 d = yaml.safe_load(sys.stdin)
@@ -176,6 +198,119 @@ for i in $(seq 1 40); do
   [ "$i" = 40 ] && die "ESO never produced arubacloud-token -- check the credential"
 done
 
+if [ "$WITH_SNOWPLOW" = "1" ]; then
+  # authn FIRST, and its CRDs before it. Not optional and not ours to skip:
+  # snowplow's seed-authn.yaml renders a serviceaccount.authn.krateo.io CR with no
+  # opt-in flag, and its own comment says the chart "FAILS TO INSTALL on a cluster
+  # lacking the krateo-authn-crd ... That is INTENDED -- the platform install
+  # pipeline sequences authn BEFORE snowplow". pin_verify builds a minimal cluster
+  # rather than running that pipeline, so it has to sequence them itself.
+  say "installing authn-crds ${AUTHN_VERSION} (snowplow's hard dependency)"
+  helm --kube-context "$CTX" upgrade --install authn-crds \
+    oci://ghcr.io/krateo-platformops/charts/authn-crds --version "$AUTHN_VERSION" \
+    --namespace krateo-system --create-namespace --wait --timeout 5m \
+    >/dev/null || die "authn-crds install failed"
+  # The authn DEPLOYMENT is deliberately not installed, and that is a measurement
+  # rather than a shortcut. snowplow's chart will not RENDER without the
+  # serviceaccount.authn.krateo.io CRD above -- but with the CRD present and no authn
+  # running, snowplow comes up 1/1, readyz=200, zero restarts, and classifies the gap
+  # itself:
+  #     prewarm.seed_loopback_token_unavailable ... "degraded, not fatal"
+  #     phase1.roots.configmap_read_failed (frontend-config-vars) ...
+  #       "lazy register-on-navigation still covers GVRs on first request"
+  # Everything it loses is the PORTAL prewarm cache. /call -- the one path RDC uses to
+  # execute a RESTAction -- falls back to per-user resolve and works. Installing authn
+  # means its JWT signing key Secret, which no chart creates, or the full installer
+  # umbrella, whose `portal` feature also pulls frontend, portal-starter, ClickHouse,
+  # MongoDB and OTel collectors. None of that is exercised by three RESTActions.
+  #
+  # SCOPE, and it matters more than the finding: this holds for a NON-PORTAL
+  # consumer calling /call through *ApiRef delegation, on a throwaway verification
+  # cluster. It does NOT generalise to a portal install. Without prewarm every first
+  # navigation is cold, which a portal must not accept -- so "snowplow comes up 1/1
+  # without authn" is true here and misleading anywhere else. Do not carry this
+  # comment into an install that serves a UI. (snowplow, via snowplow#937, while
+  # checking which paths need a running authn and whether "degraded" costs
+  # correctness or only latency.)
+  #
+  # If a future chain needs warmed nested loopback RAs, that is the point to install
+  # authn properly -- not before.
+
+  # service.type=ClusterIP, and the timeout, both have one cause behind them.
+  #
+  # The chart ships the Service as type LoadBalancer, for the platform's browser-
+  # facing exposure model. kind has no load-balancer controller, so EXTERNAL-IP sits
+  # <pending> forever and `helm --wait` blocks on it until the timeout -- regardless
+  # of the workload being perfectly healthy. Three runs died this way at 5m, 15m and
+  # 22m, each reporting
+  #     Error: context deadline exceeded
+  # while the Deployment read Available=True, 1/1 ready, zero restarts. I blamed my
+  # own timeout twice and raised it twice, which bought nothing: the third failure
+  # was ABOVE the chart's own progressDeadlineSeconds (1200), which is what finally
+  # ruled the prewarm theory out.
+  #
+  # ClusterIP is not a concession to kind, it is what this deployment actually needs:
+  # RDC calls snowplow IN-CLUSTER at the svc.cluster.local address computed below,
+  # and nothing here serves a browser. An external IP would go unused.
+  #
+  # The timeout still needs to be generous -- first boot really does run an informer
+  # LIST/WATCH plus a prewarm seed with an ~8 minute backstop, and readiness is
+  # deliberately withheld until it completes -- so 15m, comfortably above the real
+  # wait and below the point where a genuine hang goes unnoticed.
+  # snowplow-crds defines the RESTAction TYPE (templates.krateo.io/v1); the snowplow
+  # chart only ships its CONSUMER. Snowplow runs happily without it -- which is why
+  # this was invisible until the RESTActions themselves were applied, and why the
+  # first version of the die message below guessed at the wrong CRD. Versioned in
+  # lockstep with snowplow, so it takes the same pin.
+  say "installing snowplow-crds ${SNOWPLOW_VERSION} (defines kind: RESTAction)"
+  helm --kube-context "$CTX" upgrade --install snowplow-crds \
+    oci://ghcr.io/krateo-platformops/charts/snowplow-crds --version "$SNOWPLOW_VERSION" \
+    --namespace krateo-system --create-namespace --wait --timeout 5m \
+    >/dev/null || die "snowplow-crds install failed"
+  say "installing snowplow ${SNOWPLOW_VERSION} (CloudServer's *ApiRef dependency)"
+  say "  ClusterIP (kind has no LB); first boot prewarms for ~8m before readiness"
+  helm --kube-context "$CTX" upgrade --install snowplow \
+    oci://ghcr.io/krateo-platformops/charts/snowplow --version "$SNOWPLOW_VERSION" \
+    --namespace krateo-system --create-namespace --wait --timeout 15m \
+    --set service.type=ClusterIP \
+    >/dev/null || die "snowplow install failed"
+  # The service RDC must call. Named explicitly rather than guessed: a wrong URL
+  # fails at delegation time, deep inside a chain, with a live resource already made.
+  SNOWPLOW_SVC="$(kubectl --context "$CTX" get svc -n krateo-system \
+    -l app.kubernetes.io/name=snowplow -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)"
+  [ -n "$SNOWPLOW_SVC" ] || die "snowplow installed but no service found to point RDC at"
+  SNOWPLOW_PORT="$(kubectl --context "$CTX" get svc -n krateo-system "$SNOWPLOW_SVC" \
+    -o jsonpath='{.spec.ports[0].port}')"
+  SNOWPLOW_URL="http://${SNOWPLOW_SVC}.krateo-system.svc.cluster.local:${SNOWPLOW_PORT}"
+  say "  snowplow at ${SNOWPLOW_URL}"
+fi
+
+if [ "$WITH_SNOWPLOW" = "1" ]; then
+  say "building the Snowplow endpoint Secret from the ESO-minted token"
+  # restactions/compute/endpoint.yaml ships with REPLACE_WITH_ARUBA_JWT, because a
+  # live token must never be committed. Built here from the Secret ESO just minted,
+  # piped cluster-internally, so the token touches neither disk nor argv nor this
+  # log -- the same handling as the client credential above.
+  SP_TOKEN="$(kubectl --context "$CTX" get secret arubacloud-token -n default \
+    -o jsonpath='{.data.token}' | base64 --decode)"
+  [ -n "$SP_TOKEN" ] || die "arubacloud-token is present but empty"
+  kubectl --context "$CTX" create secret generic arubacloud-endpoint \
+    -n krateo-system \
+    --from-literal=server-url="$ARUBA_API" \
+    --from-literal=token="$SP_TOKEN" \
+    --dry-run=client -o yaml | kubectl --context "$CTX" apply -f - >/dev/null \
+    || die "could not create the arubacloud-endpoint Secret"
+  unset SP_TOKEN
+  say "applying the CloudServer RESTActions"
+  kubectl --context "$CTX" apply -n krateo-system -f restactions/compute/ \
+    --prune=false >/dev/null 2>&1 \
+    || kubectl --context "$CTX" apply -n krateo-system \
+         -f restactions/compute/cloudserver-create.restaction.yaml \
+         -f restactions/compute/cloudserver-update.restaction.yaml \
+         -f restactions/compute/cloudserver-delete.restaction.yaml >/dev/null \
+    || die "RESTActions failed to apply -- expected kind RESTAction (templates.krateo.io/v1) from snowplow-crds"
+fi
+
 HELM_SETS=()
 if [ -n "$PROVIDER_IMAGE" ] || [ -n "$RDC_IMAGE" ]; then
   say "loading locally built images into the kind node"
@@ -193,6 +328,13 @@ if [ "$RDC_DEBUG" != "0" ]; then
   # plain --set coerces `true` to a boolean, which the chart then rejects --
   #   at '/rdc/env/REST_CONTROLLER_DEBUG': got boolean, want string
   HELM_SETS+=(--set-string rdc.env.REST_CONTROLLER_DEBUG=true)
+fi
+if [ "$WITH_SNOWPLOW" = "1" ]; then
+  # RDC's -snowplow-url defaults to the URL_SNOWPLOW env var, and EMPTY MEANS
+  # DISABLED -- mutate_restaction.go then hard-errors on any *ApiRef. No chart sets
+  # it (docs/adversarial-review.md row 3), which is the whole reason CloudServer's
+  # RESTActions had never run anywhere.
+  HELM_SETS+=(--set-string "rdc.env.URL_SNOWPLOW=${SNOWPLOW_URL}")
 fi
 
 if [ -n "$CHART_SRC" ]; then

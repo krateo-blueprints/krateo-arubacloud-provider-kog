@@ -99,7 +99,7 @@ OVERRIDES = {
         apiRefs=dict(
             namespace=CM_NS,
             extras={"api-version": "1.0"},
-            create="arubacloud-compute-cloudserver-create",
+            # create is NOT delegated any more -- see verbOas below.
             update="arubacloud-compute-cloudserver-update",
             delete="arubacloud-compute-cloudserver-delete",
             # RDC >= 0.18.0 forwards the CR spec on EVERY *ApiRef direction, so the
@@ -108,8 +108,39 @@ OVERRIDES = {
             # hardcoded static extra here (which pinned one RestDefinition to one
             # project). See rest-dynamic-controller#41.
         ),
+        # CREATE IS NATIVE from oasgen 0.34.0. The endpoint exists only in the 1.1
+        # document and a per-verb oasPath is the only way to reach it; below 0.34.0
+        # that field was silently ignored (oasgen#220/#227), which is why this was
+        # delegated to a RESTAction and why tests/experimental/cloudserver-native/
+        # existed at all.
+        #
+        # DELIBERATELY NOT the shape of that experiment, which made create, delete
+        # AND observe native and dropped update entirely. That would have been a
+        # regression dressed as an improvement:
+        #   * delete must detach data volumes FIRST. A native DELETE removes the
+        #     server with its volumes still attached, and RDC's verification cannot
+        #     catch it -- it checks the SERVER, and the server is genuinely gone.
+        #     The volumes are then orphaned with nothing referencing them. That is
+        #     snowplow#904 exactly, and the RESTAction exists to prevent it.
+        #   * update is power on/off plus associating elastic IPs, security groups,
+        #     subnets and data volumes. No single PUT expresses that.
+        # So: create native (one 1.1 POST returns the whole server), update and
+        # delete still delegated. The hybrid is the only shape that gains the create
+        # without losing the detach ordering.
+        extraVerbs=[dict(action="create", method="POST",
+                         path="/projects/{projectId}/providers/Aruba.Compute/cloudServers")],
+        verbOas={"create": "compute11"},
+        # The 1.0 endpoints want api-version 1.0 and this create wants 1.1, and a
+        # Configuration CR holds a single value -- so create carries its own static
+        # query and is excluded from the shared configurationField below.
+        verbQueries={"create": {"api-version": "1.1"}},
+        apiVersionActions=["findby", "get"],
         note=(
-            "CloudServer has NO single create/update endpoint; its lifecycle (power "
+            "CloudServer create is NATIVE via a per-verb oasPath onto the 1.1 "
+            "document (oasgen#227, 0.34.0); update and delete stay delegated to "
+            "Snowplow RESTActions because they are multi-call and because delete "
+            "must detach data volumes first. "
+            "CloudServer has NO single update endpoint; its lifecycle (power "
             "on/off, associate elastic IPs / security groups / subnets, attach data "
             "volumes, restore) is a multi-call sequence. create/update/delete are "
             "delegated to Snowplow RESTActions via *ApiRef (NO proxy); observe stays "
@@ -783,9 +814,15 @@ def id_mapping_for(r, idp):
 
 
 def config_fields(r):
+    # api-version is normally one configurationField for every verb, because a
+    # Configuration CR holds ONE value for it. A resource whose verbs are resolved
+    # against DIFFERENT documents cannot do that -- CloudServer's 1.0 endpoints want
+    # api-version 1.0 and its 1.1 create wants 1.1 -- so those verbs are excluded
+    # here and carry a static `queries` entry on the verb instead.
+    av_actions = r["ov"].get("apiVersionActions") or ["*"]
     fields = [{
         "fromOpenAPI": {"name": "api-version", "in": "query"},
-        "fromRestDefinition": {"actions": ["*"]},
+        "fromRestDefinition": {"actions": list(av_actions)},
     }]
     for q in r["list_q"]:
         if q == "api-version":
@@ -966,7 +1003,16 @@ def render(r):
     # keeping observe native. createApiRef requires get/findby, which we retain.
     apirefs = ov.get("apiRefs")
     if apirefs:
-        verbs = [v for v in verbs if v["action"] in ("findby", "get")]
+        # Keep observe, and keep any mutating verb this override does NOT delegate.
+        # It used to strip every verb but findby/get, which assumed delegation was
+        # all-or-nothing. CloudServer is the case that breaks that: its create is a
+        # single 1.1 POST and is better native, while update (power, associations)
+        # and delete (detach data volumes FIRST) are multi-call and must stay
+        # delegated -- a native DELETE would orphan the volumes, which is precisely
+        # the harm snowplow#904 is about.
+        delegated = {k for k in ("create", "update", "delete") if apirefs.get(k)}
+        verbs = [v for v in verbs
+                 if v["action"] in ("findby", "get") or v["action"] not in delegated]
         ns = apirefs["namespace"]
         extras = apirefs.get("extras")
         for verb_key, field in (("create", "createApiRef"),
@@ -983,6 +1029,31 @@ def render(r):
             if verb_extras:
                 ref["extras"] = dict(verb_extras)  # independent copy -> no YAML anchors
             resource[field] = ref
+
+    # A verb that CANNOT BE DISCOVERED from this resource's own document, declared
+    # explicitly because discovery reads one document and the endpoint is in another.
+    # CloudServer's POST exists only in compute-provider_v1.1.json, so scanning
+    # compute-provider.json finds GET and nothing else -- which is exactly why this
+    # repository concluded for months that CloudServer had no create at all.
+    for extra in (ov.get("extraVerbs") or []):
+        if not any(v["action"] == extra["action"] for v in verbs):
+            verbs.append(dict(extra))
+
+    # A verb resolved against a DIFFERENT OAS document than the resource's own, plus
+    # the static query that document needs. Both reach the controller only from
+    # oasgen 0.34.0 (#227 for the per-verb oasPath, #108/0.31.0 for `queries`); below
+    # that the field parses and is SILENTLY IGNORED, producing a resource whose verb
+    # resolves against the wrong document and fails with `operation not found`.
+    for action, prov_key in (ov.get("verbOas") or {}).items():
+        for v in verbs:
+            if v["action"] == action:
+                v["oasPath"] = (f"configmap://{CM_NS}/arubacloud-{prov_key}"
+                                f"-openapi/{prov_key}.json")
+    for action, qs in (ov.get("verbQueries") or {}).items():
+        for v in verbs:
+            if v["action"] == action:
+                v["queries"] = [{"name": k, "value": str(val)}
+                                for k, val in qs.items()]
 
     resource["verbsDescription"] = verbs
     cfg = config_fields(r)
