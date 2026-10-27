@@ -487,8 +487,20 @@ comparison, oasgen's own 0.32.0 notes cite Keycloak declaring them on 273 of 274
 path items. So **the path-item change cannot alter our generated CRDs** — not
 because the change is small, but because our inputs never use the construct.
 
-That leaves the pin move carrying no known CRD-shape risk from the two flagged
-changes. It does **not** by itself prove the regeneration is a no-op: that needs
+So of the two flagged changes, one is **ruled out by evidence** (path-item
+parameters — our documents don't use the construct) and the other is **already
+paid for** (the collision guard). On today's information the span therefore
+carries **no unbounded CRD-shape risk** for the 36 resources, with exactly one
+deliberate exception: #225's one-time regeneration — which is the change we
+*want*, since it is what makes the `status.error` append take effect on CRDs
+that already exist.
+
+That is a much smaller thing to weigh than "27 GA resources may need
+re-verifying", which is where this started.
+
+It does **not** amount to "nothing changes", and the two must not be run
+together. Zero path items removes a *known* risk; it does not demonstrate the
+regeneration is a no-op. That needs
 `oasgen-render` run at both versions and compared, with the output captured so
 the comparison is demonstrably performed rather than inferred from an empty
 `git diff`. `openapi/profile.json` is the one to look at first — vendored
