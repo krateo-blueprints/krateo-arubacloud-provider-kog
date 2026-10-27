@@ -14,6 +14,7 @@ spec:
     additionalStatusFields:
     - metadata.id
     - status.failureReason
+    - status.error
     excludedSpecFields:
     - jobId
     verbsDescription:

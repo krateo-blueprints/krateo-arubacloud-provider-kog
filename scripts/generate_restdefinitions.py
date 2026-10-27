@@ -610,6 +610,8 @@ def build(provider, spec):
             respMeta=(response_is_meta_wrapped(spec, coll) if has_list else False),
             respFailure=(response_has_failure_reason(spec, coll)
                          if has_list else False),
+            respError=(response_has_status_error(spec, coll)
+                       if has_list else False),
             get_q=query_params(spec, get_op[0], "get") if get_op else [],
             list_q=query_params(spec, coll, "get") if has_list else [],
         ))
@@ -676,6 +678,52 @@ def response_is_meta_wrapped(spec, coll):
     return True
 
 
+def response_status_props(spec, coll):
+    """Properties of the findby item's `status`, or {} when it is not an object.
+
+    Shared by the two status detectors below so they cannot disagree about what the
+    item schema is -- the envelope fallback took one quiet miss already (see
+    response_has_failure_reason).
+    """
+    op = (spec.get("paths", {}).get(coll) or {}).get("get")
+    if not op:
+        return {}
+    for cv in ((op.get("responses", {}).get("200") or {}).get("content") or {}).values():
+        sch = deref(spec, cv.get("schema", {}))
+        props, _ = merged_props(spec, sch)
+        # Not every collection answers with a {total, values:[...]} envelope:
+        # compute/keyPairs returns the {metadata, status, properties} object itself.
+        # Falling through to an empty item there silently decided "no failureReason"
+        # for a resource that has one, which is the quiet-miss this check exists to
+        # avoid -- so with no envelope key, the response schema IS the item.
+        item = deref(spec, (props.get("values") or props.get("value") or {})) or sch
+        item = deref(spec, item.get("items", {})) if item.get("type") == "array" else item
+        iprops, _ = merged_props(spec, item)
+        st = deref(spec, iprops.get("status") or {})
+        sprops, _ = merged_props(spec, st)
+        return sprops
+    return {}
+
+
+def response_has_status_error(spec, coll):
+    """True when the findby item's `status` declares the `error` object.
+
+    `failureReason` is a bare string and it is not the only diagnostic: the same
+    StatusResponseDto also carries `error` -> {reason, message}, declared in nine of
+    the twelve published documents (all but auditing, metering and security). We
+    surfaced `failureReason` and never looked at this one, which is how a Registry
+    and a KaasBackup were reported upstream as failing with "failureReason: null"
+    when the structured field beside it had never been read.
+
+    Measured 2026-10-27 against live resources: the API OMITS both keys from `status`
+    rather than sending them as null when it has nothing to say, so an absent `error`
+    on a healthy resource is expected and costs nothing. Whether it is populated on a
+    failure is NOT yet established -- no failed resource has been read with this field
+    in hand. Surfacing it is what makes that observable at all.
+    """
+    return "error" in response_status_props(spec, coll)
+
+
 def response_has_failure_reason(spec, coll):
     """True when the findby item's `status` is an OBJECT declaring `failureReason`.
 
@@ -695,24 +743,7 @@ def response_has_failure_reason(spec, coll):
     skips a path it cannot find -- but the generated schema is built from these same
     paths, so the check belongs here.
     """
-    op = (spec.get("paths", {}).get(coll) or {}).get("get")
-    if not op:
-        return False
-    for cv in ((op.get("responses", {}).get("200") or {}).get("content") or {}).values():
-        sch = deref(spec, cv.get("schema", {}))
-        props, _ = merged_props(spec, sch)
-        # Not every collection answers with a {total, values:[...]} envelope:
-        # compute/keyPairs returns the {metadata, status, properties} object itself.
-        # Falling through to an empty item there silently decided "no failureReason"
-        # for a resource that has one, which is the quiet-miss this check exists to
-        # avoid -- so with no envelope key, the response schema IS the item.
-        item = deref(spec, (props.get("values") or props.get("value") or {})) or sch
-        item = deref(spec, item.get("items", {})) if item.get("type") == "array" else item
-        iprops, _ = merged_props(spec, item)
-        st = deref(spec, iprops.get("status") or {})
-        sprops, _ = merged_props(spec, st)
-        return "failureReason" in sprops
-    return False
+    return "failureReason" in response_status_props(spec, coll)
 
 
 def response_id_field(spec, coll):
@@ -905,6 +936,12 @@ def render(r):
     # would make this an immutable-field rejection on every existing cluster.
     if r.get("respFailure"):
         resource.setdefault("additionalStatusFields", []).append("status.failureReason")
+
+    # Appended after failureReason, and last, because additionalStatusFields is
+    # append-only under the CRD's CEL rule: an existing RestDefinition accepts the
+    # new entry at the end, where inserting it earlier would be rejected.
+    if r.get("respError"):
+        resource.setdefault("additionalStatusFields", []).append("status.error")
 
     if ov.get("compareScope"):
         # An explicit scope is a statement about an API the derivation cannot see --

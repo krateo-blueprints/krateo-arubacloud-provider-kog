@@ -31,7 +31,7 @@ timestamp: 2026-09-28T00:00:00Z
 | update | PUT | `/projects/{projectId}/providers/Aruba.Schedule/backupPolicies/{backupPolicyId}` |
 | delete | DELETE | `/projects/{projectId}/providers/Aruba.Schedule/backupPolicies/{backupPolicyId}` |
 
-status fields: `metadata.id, status.failureReason` · excluded from spec: `backupPolicyId, id`
+status fields: `metadata.id, status.failureReason, status.error` · excluded from spec: `backupPolicyId, id`
 
 Configuration query params: `api-version, filter, includeDeleted, limit, offset, projection, sort`
 
@@ -47,7 +47,7 @@ Sample: [`samples/schedule/backuppolicy.yaml`](../../samples/schedule/backuppoli
 | update | PUT | `/projects/{projectId}/providers/Aruba.Schedule/backupPolicyAssignments/{id}` |
 | delete | DELETE | `/projects/{projectId}/providers/Aruba.Schedule/backupPolicyAssignments/{id}` |
 
-status fields: `metadata.id, status.failureReason` · excluded from spec: `id`
+status fields: `metadata.id, status.failureReason, status.error` · excluded from spec: `id`
 
 Configuration query params: `api-version, filter, limit, offset, projection, sort`
 
@@ -65,7 +65,7 @@ Sample: [`samples/schedule/backuppolicyassignment.yaml`](../../samples/schedule/
 | update | PUT | `/projects/{projectId}/providers/Aruba.Schedule/jobs/{jobId}` |
 | delete | DELETE | `/projects/{projectId}/providers/Aruba.Schedule/jobs/{jobId}` |
 
-status fields: `metadata.id, status.failureReason` · excluded from spec: `jobId`
+status fields: `metadata.id, status.failureReason, status.error` · excluded from spec: `jobId`
 
 Configuration query params: `api-version, filter, ignoreDeletedStatus, limit, offset, projection, sort`
 
