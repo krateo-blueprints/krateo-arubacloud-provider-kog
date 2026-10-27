@@ -61,23 +61,34 @@ it before a user does.
 ### Pre-1.0
 
 The provider is **pre-1.0 and will stay there until the GA core is closed**. At the time
-of writing 15 of 34 resources are GA, 7 beta, 7 experimental and 5 blocked — the tier
+of writing 27 of 35 resources are GA, 2 beta, 4 experimental and 2 blocked — the tier
 table in [coverage](coverage.md) is generated from recorded evidence, and
-[ga-readiness](ga-readiness.md) lists what remains. Publishing 1.0.0 while five
-resources are known non-functional would misrepresent the thing.
+[ga-readiness](ga-readiness.md) lists what remains. Publishing 1.0.0 while any
+resource cannot complete its lifecycle would misrepresent the thing, and two cannot:
+`Image` creates but cannot be deleted, and `Hpc` cannot be read back at all.
 
-Manual publish, for a one-off outside CI:
+Note those are not the same two as the `blocked` tier, which holds `Image` and
+`LoadBalancer`. `LoadBalancer` is blocked **by design** — Aruba exposes no create
+for it, confirmed in their own SDK — so it is a deliberate read-only resource, not
+a broken one. `Hpc` sits at `experimental` and is the genuinely broken one, because
+its collection 404s in every project. Tier and brokenness are different axes here.
+
+Manual publish, for a one-off outside CI — substitute the version yourself, since
+the tree carries placeholders rather than numbers:
 
 ```sh
-helm package compositions/aruba-cloudserver-environment --version 0.1.0
-helm push aruba-cloudserver-environment-0.1.0.tgz \
+VERSION=0.2.0
+helm package compositions/aruba-cloudserver-environment --version "$VERSION"
+helm push "aruba-cloudserver-environment-${VERSION}.tgz" \
   oci://ghcr.io/krateo-blueprints/charts
 ```
 
-The chart version in `compositions/aruba-cloudserver-environment/Chart.yaml`, the
-`spec.chart.version` in `compositions/compositiondefinition.yaml`, and the pin in
-the example must move together. A chart-version bump changes the Composition's
-derived apiVersion/GVK, so treat it as a coordinated change, not an in-place edit.
+Both `compositions/aruba-cloudserver-environment/Chart.yaml` and
+`spec.chart.version` in `compositions/compositiondefinition.yaml` hold the literal
+`CHART_VERSION`, which the tag workflow substitutes, so there is nothing to keep in
+sync by hand and no number to forget. A chart-version bump still changes the
+Composition's derived apiVersion/GVK — that is a property of the release, not an
+edit someone makes.
 
 ## Refreshing the generated manifests
 
@@ -129,5 +140,5 @@ chart floor to 1.36 (#178).
 
 **A release must state the provider version it was validated against.** The CI gate
 pins it in one place (`OASGEN_VERSION` in `.github/workflows/validate.yaml`) and the
-smoke job re-proves all 34 RestDefinitions against it, so the claim is executed rather
+smoke job re-proves all 35 RestDefinitions against it, so the claim is executed rather
 than asserted.
