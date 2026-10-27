@@ -231,8 +231,14 @@ Two non-obvious contracts govern `*ApiRef` delegation — both found by the
    `cloudserver-delete.restaction.yaml`. It skips a write step whose `dependsOn` step
    failed, unless `continueOnError` is set — and here `delete` depends on `server`, not
    on `detachVolumes` (they are siblings off the same read), with `continueOnError:
-   true` on all three stages. Both exemptions apply. The two-line correction, and why
-   it must not be made before the floor is met, is recorded in that manifest.
+   true` on all three stages. Both exemptions apply. The correction is three lines, not
+   the two an earlier version of this note claimed: `continueOnError` has to come off
+   `detachVolumes` as well, or a **failed server read** still deletes the server —
+   detach runs anyway, its iterator over an absent server yields zero items, zero items
+   succeeds, and the delete is waved through. That was measured on
+   [snowplow#911](https://github.com/krateo-platformops/snowplow/pull/911) (POST 0,
+   DELETE 1). The exact diff, the outcome table and the tests to add with it are
+   recorded in that manifest, along with why it must not be made before the floor.
 
    **[snowplow#903](https://github.com/krateo-platformops/snowplow/issues/903) —
    background work can send write stages.** Below 1.12.57 Snowplow's background workers
