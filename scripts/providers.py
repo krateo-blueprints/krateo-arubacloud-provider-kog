@@ -33,36 +33,35 @@ PROVIDERS = {
 # generated from, the same way auditing.json has always been.
 #
 # Aruba.Profile/aiKeys is genuinely resource-shaped -- {metadata, status, properties},
-# a {total, values} list, the same host -- and it generated cleanly. It does not WORK:
-# on the CI smoke test `arubacloud-profile-aikey` was the one RestDefinition of 36
-# that never reached Ready in 10 minutes, and no controller was created for it. Every
-# other definition, including the new storage/Image and the read-only
-# network/LoadBalancer, went Ready.
+# a {total, values} list, the same host. It is held back for TWO independent reasons,
+# and the second outlives the first, so do not restore it the moment the first clears.
 #
-# The structural difference is that aiKeys has no POST, so the definition declares
-# `update` and `delete` with NO `create`. LoadBalancer is read-only too and is fine,
-# but it declares only findby+get. We have not confirmed the mechanism -- CI's
-# diagnostics truncate the conditions dump before the failing resource's message --
-# so this is an observation, not a diagnosis, and the question is with
-# oasgen-provider.
+# 1. THE DOCUMENT CANNOT BE PARSED. One schema is named
+#    `...ApiKeyQuotasDto+QuotaValue`, and the parser unescaped `$ref` fragments with
+#    url.QueryUnescape -- form-encoding semantics, which decode `+` as a space. A JSON
+#    Pointer is not form data, so the lookup searched for `ApiKeyQuotasDto QuotaValue`
+#    and failed on a component that is plainly present. It fails in BuildV3Model,
+#    before generation runs, which is why no controller was ever created.
+#    Fix: krateo-platformops/libopenapi#2 (PathUnescape). Verified end to end against
+#    our real 45 KB document -- patched parser returns crds: 1, errors: [] -- but that
+#    PR is OPEN and the fork's newest tag is still v0.21.8, which is what oasgen pins.
+#    So no RELEASED oasgen build parses this document today.
+#    Also reported to Aruba as Arubacloud/api#25, framed as a consumer bug rather than
+#    a defect in their spec, because it is one.
 #
-# Held back rather than shipped broken: AiKey was experimental and unexercised, it is
-# not in the 27 GA resources, and a RestDefinition that never goes Ready is a
-# permanently degraded object in a user's cluster. One line restores it once the
-# mechanism is known and the shape is right.
+# 2. UPDATE CANNOT CARRY A BODY. profile.json has no POST for aiKeys -- only
+#    PUT/GET/DELETE plus enable/disable. oasgen derives the CR's spec body fields from
+#    the create verb, so with none it treats the resource as read-only and the spec is
+#    {projectId, configurationRef, metadata.name}. The PUT body is AiKeyDto
+#    {metadata, properties}, and `properties` -- where the quotas live -- is not in the
+#    spec, so it is dropped. PUT is full-replacement: the update would send
+#    {"metadata": {"name": "..."}} and either error or discard the key's quotas, with
+#    no warning at generation time. Filed as oasgen-provider#236.
+#
+# WHEN RESTORING: parse fix alone is not enough. Until #236 ships, add aiKeys back
+# WITHOUT the update verb -- as an adopt-and-read resource, where the quotas are
+# readable and nothing silently overwrites them. generate_restdefinitions.py already
+# refuses to emit a PUT with no POST for exactly this reason, so the correct shape is
+# what it will produce; the note there says to drop that guard when #236 lands.
 
-# compute-provider_v1.1.json is deliberately NOT in PROVIDERS. It is a second
-# document for the SAME provider, consumed through a per-verb oasPath rather than
-# being a provider of its own -- see the CloudServer notes in docs/coverage.md and
-# oasgen#108/#220.
-#
-# It still needs a ConfigMap, though, which is the one real difference between the
-# two lists and the reason this module exposes both rather than one:
-#
-#   Aruba splits CloudServer across two API versions: everything except create is in
-#   compute-provider.json (1.0.0), and POST .../cloudServers exists ONLY in
-#   compute-provider_v1.1.json (1.1.0). The 1.1 document contains that single path
-#   and nothing else. It is vendored and was never shipped as a ConfigMap, so oasgen
-#   could not see the create endpoint at all -- which is why this repo once concluded
-#   CloudServer had none.
 CONFIGMAP_PROVIDERS = dict(PROVIDERS, **{"compute11": "compute-provider_v1.1.json"})
