@@ -446,6 +446,71 @@ Every one of its endpoints is now a declarative feature:
 | Proxy list envelope `{total, values}` | controller reads the envelope directly (B3) |
 
 Result: **the `subnet-plugin` is fully eliminated**, and no new plugin is
-introduced for any of the 34 resources. The only genuinely proxy-shaped needs
+introduced for any of the 36 resources. The only genuinely proxy-shaped needs
 that remain (compute CloudServer multi-call create/lifecycle) are covered by the
 fork's Snowplow `*ApiRef` delegation rather than a bespoke web service.
+
+
+---
+
+## Appendix — evidence for the 0.27.1 → 0.34.0 pin decision
+
+We pin oasgen-provider **0.27.1**. Two fixes we now depend on land above it:
+[#225](https://github.com/krateo-platformops/oasgen-provider/pull/225) (the
+`resourceHash` gate, released in 0.33.0), which is what makes the
+`status.error` field appended on 2026-10-27 actually reach CRDs that already
+exist, and [#227](https://github.com/krateo-platformops/oasgen-provider/pull/227)
+(per-verb `oasPath` reaching the controller — the #220 that keeps CloudServer's
+create unreachable), heading for 0.34.0.
+
+Moving the pin means deciding whether the 27 GA resources need re-verifying.
+Most of the span is fixes, but oasgen-provider flagged two changes with real
+behavioural surface:
+
+1. **The built-in collision guard (0.32.0)** — already paid for. `ScheduledJob`
+   exists because of it; see `KIND_MAP` in `scripts/generate_restdefinitions.py`.
+2. **Path-item parameters becoming visible (0.32.0)** — this one *changes
+   generated CRDs*, but only for documents that declare `parameters` on the
+   **path item** rather than on the operation.
+
+**Point 2 is measured, not reasoned about, and the answer is zero.** Across
+every vendored document, counting `paths./x.parameters` (path item) against
+`paths./x.get.parameters` (operation):
+
+| | path items declaring `parameters` | operations declaring `parameters` |
+|---|---|---|
+| All 12 generated-from documents | **0** | 220 |
+| `auditing.json` (vendored, not consumed) | 0 | — |
+
+Aruba declares parameters on the operation, every time, in all 13 documents. For
+comparison, oasgen's own 0.32.0 notes cite Keycloak declaring them on 273 of 274
+path items. So **the path-item change cannot alter our generated CRDs** — not
+because the change is small, but because our inputs never use the construct.
+
+That leaves the pin move carrying no known CRD-shape risk from the two flagged
+changes. It does **not** by itself prove the regeneration is a no-op: that needs
+`oasgen-render` run at both versions and compared, with the output captured so
+the comparison is demonstrably performed rather than inferred from an empty
+`git diff`. `openapi/profile.json` is the one to look at first — vendored
+2026-10-27, it has never been through generation on any version, so a diff
+attributes nothing about it to the upgrade; generate it at both to separate
+"this document is new" from "this version changed it".
+
+Reproduce the table with:
+
+```sh
+python3 - <<'EOF'
+import json, os, sys
+sys.path.insert(0, "scripts")
+from providers import CONFIGMAP_PROVIDERS
+VERBS = {"get","put","post","delete","patch","head","options","trace"}
+for prov, fn in sorted(CONFIGMAP_PROVIDERS.items(), key=lambda kv: kv[1]):
+    d = json.load(open(os.path.join("openapi", fn)))
+    pi = sum(1 for _, i in (d.get("paths") or {}).items()
+             if isinstance(i, dict) and i.get("parameters"))
+    op = sum(1 for _, i in (d.get("paths") or {}).items()
+             for v, o in i.items()
+             if v in VERBS and isinstance(o, dict) and o.get("parameters"))
+    print(f"{fn:<32} path-item={pi:<4} operation={op}")
+EOF
+```
