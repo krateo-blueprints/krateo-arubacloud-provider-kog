@@ -69,28 +69,14 @@ KIND_MAP = {
     # suggested `ArubacloudJob`: the resource is a scheduled poweron/poweroff task
     # under Aruba.Schedule, and the group already carries the vendor.
     "jobs": "ScheduledJob", "alertRules": "AlertRule",
+    "aiKeys": "AiKey",
     "blockStorages": "BlockStorage", "snapshots": "Snapshot", "restores": "Restore",
     "backups": "Backup", "hpcs": "Hpc", "folders": "Folder", "projects": "Project",
 }
 
-# Which spec file each provider resource set comes from and the resource kind
-# prefix used to disambiguate collections that repeat a name (e.g. "backups"
-# exists in database, storage and container).
-# Aruba's published OAS documents, consumed UNMODIFIED. The key is the short
-# provider name used in ConfigMap/RestDefinition names; the value is the exact
-# filename as published at https://api.arubacloud.com/openapi/.
-PROVIDERS = {
-    "network": "network-provider.json",
-    "compute": "compute-provider.json",
-    "container": "container-provider.json",
-    "database": "database-provider.json",
-    "storage": "storage-provider.json",
-    "security": "security-provider.json",
-    "schedule": "schedule-provider.json",
-    "baremetal": "baremetal-provider.json",
-    "project": "project.json",
-    "metering": "metering.json",
-}
+import os as _os, sys as _sys
+_sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+from providers import PROVIDERS  # one list; see scripts/providers.py
 
 # Explicit overrides for resources that do not follow the metadata-wrapper CRUD
 # pattern. Keyed by "<provider>/<seg>".

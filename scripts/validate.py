@@ -22,14 +22,9 @@ import sys
 import yaml
 
 ROOT = os.path.join(os.path.dirname(__file__), "..")
-# short provider name -> published filename (consumed UNMODIFIED)
-PROVIDERS = {
-    "network": "network-provider.json", "compute": "compute-provider.json",
-    "container": "container-provider.json", "database": "database-provider.json",
-    "storage": "storage-provider.json", "security": "security-provider.json",
-    "schedule": "schedule-provider.json", "baremetal": "baremetal-provider.json",
-    "project": "project.json", "metering": "metering.json",
-}
+import os as _os, sys as _sys
+_sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+from providers import PROVIDERS  # one list; see scripts/providers.py
 
 
 # Verbatim from the RestDefinition CRD (ogen.krateo.io_restdefinitions.yaml).

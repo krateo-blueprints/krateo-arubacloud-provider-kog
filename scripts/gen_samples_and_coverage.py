@@ -12,6 +12,10 @@ nested `properties.*` are left as a stub pointing at the OAS, rather than invent
 import json
 import os
 import re
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from providers import PROVIDERS  # one list; see scripts/providers.py
 
 import yaml
 
@@ -683,16 +687,7 @@ def crd_version(spec):
     v = (spec.get("info") or {}).get("version") or ""
     return "v" + v.replace(".", "-") if v else "v1alpha1"
 # short provider name -> published filename (consumed UNMODIFIED)
-FILES = {'network': 'network-provider.json',
-         'compute': 'compute-provider.json',
-         'container': 'container-provider.json',
-         'database': 'database-provider.json',
-         'storage': 'storage-provider.json',
-         'security': 'security-provider.json',
-         'schedule': 'schedule-provider.json',
-         'baremetal': 'baremetal-provider.json',
-         'project': 'project.json',
-         'metering': 'metering.json'}
+FILES = PROVIDERS
 
 
 
