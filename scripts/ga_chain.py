@@ -718,9 +718,26 @@ def main():
                         time.sleep(15)
                     if not confirmed:
                         mins = DELETE_VERIFY_SECONDS / 60
+                        # Say what the CR is actually doing rather than assuming it
+                        # went. This line used to read "the CR is gone but the
+                        # resource is not" without ever checking, and on Image it was
+                        # simply false: the CR was still there, Terminating, with its
+                        # finalizer held -- which is the OPPOSITE failure (a wedged
+                        # finalizer, not a silent orphan) and wants the opposite fix.
+                        # An unverified claim in a teardown report is worse than no
+                        # claim: this is the output someone reads at 2am.
+                        cr = kubectl("get", f"{kind}.{GROUP}", name, "-n", NS, "-o",
+                                     "jsonpath={.metadata.deletionTimestamp}|"
+                                     "{.metadata.finalizers}")
+                        if cr.returncode != 0:
+                            crstate = "the CR is gone — the resource is ORPHANED"
+                        else:
+                            ts, _, fin = (cr.stdout or "").partition("|")
+                            crstate = (f"the CR is STILL PRESENT, deletionTimestamp="
+                                       f"{ts or '(none)'} finalizers={fin or '[]'} "
+                                       f"— it is wedged, not orphaned")
                         print(f"    DELETE NOT CONFIRMED after {mins:.0f} min: {url} "
-                              f"still reads 200 — the CR is gone but the resource is "
-                              f"not", file=sys.stderr)
+                              f"still reads 200 — {crstate}", file=sys.stderr)
                 except Exception as e:                      # never block the teardown
                     print(f"    delete check errored for {kind}/{name}: {e}",
                           file=sys.stderr)
