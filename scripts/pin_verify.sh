@@ -88,12 +88,32 @@ img_sets() {
 }
 die() { printf 'error: %s\n' "$*" >&2; exit 1; }
 
+# Keep kind OUT of the shared kubeconfig.
+#
+# `kind create` and `kind delete` write to ~/.kube/config when nothing says
+# otherwise, and they also move `current-context`. On a machine where other
+# sessions are working that is a side effect on someone else's tooling, not just
+# ours: a run here left the shared config with NO current-context at all and a
+# peer had to restore it by hand. Nothing about building a throwaway cluster
+# should reach into a file other people depend on.
+#
+# So kind reads and writes its own file, named after the cluster, and KUBECONFIG
+# puts that file FIRST with the user's config after it. kubectl then still
+# resolves ${SRC_CTX} -- the credential source lives in the shared config and is
+# not ours to copy around -- while every write kind makes lands in ours.
+PIN_KUBECONFIG="${PIN_KUBECONFIG:-${TMPDIR:-/tmp}/kind-${CLUSTER}.kubeconfig}"
+export KUBECONFIG="${PIN_KUBECONFIG}:${HOME}/.kube/config"
+
 cleanup() {
   if [ "$KEEP" = "0" ]; then
     say "deleting cluster ${CLUSTER}"
-    kind delete cluster --name "$CLUSTER" >/dev/null 2>&1
+    kind delete cluster --name "$CLUSTER" --kubeconfig "$PIN_KUBECONFIG" >/dev/null 2>&1
+    rm -f "$PIN_KUBECONFIG"
   else
     printf '\ncluster %s left up (KEEP=0 to delete it)\n' "$CLUSTER"
+    printf 'its kubeconfig: %s\n' "$PIN_KUBECONFIG"
+    printf 'reach it with: KUBECONFIG=%s kubectl --context %s get nodes\n' \
+           "$PIN_KUBECONFIG" "$CTX"
   fi
 }
 trap cleanup EXIT
@@ -108,7 +128,8 @@ say "creating ${CLUSTER} on ${NODE_IMAGE}"
 if kind get clusters 2>/dev/null | grep -qx "$CLUSTER"; then
   echo "    already exists, reusing"
 else
-  kind create cluster --name "$CLUSTER" --image "$NODE_IMAGE" || die "kind create failed"
+  kind create cluster --name "$CLUSTER" --image "$NODE_IMAGE" \
+    --kubeconfig "$PIN_KUBECONFIG" || die "kind create failed"
 fi
 
 say "installing external-secrets ${ESO_VERSION}"
