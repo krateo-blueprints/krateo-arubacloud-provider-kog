@@ -117,6 +117,18 @@ spec:
     # stronger test -- it names the dependsOn that caused the skip -- and it does not
     # rest on the guarantee above holding.
     #
+    # AND THE HEADER IS NOT ALWAYS AN ARRAY. When the list would exceed 4 KiB it is
+    # instead the object {"truncated":true,"failed":N}, where N stages did not
+    # succeed (snowplow, 2026-10-27, found by frontend). A parser that checks
+    # `isArray` and treats anything else as "no outcomes" reads that object as
+    # SUCCESS -- the failure mode this whole chain exists to prevent, arriving
+    # through the instrument meant to detect it. The truncated object must FAIL the
+    # assertion, not error past it:
+    #   array     -> any entry with outcome Skipped/Failed -> assert on it
+    #   object    -> truncated:true with failed:N > 0      -> FAIL
+    #   []        -> all succeeded, but never assert the delete was SENT from this
+    #   anything else -> FAIL, do not assume success from a shape you cannot read
+    #
     # Either way the ambiguity was never dangerous here, and it is worth knowing why:
     # an aborted resolve sends NOTHING, so the server is still
     # there, and RDC's delete verification refuses to release the finalizer on a
