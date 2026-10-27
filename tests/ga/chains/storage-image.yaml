@@ -1,0 +1,74 @@
+# Image, isolated from the storage chain on purpose.
+#
+# Image is classified `blocked` in docs/coverage.md: an API-level probe on 2026-10-27
+# created one and could not delete it -- 78 minutes in `InCreation`, 54 DELETEs, every
+# one refused 400 {"field":"Status","errorMessage":"Status is invalid"}. That probe was
+# CONTAMINATED: its teardown deleted the source volume ~13 minutes in, while the capture
+# was still running, so it cannot say whether the wedge was caused by losing the source.
+#
+# This chain is the clean re-run. It answers one question -- does an Image delete when
+# its source volume is left alive underneath it? -- and the chain runner's own teardown
+# is what makes it clean: reverse dependency order from a finally block, so Image is
+# deleted and VERIFIED GONE before BlockStorage is touched at all. That ordering is
+# exactly what the hand-written probe got wrong.
+#
+# It is a separate file rather than two more entries in storage.yaml because Image may
+# well wedge again. storage.yaml is a passing GA chain for four resources and must not
+# be made unrunnable by a fifth that is known to be unsafe. If this chain goes green,
+# Image moves out of `blocked` and into storage.yaml where it belongs.
+#
+# BILLABLE and possibly UNRECOVERABLE: if Image wedges again this leaves a second
+# permanently stuck record on the account, as `ga-chain-image`. That is the known price
+# of settling the question, and the name is deliberately distinct from the first probe's
+# `ga-image` (6ae04d3e984f54e9730dfce5) so the two can never be confused -- in the
+# residue check, in the account, or in the report to Aruba.
+#
+# MEASURED create contract (probe, 2026-10-27): source.value takes the volume's FULL
+# URI, not a bare id; ImageSourceType is Volume | Import. POST answers 201 and the
+# resource goes straight to InCreation.
+name: storage-image
+vars:
+  PROJECT: 69a55c8d5e6f0e14f14093ff
+  LOCATION: ITBG-Bergamo
+residue:
+- /projects/${PROJECT}/providers/Aruba.Storage/blockStorages
+- /projects/${PROJECT}/providers/Aruba.Storage/images
+resources:
+- kind: BlockStorage
+  name: ga-chain-img-vol
+  billable: true
+  spec:
+    configurationRef:
+      name: blockstorage-config
+      namespace: default
+    projectId: ${PROJECT}
+    metadata:
+      name: ga-chain-img-vol
+      location:
+        value: ${LOCATION}
+      tags: []
+    properties:
+      sizeGb: 20
+      billingPeriod: Hour
+  drift: /projects/${PROJECT}/providers/Aruba.Storage/blockStorages/${id:self}
+
+- kind: Image
+  name: ga-chain-image
+  billable: true
+  spec:
+    configurationRef:
+      name: image-config
+      namespace: default
+    projectId: ${PROJECT}
+    metadata:
+      name: ga-chain-image
+      location:
+        value: ${LOCATION}
+      tags: []
+    properties:
+      description: KOG GA chain, clean re-run of the Image delete question
+      bootable: false
+      source:
+        type: Volume
+        value: /projects/${PROJECT}/providers/Aruba.Storage/blockStorages/${id:BlockStorage}
+  drift: /projects/${PROJECT}/providers/Aruba.Storage/images/${id:self}
