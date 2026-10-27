@@ -64,8 +64,14 @@ The provider is **pre-1.0 and will stay there until the GA core is closed**. At 
 of writing 27 of 35 resources are GA, 2 beta, 4 experimental and 2 blocked — the tier
 table in [coverage](coverage.md) is generated from recorded evidence, and
 [ga-readiness](ga-readiness.md) lists what remains. Publishing 1.0.0 while any
-resource is known non-functional would misrepresent the thing, and two are: `Image`
-creates but cannot be deleted, and `Hpc` cannot be read back at all.
+resource cannot complete its lifecycle would misrepresent the thing, and two cannot:
+`Image` creates but cannot be deleted, and `Hpc` cannot be read back at all.
+
+Note those are not the same two as the `blocked` tier, which holds `Image` and
+`LoadBalancer`. `LoadBalancer` is blocked **by design** — Aruba exposes no create
+for it, confirmed in their own SDK — so it is a deliberate read-only resource, not
+a broken one. `Hpc` sits at `experimental` and is the genuinely broken one, because
+its collection 404s in every project. Tier and brokenness are different axes here.
 
 Manual publish, for a one-off outside CI — substitute the version yourself, since
 the tree carries placeholders rather than numbers:
