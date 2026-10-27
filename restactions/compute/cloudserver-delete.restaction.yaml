@@ -101,6 +101,24 @@ spec:
     #   detach fails      -> DELETE is not sent
     #   no data volumes   -> no POST, DELETE is sent
     #
+    # Assert them on `X-Snowplow-Stage-Outcomes` (snowplow, against the reviewed #911):
+    # a skipped write is listed as `Skipped` WITH ITS dependsOn, so "delete skipped
+    # because detach failed" is distinguishable from "delete ran and succeeded". Only
+    # non-succeeded stages appear, so `[]` is the all-succeeded case.
+    #
+    # Mind that `[]`: at the time of writing a resolve that ABORTS before running any
+    # stage -- a dependency cycle, or a dependsOn naming a step that does not exist --
+    # can also report `[]`, which reads as success. A refinement giving aborts an
+    # explicit entry was in progress when 1.12.57 was being cut, so DO NOT assume the
+    # floor includes it; check the tag before writing a test that treats `[]` as proof
+    # the delete was sent. For this RESTAction the ambiguity is not dangerous, and it
+    # is worth knowing why: an aborted resolve sends NOTHING, so the server is still
+    # there, and RDC's delete verification refuses to release the finalizer on a
+    # resource it can still observe. Our net catches "the delete did not happen"; the
+    # hole #904 is about is "the delete happened and left the wrong things behind",
+    # which an abort cannot produce. A rename of any step here is therefore a loud
+    # failure, not a silent orphan.
+    #
     # Making it earlier buys nothing: on snowplow < 1.12.57 the delete is sent
     # regardless, so the change would add ordering and no protection, while reading
     # as though the hole were closed.
