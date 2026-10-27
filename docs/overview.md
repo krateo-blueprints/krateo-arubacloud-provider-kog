@@ -2,7 +2,7 @@
 type: Architecture
 title: krateo-arubacloud-provider-kog — overview
 description: How the blueprint works — RestDefinition to generated CRD + controller, the nested-metadata identifier pattern that eliminates proxies, *ApiRef delegation for multi-call lifecycles, and the whole-environment Composition.
-resource: oci://ghcr.io/krateo-blueprints/charts/aruba-cloudserver-environment
+resource: oci://ghcr.io/krateo-blueprints/charts/aruba-network-environment
 tags: [architecture, oasgen-provider, restdefinition, metadata-pattern, apiref]
 timestamp: 2026-09-05T00:00:00Z
 ---
@@ -81,7 +81,7 @@ flapping. See [Async readiness](async-readiness.md).
 ## Whole-environment provisioning: the Composition
 
 The `compositions/` directory pairs a Krateo `CompositionDefinition`
-(`core.krateo.io/v1alpha1`) with a Helm chart, `aruba-cloudserver-environment`.
+(`core.krateo.io/v1alpha1`) with a Helm chart, `aruba-network-environment`.
 Registering the CompositionDefinition generates a CRD; applying one instance of it
 fans a single high-level input set (project, location, CIDRs, flavor, token
 reference) out into a coordinated set of CRs — `Vpc` + `Subnet` + `SecurityGroup`

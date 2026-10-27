@@ -1,8 +1,8 @@
 ---
 type: Runbook
 title: krateo-arubacloud-provider-kog — release
-description: How the aruba-cloudserver-environment Composition chart is packaged and published as an OCI artifact, how the CompositionDefinition version tracks it, and how the generated manifests are refreshed from updated Aruba specs.
-resource: oci://ghcr.io/krateo-blueprints/charts/aruba-cloudserver-environment
+description: How the aruba-network-environment Composition chart is packaged and published as an OCI artifact, how the CompositionDefinition version tracks it, and how the generated manifests are refreshed from updated Aruba specs.
+resource: oci://ghcr.io/krateo-blueprints/charts/aruba-network-environment
 tags: [release, oci, ghcr, chart, regeneration]
 timestamp: 2026-09-05T00:00:00Z
 ---
@@ -15,13 +15,13 @@ the repository itself). There is no application image.
 
 ## Publishing the Composition chart
 
-The `aruba-cloudserver-environment` chart under `compositions/` is packaged and
+The `aruba-network-environment` chart under `compositions/` is packaged and
 pushed to GHCR as an OCI artifact. The `CompositionDefinition` points at it:
 
 ```yaml
 spec:
   chart:
-    url: oci://ghcr.io/krateo-blueprints/charts/aruba-cloudserver-environment
+    url: oci://ghcr.io/krateo-blueprints/charts/aruba-network-environment
     version: "0.1.0"
 ```
 
@@ -78,12 +78,12 @@ the tree carries placeholders rather than numbers:
 
 ```sh
 VERSION=0.2.0
-helm package compositions/aruba-cloudserver-environment --version "$VERSION"
-helm push "aruba-cloudserver-environment-${VERSION}.tgz" \
+helm package compositions/aruba-network-environment --version "$VERSION"
+helm push "aruba-network-environment-${VERSION}.tgz" \
   oci://ghcr.io/krateo-blueprints/charts
 ```
 
-Both `compositions/aruba-cloudserver-environment/Chart.yaml` and
+Both `compositions/aruba-network-environment/Chart.yaml` and
 `spec.chart.version` in `compositions/compositiondefinition.yaml` hold the literal
 `CHART_VERSION`, which the tag workflow substitutes, so there is nothing to keep in
 sync by hand and no number to forget. A chart-version bump still changes the

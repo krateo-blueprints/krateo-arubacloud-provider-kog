@@ -92,6 +92,7 @@ def main():
 
     verify_sample_versions(errors, specs)
     charts = validate_charts(errors)
+    validate_composition_generated(errors)
 
     print(f"Checked {len(rds)} RestDefinitions, {len(cm_names)} ConfigMaps, {charts} chart(s).")
     if errors:
@@ -157,6 +158,22 @@ def find_helm():
     return shutil.which("helm") or next(
         (p for p in ("/root/go/bin/helm", os.path.expanduser("~/go/bin/helm"))
          if os.path.isfile(p)), None)
+
+
+def validate_composition_generated(errors):
+    """The chart's _generated.tpl must match what gen_composition.py would write.
+
+    Everything else generated in this repo is checked for staleness by CI
+    regenerating and diffing; the chart's partial was not, which is half of why a
+    chart that no cluster would accept shipped twice. The other half -- that the
+    chart's own templates may still be wrong -- is only catchable against real CRDs,
+    and that gate lives in the smoke job.
+    """
+    r = subprocess.run([sys.executable, os.path.join("scripts", "gen_composition.py"),
+                        "--check"], capture_output=True, text=True)
+    if r.returncode != 0:
+        errors.append((r.stderr or r.stdout).strip() or
+                      "gen_composition.py --check failed")
 
 
 def validate_charts(errors):

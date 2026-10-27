@@ -1,0 +1,57 @@
+# Default values for the aruba-network-environment composition.
+#
+# One input set fans out into a VPC, a Subnet inside it and a SecurityGroup, plus
+# the per-kind Configuration each of them needs.
+#
+# Every field here maps to a field Aruba's create body actually has. There is no
+# `vpc.cidr`: a VPC takes {default, preset} and the CIDR belongs to the subnet.
+
+# Target namespace for the generated Custom Resources.
+namespace: default
+
+# Aruba project the environment lives in.
+projectId: REPLACE_PROJECT_ID
+
+# Location/region value (e.g. "ITBG-Bergamo").
+location: ITBG-Bergamo
+
+# Tags applied to every resource.
+tags: []
+
+# Reference to the Secret holding the Aruba token (created separately).
+# The authentication SHAPE is not configurable: it is derived per provider
+# document in templates/_generated.tpl, because Aruba declares apiKey in some
+# documents and http/bearer in others.
+tokenSecret:
+  name: arubacloud-token
+  namespace: default
+  key: token
+
+# The `api-version` query parameter sent on every call.
+apiVersion: "1.0"
+
+# Environment name prefix applied to every generated resource.
+name: demo
+
+# The VPC that Subnet and SecurityGroup hang off. Aruba takes vpcId as a PATH
+# parameter, and the id only exists after the Vpc is created, so it cannot be
+# wired at render time -- apply the chart, read the Vpc's status.metadata.id, then
+# set this and re-apply. See docs/lifecycle-beyond-crud.md.
+vpcId: REPLACE_WITH_VPC_ID
+
+vpc:
+  # Make this the project's default VPC.
+  default: false
+  # `preset` only works where the location has no VPC yet; it fails once one exists.
+  preset: false
+
+subnet:
+  # `Advanced` with an explicit CIDR. `Basic` lets the CMP choose the address,
+  # which makes the declared value unmatchable and drift uncorrectable.
+  type: Advanced
+  cidr: 10.0.1.0/24
+  default: false
+
+securityGroup:
+  default: false
+  preset: false

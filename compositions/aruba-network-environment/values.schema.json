@@ -1,0 +1,106 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": [
+    "projectId",
+    "location",
+    "name",
+    "tokenSecret"
+  ],
+  "properties": {
+    "namespace": {
+      "type": "string",
+      "default": "default"
+    },
+    "projectId": {
+      "type": "string",
+      "description": "Aruba project id"
+    },
+    "location": {
+      "type": "string",
+      "description": "Aruba location value, e.g. ITBG-Bergamo"
+    },
+    "apiVersion": {
+      "type": "string",
+      "default": "1.0"
+    },
+    "name": {
+      "type": "string",
+      "description": "Environment name prefix"
+    },
+    "tokenSecret": {
+      "type": "object",
+      "required": [
+        "name",
+        "namespace",
+        "key"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "namespace": {
+          "type": "string"
+        },
+        "key": {
+          "type": "string"
+        }
+      }
+    },
+    "vpc": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "default": {
+          "type": "boolean"
+        },
+        "preset": {
+          "type": "boolean"
+        }
+      },
+      "description": "VPC create properties. Aruba's VPC body is {default, preset}; there is no CIDR here."
+    },
+    "subnet": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "Basic",
+            "Advanced"
+          ]
+        },
+        "cidr": {
+          "type": "string"
+        },
+        "default": {
+          "type": "boolean"
+        }
+      }
+    },
+    "securityGroup": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "default": {
+          "type": "boolean"
+        },
+        "preset": {
+          "type": "boolean"
+        }
+      }
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Tags applied to every resource."
+    },
+    "vpcId": {
+      "type": "string",
+      "description": "Existing VPC id; Subnet and SecurityGroup take it as a path parameter."
+    }
+  }
+}

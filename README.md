@@ -102,7 +102,7 @@ Tokens are short-lived; rotation is the operator's responsibility.
 
 Per-resource Configurations and CRs live under [`samples/`](samples/) (one pair per
 resource, all providers), and a full end-to-end composition under
-[`examples/cloudserver-environment/`](examples/cloudserver-environment/).
+[`examples/network-environment/`](examples/network-environment/).
 
 ## Docs
 

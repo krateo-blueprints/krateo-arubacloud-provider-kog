@@ -2,7 +2,7 @@
 type: Log
 title: krateo-arubacloud-provider-kog — log
 description: Curated chronological history of the Aruba Cloud Provider KOG blueprint — notable changes and decisions, not a generated changelog.
-resource: oci://ghcr.io/krateo-blueprints/charts/aruba-cloudserver-environment
+resource: oci://ghcr.io/krateo-blueprints/charts/aruba-network-environment
 tags: [log, history]
 timestamp: 2026-09-05T00:00:00Z
 ---
@@ -58,7 +58,7 @@ full record.
 Adopted the Krateo Documentation Standard (OKF): the invariant core doc set
 (`docs/{index,overview,usage,configuration,api,examples,release,log}.md` +
 `docs/llms.txt`), OKF frontmatter added to every pre-existing doc, a runnable
-`examples/cloudserver-environment/`, the six-section README, and a `lint-docs` CI
+`examples/network-environment/`, the six-section README, and a `lint-docs` CI
 job. Part of krateo-platformops/installer#52.
 
 ## Proxy-free coverage — 34 resources, 10 providers
