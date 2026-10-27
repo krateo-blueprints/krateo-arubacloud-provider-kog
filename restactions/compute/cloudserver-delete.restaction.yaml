@@ -106,13 +106,19 @@ spec:
     # because detach failed" is distinguishable from "delete ran and succeeded". Only
     # non-succeeded stages appear, so `[]` is the all-succeeded case.
     #
-    # Mind that `[]`: at the time of writing a resolve that ABORTS before running any
-    # stage -- a dependency cycle, or a dependsOn naming a step that does not exist --
-    # can also report `[]`, which reads as success. A refinement giving aborts an
-    # explicit entry was in progress when 1.12.57 was being cut, so DO NOT assume the
-    # floor includes it; check the tag before writing a test that treats `[]` as proof
-    # the delete was sent. For this RESTAction the ambiguity is not dangerous, and it
-    # is worth knowing why: an aborted resolve sends NOTHING, so the server is still
+    # About that `[]`: a resolve that ABORTS before running any stage -- a dependency
+    # cycle, or a dependsOn naming a step that does not exist -- used to report `[]`
+    # as well, which reads as success. snowplow confirms the explicit abort entry is
+    # part of the #911 follow-up and that 1.12.57 will not be tagged without it, so AT
+    # THE FLOOR `[]` means all stages succeeded and nothing else. That is stated, not
+    # yet seen on a tagged build; snowplow will confirm it there.
+    #
+    # Assert on the explicit `Skipped` entry regardless, never on `[]`. It is the
+    # stronger test -- it names the dependsOn that caused the skip -- and it does not
+    # rest on the guarantee above holding.
+    #
+    # Either way the ambiguity was never dangerous here, and it is worth knowing why:
+    # an aborted resolve sends NOTHING, so the server is still
     # there, and RDC's delete verification refuses to release the finalizer on a
     # resource it can still observe. Our net catches "the delete did not happen"; the
     # hole #904 is about is "the delete happened and left the wrong things behind",
