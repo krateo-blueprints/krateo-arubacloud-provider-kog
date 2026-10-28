@@ -37,9 +37,10 @@ This walks through installing the provider and managing your first resource (a
   green while reconciling no instance at all. Upstream's own framing, which is the right
   one: a refused install is the better failure.
 
-  > **You need Kubernetes 1.36 or newer.** We pin oasgen-provider 0.34.0, whose chart
+  > **You need Kubernetes 1.36 or newer.** We pin oasgen-provider 0.36.0, whose chart
   > declares `kubeVersion: '>=1.36.0-0'`, and Helm refuses the chart on anything older.
-  > CI verifies on `kindest/node:v1.36.4`.
+  > CI verifies on `kindest/node:v1.36.4`. The floor is the same at 0.34.0 and 0.37.0,
+  > so it is the 1.36 bound that costs you something, not the exact pin.
   >
   > This bound is newer than most clusters, and it was taken deliberately rather than
   > inherited. Below 0.34.0 two things we depend on do not work: a per-verb `oasPath`

@@ -16,19 +16,19 @@ timestamp: 2026-09-28T00:00:00Z
 
 | Kind | Verbs | Identifier(s) | Delegation |
 |------|-------|---------------|------------|
-| `CloudServer` | findby, get | `metadata.name` | create, update, delete → RESTAction |
+| `CloudServer` | findby, get, create | `metadata.name` | update, delete → RESTAction |
 | `KeyPair` | findby, get, create, delete | `metadata.name` | — |
 
 
 ## CloudServer
 
-> CloudServer has NO single create/update endpoint; its lifecycle (power on/off, associate elastic IPs / security groups / subnets, attach data volumes, restore) is a multi-call sequence. create/update/delete are delegated to Snowplow RESTActions via *ApiRef (NO proxy); observe stays native via get/findby. See docs/lifecycle-beyond-crud.md.
+> CloudServer create is NATIVE via a per-verb oasPath onto the 1.1 document (oasgen#227, 0.34.0); update and delete stay delegated to Snowplow RESTActions because they are multi-call and because delete must detach data volumes first. CloudServer has NO single update endpoint; its lifecycle (power on/off, associate elastic IPs / security groups / subnets, attach data volumes, restore) is a multi-call sequence. create/update/delete are delegated to Snowplow RESTActions via *ApiRef (NO proxy); observe stays native via get/findby. See docs/lifecycle-beyond-crud.md.
 
 | Verb | Method | Path |
 |------|--------|------|
 | findby | GET | `/projects/{projectId}/providers/Aruba.Compute/cloudServers` |
 | get | GET | `/projects/{projectId}/providers/Aruba.Compute/cloudServers/{cloudServerId}` |
-| create | *(delegated)* | RESTAction `arubacloud-compute-cloudserver-create` |
+| create | POST | `/projects/{projectId}/providers/Aruba.Compute/cloudServers` |
 | update | *(delegated)* | RESTAction `arubacloud-compute-cloudserver-update` |
 | delete | *(delegated)* | RESTAction `arubacloud-compute-cloudserver-delete` |
 

@@ -873,30 +873,26 @@ def render(r):
             })
             excluded.add(sf["inBody"])
         verbs.append(create)
-    # An update with no create cannot carry a body, so it is not emitted.
+    # A PUT with no POST used to be unsafe to emit, and this is where the guard was.
     #
-    # oasgen derives the CR's spec body fields from the CREATE verb's request body.
-    # With no create it treats the resource as read-only and materialises the
-    # identifiers as selectors, so the generated spec is just
-    # {projectId, configurationRef, metadata.name}. RDC then reads the accepted body
-    # shape from the document and fills each field from the CR -- and every body
-    # field that is not in the spec is silently dropped. For Aruba.Profile/aiKeys,
-    # whose PUT body is AiKeyDto {metadata, properties}, the update would send
-    # {"metadata": {"name": "..."}} and PUT is full-replacement, so it either errors
-    # or discards the key's quotas. Generation reports no warning.
+    # oasgen derived the CR's spec body fields from the CREATE verb's request body.
+    # With no create it treated the resource as read-only and materialised the
+    # identifiers as selectors, so the spec was just
+    # {projectId, configurationRef, metadata.name}. RDC fills each body field from
+    # the CR, and every body field absent from the spec is silently dropped -- so for
+    # Aruba.Profile/aiKeys, whose PUT body is AiKeyDto {metadata, properties}, the
+    # update sent {"metadata": {"name": "..."}} against a full-replacement body and
+    # dropped the vendor's MetadataDto (location and tags). No warning at generation
+    # time, which is what made it worth a guard rather than a note.
     #
-    # Verified by oasgen-provider against the real document, and filed as
-    # oasgen-provider#236; the proposed fix derives the spec from the update verb's
-    # body when there is no create but a body-carrying write verb is declared. REMOVE
-    # THIS GUARD once #236 ships -- at that point the verb is correct to emit.
+    # Filed as oasgen-provider#236 and FIXED IN 0.36.0: the spec is now derived from
+    # the update verb's body when there is no create but a body-carrying write verb
+    # is declared. The guard is gone and the verb is emitted unconditionally.
     #
-    # Inert today: no resource this repo generates has a put without a post. It is
-    # here so the next one does not ship a resource that reports Ready and silently
-    # sends an empty body. A delete is NOT affected -- it carries no body.
-    if r["put_op"] and not r["has_create"]:
-        print(f"    note: {r['kind']} has PUT but no POST -- update verb omitted "
-              f"(oasgen#236: the spec would carry no body fields)")
-    elif r["put_op"]:
+    # If the pin is ever moved BACK below 0.36.0, this guard has to come back and
+    # AiKey has to lose its update verb again -- the two move together. See the note
+    # in scripts/providers.py, which carries the rest of the AiKey history.
+    if r["put_op"]:
         path, idp = r["put_op"]
         verbs.append({"action": "update", "method": "PUT", "path": path,
                       "requestFieldMapping": id_mapping_for(r, idp)})

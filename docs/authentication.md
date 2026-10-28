@@ -197,7 +197,7 @@ Two sharp edges, both load-bearing:
 
   **We still have not made that switch**, but the reason has changed. It used to be
   that the pin (0.22.2) predated #148 and the generated RestDefinitions must work on
-  the version we pin. The pin is now 0.34.0, which carries it — so the blocker is
+  the version we pin. The pin is now 0.36.0, which carries it — so the blocker is
   gone and only the work remains. It is deliberately not bundled into the bump
   commit: moving the base64 from the Secret's value into the RestDefinition changes
   what every existing DatabaseUser Secret must contain, and that deserves its own
@@ -233,7 +233,7 @@ routinely shipped to an aggregator that nothing has told about this, and the tok
 are valid for an hour from the moment they are printed.
 
 [oasgen#166](https://github.com/krateo-platformops/oasgen-provider/pull/166) redacts
-credential headers; it is first tagged in **0.26.1**, and the pin is now 0.34.0, so
+credential headers; it is first tagged in **0.26.1**, and the pin is now 0.36.0, so
 anything validated by CI is safe. The exposure is real for anyone running these
 samples on an older provider:
 

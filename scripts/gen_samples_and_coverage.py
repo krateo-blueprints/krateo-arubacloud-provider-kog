@@ -61,6 +61,30 @@ CONFIG_VERSION = "v1alpha1"
 #
 # See docs/ga-readiness.md for what each tier claims about production use.
 TIERS = {
+    ("profile", "AiKey"): (
+        "experimental",
+        "**no live evidence is possible on this account, and the reason is not a gap "
+        "in testing.** `Aruba.Profile/aiKeys` declares **no POST** — only GET on the "
+        "collection, GET/PUT/DELETE on the item, and enable/disable — so there is no "
+        "API way to create one; and a sweep on 2026-10-28 found **zero AiKeys in all "
+        "five projects** on the account, so there is nothing to adopt either. Every "
+        "verb it declares is therefore unexercised, including `findby`, which can only "
+        "be shown returning an empty collection. That is recorded here explicitly "
+        "rather than left to be read as untested-by-omission: the next person should "
+        "ask Aruba for a way to create an AI key over the API, not wonder whether "
+        "anyone tried.\n\n"
+        "What *is* verified is generation, against the real 45 KB document: it parses "
+        "(requires oasgen-provider **>= 0.35.0** for "
+        "[libopenapi#2](https://github.com/krateo-platformops/libopenapi/pull/2), since "
+        "a `+` in a schema name made it unparseable — "
+        "[Arubacloud/api#25](https://github.com/Arubacloud/api/issues/25)) and its "
+        "update verb carries a body (requires **>= 0.36.0** for "
+        "[oasgen-provider#236](https://github.com/krateo-platformops/oasgen-provider/issues/236), "
+        "below which the PUT would have sent `{\"metadata\": {\"name\": ...}}` against a "
+        "full-replacement body and silently dropped `location` and `tags`). So the "
+        "claim this row supports is *\"the spec carries the update body\"*, not "
+        "*\"update works\"*. `clientSecret` is deliberately **not** mapped into the CR",
+    ),
     ("network", "Subnet"): (
         "ga",
         "full lifecycle live incl. drift correction, re-runnable on demand under "
@@ -894,8 +918,12 @@ def make_cr(spec, prov, doc, apiver):
             #   oasgen 0.22.2  flat is correct    (the old pin)
             #   oasgen 0.24.0  NESTED is correct  (kind-aruba-110)
             #   oasgen 0.27.1  NESTED is correct  (the previous pin)
-            #   oasgen 0.34.0  NESTED is correct  (the pin now)
+            #   oasgen 0.34.0  NESTED is correct  (measured)
             #   oasgen 0.30.0  NESTED is correct  (kind-aruba-030)
+            # The pin is now 0.36.0, which is NOT in this table: nested is assumed
+            # there on the strength of every version since 0.24.0, not measured. The
+            # line above used to be annotated "(the pin now)" and silently became a
+            # claim about a version nobody had checked.
             # Above 0.22.x the flat form is refused as `unknown field
             # "spec.metadata.name"` -- a message that reads identically whether the key
             # was flat or nested, which is exactly how it could be inverted by someone
@@ -1049,6 +1077,19 @@ stringData:
             "bar in one respect: *delete* must be **verified against the API while the "
             "resource's parent still exists**, because from Kubernetes a cascade and a "
             "real DELETE look identical.\n\n")
+        # One experimental resource does NOT meet the experimental bar, and a count
+        # that hides that is the kind of thing this table exists to prevent. Written
+        # as prose rather than a footnote marker so it cannot be skimmed past.
+        f.write(
+            "**One exception to the experimental bar, stated so the count is not "
+            "misread.** `profile/AiKey` is generated and valid but has *never been "
+            "applied to a cluster*, so it has not cleared the \"reaches `Ready`, "
+            "sample admitted\" half of that bar. It is counted as experimental "
+            "because that is the lowest tier it can hold without being `blocked`, "
+            "and it is not blocked: nothing is known to be broken about it. The API "
+            "simply offers no way to bring one into existence — see its row for the "
+            "detail.\n\n"
+        )
         f.write("Only **GA** claims fitness for production use. See "
                 "[ga-readiness](ga-readiness.md).\n\n")
         # Which stack the evidence came from is part of the claim. Recording it

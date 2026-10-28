@@ -455,10 +455,15 @@ fork's Snowplow `*ApiRef` delegation rather than a bespoke web service.
 
 ## Appendix — the 0.27.1 → 0.34.0 pin move, and the evidence behind it
 
-**The move was made.** We now pin **0.34.0**, and the Kubernetes floor rose from
-1.33 to 1.36 with it — a real cost passed to users, taken for the two fixes below.
-What follows is the evidence the decision rested on, kept because the reasoning is
-what makes it reviewable.
+**The move was made, and the pin has since gone further.** 0.34.0 is where the
+Kubernetes floor rose from 1.33 to 1.36 — a real cost passed to users, taken for the
+two fixes below — and that is why this appendix is about 0.34.0. The pin is now
+**0.36.0**, which costs nothing more in cluster version (the floor is unchanged
+through 0.37.0) and is required for `profile/AiKey`: 0.35.0 to parse `profile.json`
+at all, 0.36.0 for oasgen#236. See [release](release.md#compatibility).
+
+What follows is the evidence the 0.34.0 decision rested on, kept because the
+reasoning is what makes it reviewable.
 
 We used to pin **0.27.1**. Two fixes we depend on land above it:
 [#225](https://github.com/krateo-platformops/oasgen-provider/pull/225) (the

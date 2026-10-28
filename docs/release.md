@@ -116,7 +116,7 @@ patched OAS, every `requestFieldMapping.inPath` against the path parameters, eve
 
 ## Compatibility
 
-These manifests require **oasgen-provider >= 0.34.0**, which is also what CI
+These manifests require **oasgen-provider >= 0.36.0**, which is also what CI
 validates (see [Usage](usage.md#prerequisites)). It is no longer a fork:
 rest-dynamic-controller and both charts live in the oasgen-provider monorepo, and the
 chart derives the RDC image tag from its own `appVersion`, so the two cannot drift
@@ -129,6 +129,11 @@ charts rather than inferred:
 |---|---|
 | 0.27.1 (the previous pin) | `>=1.33.0-0` |
 | 0.34.0 | `>=1.36.0-0` |
+| 0.36.0 (the pin) | `>=1.36.0-0` |
+| 0.37.0 | `>=1.36.0-0` |
+
+The floor is unchanged from 0.34.0 to 0.37.0, so moving the pin up within that range
+costs nothing further in cluster version.
 
 The floor rose in chart 0.28.0 (oasgen#178), because version-scoped watching needs a
 MutatingAdmissionPolicy that 1.33-1.35 do not serve. On an older cluster Helm refuses
@@ -143,6 +148,26 @@ for two things that cannot be had otherwise:
   EXISTING CRD. Below it the append is accepted and silently does nothing, which
   would have left our `status.error` mapping inert on every cluster that already had
   these CRDs.
+
+Two further requirements took the pin from 0.34.0 to **0.36.0**, both about one
+resource — `profile/AiKey`, which is generated from `profile.json`:
+
+* **libopenapi v0.21.9**, first shipped in oasgen-provider **0.35.0**. A `+` in a
+  schema name (`ApiKeyQuotasDto+QuotaValue`, a .NET nested-type separator) made the
+  document unparseable, because `$ref` fragments were unescaped with form-encoding
+  semantics that decode `+` as a space. It fails in `BuildV3Model`, before generation
+  runs, so below 0.35.0 AiKey does not fail — it **never appears, and nothing says
+  why**. Also reported upstream as
+  [Arubacloud/api#25](https://github.com/Arubacloud/api/issues/25).
+* **oasgen#236**, shipped in **0.36.0**. `aiKeys` has a PUT and no POST, and below
+  this the CR's spec body fields were derived from the create verb — so with none,
+  the resource was treated as read-only and the PUT sent
+  `{"metadata": {"name": "..."}}` against a full-replacement body, silently dropping
+  the vendor's `location` and `tags`. No warning at generation time.
+
+So **0.36.0 is a floor, not a preference**: pinning lower ships an AiKey that is
+either absent or wrong. If the pin is ever lowered, `profile` must come out of
+`scripts/providers.py` in the same change.
 
 Expect a **one-time CRD regeneration per RestDefinition** on upgrade. It is expected,
 it happens once, and it is what applies spec changes previously accepted and dropped.
