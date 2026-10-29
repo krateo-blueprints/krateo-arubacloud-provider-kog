@@ -167,9 +167,30 @@ trap cleanup EXIT
 for bin in kind helm kubectl python3; do
   command -v "$bin" >/dev/null || die "$bin is not on PATH"
 done
-kubectl --kubeconfig "$SRC_KUBECONFIG" --context "$SRC_CTX" \
-  get secret aruba-client-credentials -n krateo-system \
-  >/dev/null 2>&1 || die "no aruba-client-credentials in ${SRC_CTX}/krateo-system to copy"
+# Distinguish "the credential is absent" from "the source cluster did not answer".
+# These are different problems with different fixes, and `>/dev/null 2>&1 || die`
+# reported both as the first: the evidence cluster's apiserver intermittently returns
+#     Unable to connect to the server: net/http: TLS handshake timeout
+# under load, and a run aborted claiming the credential did not exist while it was
+# sitting there, 9 days old, two keys. The third instance today of a check that cannot
+# tell a failed question from a negative answer -- see docs/coverage.md, "What does
+# not count as evidence".
+#
+# stderr is CAPTURED rather than discarded, so the message can be shown and matched.
+src_err=$(kubectl --kubeconfig "$SRC_KUBECONFIG" --context "$SRC_CTX" \
+  get secret aruba-client-credentials -n krateo-system 2>&1 >/dev/null)
+if [ -n "$src_err" ]; then
+  case "$src_err" in
+    *NotFound*|*"not found"*)
+      die "no aruba-client-credentials in ${SRC_CTX}/krateo-system to copy
+  The credential is genuinely absent. Create it with scripts/eso-bootstrap.sh." ;;
+    *)
+      die "could not ASK ${SRC_CTX} whether aruba-client-credentials exists:
+    ${src_err}
+  This is not the same as the credential being missing. The evidence cluster's
+  apiserver is unreachable or overloaded -- check it is running and retry." ;;
+  esac
+fi
 
 say "creating ${CLUSTER} on ${NODE_IMAGE}"
 if kind get clusters 2>/dev/null | grep -qx "$CLUSTER"; then
