@@ -862,12 +862,34 @@ def main():
                 left_ids = {((v.get("metadata") or {}).get("id")) for v in left}
                 for kind, name, url, crstate in unconfirmed:
                     rid = ids.get(name)
-                    if rid and rid not in left_ids:
-                        print(f"    INSTRUMENT DISAGREEMENT for {kind}/{name} "
-                              f"(id={rid}): its item GET said still present, but the "
-                              f"residue listing did not report it. One of the two is "
-                              f"wrong and this run proves nothing about it. Check the "
-                              f"console by id.", file=sys.stderr)
+                    if not rid or rid in left_ids:
+                        continue
+                    # The two instruments ran MINUTES APART -- the per-resource check
+                    # during this resource's teardown, the residue listing after every
+                    # other resource went. A resource deleted in between differs for
+                    # them legitimately, and the first version of this check called
+                    # that "one of the two is wrong". It happened on the very next run:
+                    # the item GET read 200 at ~23:32 and the listing was empty at
+                    # ~23:41, nine minutes later, because the delete had succeeded in
+                    # between. So RE-READ THE ITEM NOW and compare like with like.
+                    code_now, _ = api("GET", url)
+                    if code_now == 404:
+                        print(f"    resolved since teardown: {kind}/{name} (id={rid}) "
+                              f"read 200 during its own delete but is 404 now — it went "
+                              f"after that check. Still not attributable to the "
+                              f"controller, but it is GONE.")
+                        continue
+                    if code_now != 200:
+                        print(f"    {kind}/{name}: item GET now HTTP {code_now} — "
+                              f"cannot compare instruments; treat as unread.",
+                              file=sys.stderr)
+                        continue
+                    print(f"    INSTRUMENT DISAGREEMENT for {kind}/{name} (id={rid}): "
+                          f"its item GET still reads 200 RIGHT NOW, but the residue "
+                          f"listing does not report it. Both were read at the same "
+                          f"time, so one of them is wrong and this run proves nothing "
+                          f"about this resource. Check the console by id.",
+                          file=sys.stderr)
 
         _drop_secrets()
 
