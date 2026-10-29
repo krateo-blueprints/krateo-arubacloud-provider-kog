@@ -199,8 +199,15 @@ def verify_composition_apiversion(errors):
     created, so the reader debugs the wrong layer. The addressable form is to read
     what core-provider actually created:
 
+        kubectl wait --for=condition=Ready compositiondefinition/<name> -n <ns> --timeout=5m
         kubectl get compositiondefinition <name> -n <ns> -o jsonpath='{.status.apiVersion}'
+        kubectl get compositiondefinition <name> -n <ns> -o jsonpath='{.status.kind}'
         kubectl get compositiondefinition <name> -n <ns> -o jsonpath='{.status.resource}'
+
+    All three are served on the object; confirmed against core-provider's committed
+    CRD schema. The plural especially must be READ -- core-provider resolves it
+    through plumbing/kubeutil/plurals, not a string rule, and they measured
+    `strings.ToLower(kind)+"s"` dropping 32 of 83 rows in a fleet-wide join.
 
     Reported by the openstack-nova-operator-kog session, which found it shipping in
     its own examples; `examples/network-environment/README.md` had it here.
@@ -223,8 +230,10 @@ def verify_composition_apiversion(errors):
                     f"{f}:{n}: hardcoded Composition apiVersion -- core-provider "
                     f"derives it from the FULL chart version, and this chart's "
                     f"version is a release-time placeholder. Read it instead: "
-                    f"kubectl get compositiondefinition <name> -n <ns> "
-                    f"-o jsonpath='{{.status.apiVersion}}'")
+                    f"kubectl wait --for=condition=Ready "
+                    f"compositiondefinition/<name> -n <ns> --timeout=5m, then read "
+                    f"{{.status.apiVersion}}, {{.status.kind}} and {{.status.resource}} "
+                    f"-- all three are served; the plural is NOT derivable from the kind")
 
 
 # Docs that are DATED EVIDENCE or a changelog: they record what was true at a past

@@ -64,23 +64,35 @@ kubectl apply -f token-secret.yaml
 # 2. register the Composition (generates its CRD)
 kubectl apply -f compositiondefinition.yaml
 
-# 3. read the apiVersion and kind core-provider ACTUALLY created. Do not hardcode
-#    them: core-provider derives the version from the FULL chart version, patch
-#    included ("v" + chartVersion with dots replaced by dashes), so chart 0.1.3 is
-#    served at v0-1-3. `.status` is empty until the CompositionDefinition
-#    reconciles, and an empty apiVersion fails later as `no matches for kind` --
-#    which is indistinguishable at the CLI from the CRD not existing. So wait for
-#    it rather than reading it once.
-for i in $(seq 1 60); do
-  API=$(kubectl get compositiondefinition "$CD" -n "$CD_NS" \
-          -o jsonpath='{.status.apiVersion}' 2>/dev/null)
-  PLURAL=$(kubectl get compositiondefinition "$CD" -n "$CD_NS" \
-          -o jsonpath='{.status.resource}' 2>/dev/null)
-  [ -n "$API" ] && [ -n "$PLURAL" ] && break
-  sleep 5
-done
-[ -n "$API" ] && [ -n "$PLURAL" ] || { echo "CompositionDefinition never reported a status"; exit 1; }
-KIND=$(kubectl get crd "${PLURAL}.${API%%/*}" -o jsonpath='{.spec.names.kind}')
+# 3. read the apiVersion, kind and plural core-provider ACTUALLY created. Do not
+#    hardcode and do not derive them.
+#
+#    The VERSION comes from the full chart version, patch included ("v" + the
+#    version with dots replaced by dashes), at three code sites in core-provider --
+#    so chart 0.3.8 is served at v0-3-8. This chart carries `version: CHART_VERSION`,
+#    substituted at release, so no correct literal exists at any commit.
+#
+#    The PLURAL is not derivable at all: core-provider resolves it through
+#    plumbing/kubeutil/plurals, not a string rule. core-provider measured
+#    `strings.ToLower(kind)+"s"` silently dropping 32 of 83 rows in a fleet-wide
+#    join. Only `kind` follows a rule, and it is served too, so read all three.
+#
+#    Wait on the CONDITION, not on a non-empty string. Since core-provider 2.13.39
+#    an unresolvable chart sets Ready=False with reason Unavailable and the registry
+#    error in the message -- and a bad CHART_VERSION substitution is exactly an
+#    unresolvable chart. Polling for a non-empty apiVersion would spin to the
+#    timeout and tell you nothing; this fails fast and says why.
+kubectl wait --for=condition=Ready "compositiondefinition/${CD}" -n "$CD_NS" --timeout=5m
+
+API=$(kubectl get compositiondefinition "$CD" -n "$CD_NS" -o jsonpath='{.status.apiVersion}')
+KIND=$(kubectl get compositiondefinition "$CD" -n "$CD_NS" -o jsonpath='{.status.kind}')
+PLURAL=$(kubectl get compositiondefinition "$CD" -n "$CD_NS" -o jsonpath='{.status.resource}')
+# Ready is core-provider's overall reconcile condition; it is not DEFINED as "status
+# is populated", so the three fields are still checked rather than assumed. They
+# agreed in both directions on all 69 definitions of core-provider's fleet, but that
+# is an observation, not a documented invariant.
+[ -n "$API" ] && [ -n "$KIND" ] && [ -n "$PLURAL" ] \
+  || { echo "Ready=True but status is incomplete: apiVersion='${API}' kind='${KIND}' resource='${PLURAL}'"; exit 1; }
 echo "serving ${API}, kind ${KIND}, plural ${PLURAL}"
 
 # 4. create an environment instance. The fields map 1:1 to values.yaml
