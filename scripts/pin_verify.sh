@@ -86,7 +86,25 @@ CHAIN_ARGS="${CHAIN_ARGS:-}"                       # e.g. --with-billable
 # it. This is docs/ga-readiness.md P0-3, which is why those RESTActions had never
 # executed before this script learned to install their dependency.
 WITH_SNOWPLOW="${WITH_SNOWPLOW:-0}"
-SNOWPLOW_VERSION="${SNOWPLOW_VERSION:-1.12.56}"
+SNOWPLOW_VERSION="${SNOWPLOW_VERSION:-1.12.57}"
+# The image digest(s) the chart MUST end up running, space-separated: the check
+# passes if the running image matches ANY of them. A tag is a mutable pointer, so
+# "we tested 1.12.57" is only true if the bits that ran are the bits that were
+# published -- asserted below rather than assumed. Empty disables the check.
+#
+# WHY A LIST AND NOT ONE DIGEST. A multi-arch tag has an INDEX digest and one
+# MANIFEST digest per platform, and which one you see depends on who is reporting.
+# containerd's `imageID` on this kubelet reports the INDEX digest even on arm64,
+# which cost one aborted run: the host is arm64, so the arm64 manifest digest looked
+# like the right thing to assert, and the image was correct all along. Pass every
+# digest published for the version and let the match decide, rather than predicting
+# which one the runtime will name.
+#
+# Published for snowplow 1.12.57 (tag at commit 408c9af4):
+#   index        sha256:1a1a8ee997ad084462eba462ca01a2715970203dfcb469b62ba084088328592b
+#   linux/amd64  sha256:bff1e1e20a94c6b4248a1923cf47f83f0ac2410c87e78bdc9485bfca73b43519
+#   linux/arm64  sha256:162659843afbe56b59562b16274f394cf16177a619c613f63b6d926ec8c9bfd6
+SNOWPLOW_DIGEST="${SNOWPLOW_DIGEST:-}"
 AUTHN_VERSION="${AUTHN_VERSION:-0.27.3}"
 # The endpoint the RESTActions call. Same host the Configurations use; named here
 # rather than inherited, because an empty server-url fails at delegation time
@@ -279,6 +297,28 @@ if [ "$WITH_SNOWPLOW" = "1" ]; then
     -o jsonpath='{.spec.ports[0].port}')"
   SNOWPLOW_URL="http://${SNOWPLOW_SVC}.krateo-system.svc.cluster.local:${SNOWPLOW_PORT}"
   say "  snowplow at ${SNOWPLOW_URL}"
+
+  # Which BITS actually ran. imageID carries the digest the kubelet resolved the tag
+  # to, so this is the only statement about the image that survives a tag being
+  # moved. Reported always; fatal only when SNOWPLOW_DIGEST names an expectation.
+  SP_RUNNING="$(kubectl --context "$CTX" get pods -n krateo-system \
+    -l app.kubernetes.io/name=snowplow \
+    -o jsonpath='{.items[0].status.containerStatuses[0].imageID}' 2>/dev/null)"
+  echo "    running image: ${SP_RUNNING:-<unknown>}"
+  if [ -n "$SNOWPLOW_DIGEST" ]; then
+    sp_matched=""
+    for want in $SNOWPLOW_DIGEST; do
+      case "$SP_RUNNING" in *"$want"*) sp_matched="$want"; break ;; esac
+    done
+    if [ -n "$sp_matched" ]; then
+      echo "    digest MATCHES ${sp_matched}"
+    else
+      die "snowplow is NOT running any accepted digest
+    accepted: ${SNOWPLOW_DIGEST}
+    running : ${SP_RUNNING:-<unknown>}
+  Refusing to report a result attributed to bits that did not run."
+    fi
+  fi
 fi
 
 if [ "$WITH_SNOWPLOW" = "1" ]; then
@@ -380,9 +420,22 @@ helm --kube-context "$CTX" upgrade --install oasgen-provider-crds \
   "$CRDS_CHART" ${VERSION_ARGS[@]+"${VERSION_ARGS[@]}"} \
   --namespace krateo-system --create-namespace --wait \
   || die "crds chart failed"
+# --timeout 15m, and the number is MEASURED rather than padded. The provider image is
+# 331 MB -- an order of magnitude bigger than its neighbours -- and on a cold node it
+# pulled in 4m29s, which with scheduling and startup lands just past a 5m deadline:
+#
+#   oasgen-provider:0.36.0   331229426 bytes   pulled in 4m29.113s   <-- timed out at 5m
+#   snowplow:1.12.57          23209366 bytes   pulled in    18.615s
+#   authn:0.27.3              14224445 bytes   pulled in     6.514s
+#
+# The deployment was Ready about a minute after helm gave up, so the symptom was
+# `Error: context deadline exceeded` against a chart that was in fact fine -- which
+# reads exactly like a broken release and is not one. A reused cluster has the image
+# cached and installs in seconds; it is only the first pull of a new pin that is slow,
+# so this bites precisely when the pin moves, which is when it is most confusing.
 helm --kube-context "$CTX" upgrade --install oasgen-provider \
   "$PROV_CHART" ${VERSION_ARGS[@]+"${VERSION_ARGS[@]}"} ${HELM_SETS[@]+"${HELM_SETS[@]}"} \
-  --namespace krateo-system --wait --timeout 5m \
+  --namespace krateo-system --wait --timeout 15m \
   || die "provider chart failed"
 
 say "images actually running (this is the whole point of the exercise)"
