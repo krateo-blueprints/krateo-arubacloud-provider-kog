@@ -115,14 +115,37 @@ KEEP="${KEEP:-1}"
 say() { printf '\n=== %s ===\n' "$*"; }
 # Split registry/repository:tag into --set arguments for one of the chart's image
 # blocks ("image" or "rdc.image"). Appends to the HELM_SETS array.
+# Split an image ref into registry/repository/tag for the chart's values.
+#
+# A ref with NO registry -- e.g. `rest-dynamic-controller:261-candidate`, which is
+# what `docker build -t` produces by default -- has no `/`, so both ${ref%%/*} and
+# ${ref#*/} return the WHOLE string: registry and repository would each become
+# `rest-dynamic-controller`, and the chart would render
+# `rest-dynamic-controller/rest-dynamic-controller:261-candidate`, which does not
+# exist. The symptom is an ImagePullBackOff on an image that is present on the node,
+# and the hunt starts in the wrong place.
+#
+# Latent until someone passes a locally built tag, which is exactly when this is used:
+# testing an unreleased controller fix. Found while running oasgen's #261 candidate,
+# and worked around at the time by retagging under the expected repository -- fixed
+# properly here so the next person does not need to know.
 img_sets() {
   local prefix="$1" ref="$2" reg repo tag
   tag="${ref##*:}"
   ref="${ref%:*}"
-  reg="${ref%%/*}"
-  repo="${ref#*/}"
-  HELM_SETS+=(--set "${prefix}.registry=${reg}"
-              --set "${prefix}.repository=${repo}"
+  case "$ref" in
+    */*) reg="${ref%%/*}"; repo="${ref#*/}" ;;
+    *)   # no registry component: the whole ref is the repository
+         reg=""; repo="$ref" ;;
+  esac
+  if [ -n "$reg" ]; then
+    HELM_SETS+=(--set "${prefix}.registry=${reg}")
+  else
+    # The chart joins registry and repository with a slash, so an empty registry must
+    # be passed explicitly as empty rather than left at the chart's default.
+    HELM_SETS+=(--set-string "${prefix}.registry=")
+  fi
+  HELM_SETS+=(--set "${prefix}.repository=${repo}"
               --set "${prefix}.tag=${tag}"
               --set "${prefix}.pullPolicy=Never")
 }
@@ -721,15 +744,40 @@ say "applying the generated Configurations (and ONLY those)"
 # is gone (the kind is `ScheduledJob` now), but the hazard is not: any resource oasgen
 # declines to generate takes the whole run down with it. Each failure is named instead,
 # and the run only dies if a configuration THIS CHAIN references is among them.
+# Under RESTDEFS_SCOPE=chain only the chain's CRDs exist, so applying all 36
+# configurations means 31 of them fail ONE AT A TIME through API discovery -- slow,
+# noisy, and correctly non-fatal but for a reason that no longer applies. The set the
+# chain actually needs is derived from the same `configurationRef`s the check below
+# verifies, so it drives the apply too instead of filtering failures afterwards.
+if [ "$RESTDEFS_SCOPE" = "all" ]; then
+  CFG_FILES=$(find samples -name '*-configuration.yaml' | sort)
+else
+  CFG_FILES=$(CHAIN="$CHAIN" python3 -c '
+import glob, os, sys, yaml
+chain = yaml.safe_load(open(os.environ["CHAIN"]))
+kinds = {r["kind"].lower() for r in (chain.get("resources") or [])}
+hits, seen = [], set()
+for f in sorted(glob.glob("samples/**/*-configuration.yaml", recursive=True)):
+    k = os.path.basename(f)[: -len("-configuration.yaml")].lower()
+    if k in kinds:
+        hits.append(f); seen.add(k)
+missing = kinds - seen
+if missing:
+    sys.stderr.write("no configuration sample for kind(s): " + ", ".join(sorted(missing)) + "\n")
+    sys.exit(1)
+print("\n".join(hits))
+') || die "could not map the chain's kinds onto configuration samples"
+fi
 applied=0 missing=""
 while IFS= read -r f; do
+  [ -n "$f" ] || continue
   if kubectl --context "$CTX" apply -n default -f "$f" >/dev/null 2>&1; then
     applied=$((applied + 1))
   else
     missing="${missing} $(basename "$f")"
   fi
-done < <(find samples -name '*-configuration.yaml' | sort)
-echo "    applied ${applied}"
+done <<< "$CFG_FILES"
+echo "    applied ${applied} of $(printf '%s\n' "$CFG_FILES" | grep -c .)"
 [ -n "$missing" ] && echo "    NOT applied (no CRD -- fatal only if the chain needs it):${missing}"
 python3 - "$CHAIN" <<'EOF' || die "a configuration this chain references did not apply"
 import sys, yaml
