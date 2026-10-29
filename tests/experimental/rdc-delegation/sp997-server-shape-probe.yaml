@@ -1,0 +1,33 @@
+# Throwaway probe for snowplow#997. The `server` stage copied VERBATIM from
+# restactions/compute/cloudserver-delete.restaction.yaml -- same path, same
+# endpointRef, same verb -- with ONLY the filter replaced, so the thing under
+# test cannot drift from the real one.
+#
+# The filter exposes the response body's SHAPE and nothing else: a count, the
+# top-level key names, and the resource names. No ids, no properties, no
+# credentials. snowplow's debug log never dumps response bodies by design, so
+# this is the only way to see what the fetch returned.
+#
+# continueOnError: false deliberately -- a failure here must surface, not be
+# swallowed the way it is in the real action.
+apiVersion: templates.krateo.io/v1
+kind: RESTAction
+metadata:
+  name: sp997-server-shape-probe
+  namespace: krateo-system
+  annotations:
+    krateo.io/verbose: 'true'
+spec:
+  api:
+  - name: server
+    endpointRef:
+      name: arubacloud-endpoint
+      namespace: krateo-system
+    verb: GET
+    path: ${ "/projects/" + .spec.projectId + "/providers/Aruba.Compute/cloudServers?api-version=1.0"
+      }
+    headers:
+    - 'Accept: application/json'
+    continueOnError: false
+    filter: '{ total: .total, keys: (keys? // null), n: ((.values // []) | length), names: [(.values //
+      [])[].metadata.name] }'

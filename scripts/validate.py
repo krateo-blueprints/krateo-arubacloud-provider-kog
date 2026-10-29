@@ -120,6 +120,7 @@ def main():
     verify_composition_apiversion(errors)
     verify_documented_pin(errors)
     verify_no_builtin_shadowing(errors)
+    verify_restaction_filter_envelope(errors)
     charts = validate_charts(errors)
     validate_composition_generated(errors)
 
@@ -398,6 +399,96 @@ def verify_no_builtin_shadowing(errors):
                     f"oasgen refuses it on a fresh cluster (#200) and only warns where the "
                     f"CRD already exists, so this is invisible until a clean install. Rename "
                     f"the kind in scripts/generate_restdefinitions.py's plural->kind map.")
+
+
+def verify_restaction_filter_envelope(errors):
+    """A stage `filter` must read only `.extras` and its own stage's key.
+
+    snowplow evaluates a filter on an ENVELOPE, not on the response body:
+
+        { "extras": <the request's extras>, "<stage name>": <the response body> }
+
+    (plus `slice` when paginated). Any other root key resolves to null, and jq does
+    that SILENTLY -- so the filter returns a well-formed result that is simply always
+    empty, the stage reports success, and `X-Snowplow-Stage-Outcomes` comes back `[]`
+    because that header lists only stages that did NOT succeed. There is no error
+    anywhere.
+
+    This cost a real billable CloudServer. All three of this repo's filters read
+    `.spec.metadata.name` and `.values` -- the shapes that `path` and
+    `dependsOn.iterator` see, since those run against the resolver dict. In a filter
+    both are absent, so `$n` was null on every call, nothing matched, both downstream
+    iterators yielded `[]`, and no request was ever sent. The server stayed Active
+    through 23 delegated delete attempts while every layer reported success.
+    snowplow#997; confirmed live with a probe filter of `{ k: keys, ... }` returning
+    `k = ["extras","server"]`.
+
+    The repo-wide shape, worth stating because confusing them is how this happened:
+        path                -> resolver dict (a copy of extras):  .spec.projectId
+        filter              -> the envelope:                      .extras.* / .<stage>.*
+        dependsOn.iterator  -> resolver dict:                     .server.self
+    """
+    root = re.compile(r"(?<![\w.$])\.([A-Za-z_][A-Za-z0-9_]*)")
+    # A screen that cannot detect a known-bad case is a function that returns false.
+    def roots(expr):
+        """Root-level lookups only, with `.`-rebinding contexts removed first.
+
+        Inside map/select/any/all/with_entries, `.` is the ITEM, not the envelope, so
+        `select(.metadata.name == $n)` is correct and must not be flagged. Stripping
+        those bodies is the honest fix; allow-listing `metadata` would silence this
+        case and hide a genuine root `.metadata` later.
+        """
+        out, i = [], 0
+        opener = re.compile(r"\b(map|map_values|select|any|all|with_entries)\s*\(")
+        while i < len(expr):
+            m = opener.search(expr, i)
+            if not m:
+                out.append(expr[i:])
+                break
+            out.append(expr[i:m.start()])
+            depth, j = 0, m.end() - 1          # sitting on the '('
+            while j < len(expr):               # skip the BALANCED body
+                if expr[j] == "(":
+                    depth += 1
+                elif expr[j] == ")":
+                    depth -= 1
+                    if depth == 0:
+                        j += 1
+                        break
+                j += 1
+            i = j
+        return sorted(set(root.findall("".join(out))))
+
+    # A screen that cannot detect a known-bad case is a function that returns false.
+    assert roots(".spec.metadata.name as $n | (.values // [])") == ["spec", "values"]
+    assert roots(".extras.spec.x | .server.values") == ["extras", "server"]
+    assert roots("$s.metadata.id") == []
+    # The FIXED filter must come back clean -- .metadata lives inside select().
+    assert roots('.extras.spec.metadata.name as $n | { self: ((.server.values // []) '
+                 '| map(select(.metadata.name == $n)) | .[0]) }') == ["extras", "server"]
+    # ...and a genuine ROOT .metadata must still be caught.
+    assert "metadata" in roots(".metadata.name as $n | (.server.values // [])")
+    for f in sorted(glob.glob("restactions/**/*.yaml", recursive=True)):
+        try:
+            doc = yaml.safe_load(open(f))
+        except Exception:
+            continue
+        if not isinstance(doc, dict) or doc.get("kind") != "RESTAction":
+            continue
+        for st in (doc.get("spec") or {}).get("api") or []:
+            filt, name = st.get("filter"), st.get("name")
+            if not filt or not name:
+                continue
+            allowed = {"extras", "slice", name}
+            bad = sorted(set(roots(filt)) - allowed)
+            if bad:
+                errors.append(
+                    f"{f}: stage '{name}' filter reads root key(s) {bad}, which are "
+                    f"NOT in the filter's input. A filter sees "
+                    f"{{extras, {name}}} -- use .extras.* for request data and "
+                    f".{name}.* for the response body. jq resolves the absent keys to "
+                    f"null silently, so the stage SUCCEEDS over an empty result and "
+                    f"nothing is ever sent (snowplow#997).")
 
 
 def find_helm():

@@ -1,3 +1,24 @@
+# STAGE FILTER INPUT IS AN ENVELOPE, NOT THE RESPONSE BODY.
+# A `filter` is evaluated on `{ "extras": <request extras>, "<stage name>": <body> }`
+# (plus `slice` when paginated) -- snowplow's internal/resolvers/restactions/api
+# handler.go, jsonHandlerCore. So inside a filter:
+#     .spec.metadata.name   -> null      ; it lives at .extras.spec.metadata.name
+#     .values               -> absent    ; it lives at .<stage name>.values
+# jq resolves both to null SILENTLY, so the filter returns a well-formed result that
+# is simply always empty, the stage reports success, and X-Snowplow-Stage-Outcomes
+# comes back `[]` -- because that header lists only stages that did NOT succeed.
+#
+# This is what stranded a real billable CloudServer: `$n` was null on every call, so
+# `select(.metadata.name == $n)` matched nothing, `self` was null, both downstream
+# iterators yielded `[]`, and NO REQUEST WAS EVER SENT. Diagnosed with the snowplow
+# session as snowplow#997 and confirmed live with a probe filter of `{ k: keys, ... }`,
+# which returned k = ["extras","server"].
+#
+# NOTE the three DIFFERENT input shapes in this one file. Confusing them is exactly
+# how this happened:
+#   path                -> the resolver dict (a copy of extras):  .spec.projectId
+#   filter              -> the ENVELOPE above:                    .extras.spec…  .<stage>.…
+#   dependsOn.iterator  -> the resolver dict:                     .server.self
 # THE IDENTIFIER IS `metadata.id`, NOT `.id`. Getting this wrong does not fail — it
 # silently does NOTHING, and it stranded a real billable server on 2026-10-29.
 #
@@ -52,8 +73,8 @@ spec:
         - "Accept: application/json"
       continueOnError: true
       filter: >-
-        .spec.metadata.name as $n
-        | { self: ((.values // []) | map(select(.metadata.name == $n)) | .[0]) }
+        .extras.spec.metadata.name as $n
+        | { self: ((.server.values // []) | map(select(.metadata.name == $n)) | .[0]) }
 
     # Detach any attached data volumes first (skipped when there are none).
     - name: detachVolumes
