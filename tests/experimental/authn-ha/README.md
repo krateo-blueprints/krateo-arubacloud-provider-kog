@@ -38,19 +38,34 @@ lines — **there is no legitimate silence**:
 `grep -c 'identity annotation backfill'` counts `backfill done` as an error. Demonstrated:
 that grep returns **2** on a log holding one success and one error.
 
-Matched with `exact_msg`, which requires the msg/message field to equal the string
-exactly — the maintainers' suggestion, and better than `grep -v`. It accepts both JSON
-(`"msg":` / `"message":`) and logfmt (`msg=` / `message=`), because they wrote `msg` in
-their log examples and `.message` in their jq suggestion and a field name guessed wrong
-matches nothing and reports a clean run. **The closing quote is mandatory in both
-forms**: making it optional reproduced the very prefix bug it exists to avoid, since on
-logfmt `msg="identity annotation backfill done"` the boundary then matched the space
-before `done`.
+Matched with `exact_msg`, which requires the message field to equal the string
+exactly — the maintainers' suggestion, and better than `grep -v`. **The closing quote
+is mandatory**: making it optional reproduced the very prefix bug it exists to avoid,
+since on `message="identity annotation backfill done"` the boundary then matched the
+space before `done`.
 
-Because a wrong field name is indistinguishable from a healthy backfill, the exact
-matcher is **cross-checked against the cruder substring one on every pod**. A
+Because a matcher that finds nothing is indistinguishable from a healthy backfill, the
+exact matcher is **cross-checked against the cruder substring one on every pod**, and a
 disagreement is reported as "treat this pod's backfill result as UNREAD" rather than
 resolved in favour of either.
+
+### The log format is asserted, not assumed
+
+The maintainers established from source that 0.28.1 emits **one JSON object per line
+with a `message` field** — `main.go:117` builds the logger with
+`zerolog.New(os.Stdout)` and nothing in the module sets `zerolog.MessageFieldName`, so
+zerolog's default applies. Never `msg`, never logfmt.
+
+`assert_log_format` checks that at runtime on each pod rather than trusting it, because
+the whole value of knowing the format is that a violation becomes a *loud finding*
+instead of a silent mismatch. If a later release swaps the logger, it says so in one
+line; without it, every count would quietly read as "the line never appeared" — which
+is the same output as a real defect.
+
+Per the maintainers, with the field name settled, `message` matching nothing on a
+0.28.1 pod is a **genuine absence**, not a field-name problem. So a cross-check
+disagreement now means a line carrying that text does not have the shape the source
+says it must, which is itself worth reporting to them.
 
 ### Two counting rules from the maintainers
 
@@ -126,12 +141,14 @@ cluster needed:
 bash tests/experimental/authn-ha/verdict_test.sh
 ```
 
-Nineteen cases. The summary counts the cases it ran rather than naming a number, so
-it cannot claim coverage it does not have — it was left asserting 7 while running 11
-once already.
+Twenty-four cases. The summary counts the cases it ran rather than naming a number,
+so it cannot claim coverage it does not have — it was left asserting 7 while running
+11 once already.
 
-Three groups: the election verdict (4 pass, 7 fail), `exact_msg` against all three log
-shapes, and `leader_values` classification.
+Four groups: the election verdict (4 pass, 7 fail), `exact_msg` against the log shapes,
+`leader_values` classification, and `assert_log_format` against every way the logger
+could change — a logfmt swap, a `msg`-keyed rename, unstructured klog text, and an
+empty log, which must stay *silent* because absence is not a format change.
 
 The case that justifies the file is **"backfill ran on a follower"** — its counts are
 *identical* to healthy (`leaders=1 standby=2 backfill=1`) and it must still fail,

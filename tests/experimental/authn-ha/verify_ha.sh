@@ -86,6 +86,35 @@ leader_values() {
     | sed 's/.*"leader"[[:space:]]*:[[:space:]]*"//; s/.*leader="//; s/"$//'
 }
 
+# assert_log_format <pod> <log> -- the authn log IS one JSON object per line with a
+# `message` field. Established from source by the maintainers, not inferred: main.go
+# builds the logger with zerolog.New(os.Stdout) and nothing in the module sets
+# zerolog.MessageFieldName, so zerolog's default "message" applies. Never "msg",
+# never logfmt.
+#
+# Checked at runtime rather than trusted, because the whole value of knowing the
+# format is that a violation becomes a loud finding instead of a silent mismatch. If
+# a later release swaps the logger, this says so in one line; without it, every count
+# below would quietly read as "the line never appeared".
+assert_log_format() {
+  local pod="$1" lg="$2" sample bad=0 n=0
+  sample=$(printf '%s\n' "$lg" | grep -v '^[[:space:]]*$' | head -20)
+  [ -n "$sample" ] || { note "$pod: no log lines to check the format against"; return 0; }
+  while IFS= read -r line; do
+    n=$((n + 1))
+    printf '%s' "$line" | python3 -I -c 'import json,sys
+d=json.load(sys.stdin)
+raise SystemExit(0 if isinstance(d, dict) and "message" in d else 1)' 2>/dev/null || bad=$((bad + 1))
+  done <<EOFMT
+$sample
+EOFMT
+  if [ "$bad" = 0 ]; then
+    note "$pod: log format confirmed -- ${n}/${n} sampled lines are JSON with a 'message' field"
+  else
+    no "$pod: ${bad} of ${n} sampled log lines are NOT JSON-with-message. The maintainers established this build logs zerolog JSON with 'message' (main.go:117, no MessageFieldName override), so a mismatch means the logger changed and EVERY count below is suspect, not merely absent."
+  fi
+}
+
 LOGS_OF() {
   local pod="$1" cur prev
   cur=$(k logs "$pod" -n "$NS" --tail=-1 2>/dev/null)
@@ -108,6 +137,7 @@ for p in $POD_LIST; do
   if [ -z "$(printf '%s' "$lg" | tr -d '[:space:]')" ]; then
     no "$p: logs unreadable or empty (NOT the same as 'logged nothing')"; continue
   fi
+  assert_log_format "$p" "$lg"
   l=$(printf '%s\n' "$lg" | grep -c 'acquired leadership')
   s=$(printf '%s\n' "$lg" | grep -c 'standing by')
   b=$(printf '%s\n' "$lg" | exact_msg 'identity annotation backfill done' | grep -c .)
@@ -116,12 +146,16 @@ for p in $POD_LIST; do
   # success form explicitly. Verified against both real log shapes.
   e=$(printf '%s\n' "$lg" | exact_msg 'identity annotation backfill' | grep -c .)
   # CROSS-CHECK the exact matcher against the cruder substring one. They must agree.
-  # If exact_msg's field name were wrong for this build's log format it would match
-  # NOTHING and report a clean backfill -- indistinguishable from a healthy run. A
-  # disagreement is reported rather than silently resolved in favour of either.
+  #
+  # The field name is no longer in doubt -- the maintainers read it out of main.go and
+  # it is zerolog's default `message`, in JSON. So a disagreement here no longer means
+  # "I guessed the field name wrong"; it means a line carrying this text does not have
+  # the shape the source says it must, which is a REAL anomaly worth their attention.
+  # Kept at their suggestion: per them, if `message` matches nothing on a 0.28.1 pod
+  # that is a genuine absence, so the two readings diverging is information either way.
   e_sub=$(printf '%s\n' "$lg" | grep 'identity annotation backfill' | grep -vc 'backfill done')
   if [ "$e" != "$e_sub" ]; then
-    no "$p: exact-msg found ${e} backfill errors, substring found ${e_sub} -- the matchers DISAGREE, so this build's log format is not what either assumes; treat this pod's backfill result as UNREAD"
+    no "$p: exact-msg (JSON 'message') found ${e} backfill errors, substring found ${e_sub} -- they DISAGREE. The source says this build logs zerolog JSON with 'message', so a line carrying that text in another shape is a real anomaly; treat this pod's backfill result as UNREAD and report the divergence."
   fi
   note "$(printf '%-34s leadership=%s standing_by=%s backfill_done=%s backfill_err=%s' \
             "$p" "$l" "$s" "$b" "$e")"

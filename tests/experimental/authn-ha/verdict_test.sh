@@ -164,5 +164,43 @@ l_case "JSON shape, two distinct leaders" 2 OK \
   '{"msg":"standing by","leader":"authn-pod-1_abc"}
 {"msg":"standing by","leader":"authn-pod-2_def"}'
 
+
+# ---------------------------------------------------------------------------
+# assert_log_format. The maintainers established from source that 0.28.1 logs
+# zerolog JSON with a `message` field (main.go:117, no MessageFieldName override).
+# Knowing that is only worth something if a VIOLATION is loud, so the assertion has
+# to detect every way the logger could change -- otherwise it is one more function
+# that returns true.
+# ---------------------------------------------------------------------------
+printf '\n--- assert_log_format: a changed logger must be detected ---\n'
+f_case(){
+  cases=$((cases + 1))
+  local name="$1" want="$2" body="$3"
+  local bad=0 n=0 got
+  local sample; sample=$(printf '%s\n' "$body" | grep -v '^[[:space:]]*$' | head -20)
+  if [ -z "$sample" ]; then
+    got=SILENT
+  else
+    while IFS= read -r line; do
+      n=$((n + 1))
+      printf '%s' "$line" | python3 -I -c 'import json,sys
+d=json.load(sys.stdin)
+raise SystemExit(0 if isinstance(d, dict) and "message" in d else 1)' 2>/dev/null || bad=$((bad + 1))
+    done <<EOFMT
+$sample
+EOFMT
+    got=$([ "$bad" = 0 ] && echo CONFIRM || echo FLAG)
+  fi
+  if [ "$got" = "$want" ]; then printf '  ok    %-42s %s\n' "$name" "$got"
+  else printf '  BAD   %-42s want %s, got %s\n' "$name" "$want" "$got"; rc=1; fi
+}
+f_case "zerolog JSON with message (0.28.1)" CONFIRM \
+  '{"level":"info","message":"acquired leadership"}
+{"level":"info","message":"identity annotation backfill done","scanned":0}'
+f_case "logger swapped to logfmt msg=" FLAG 'time=t level=info msg="acquired leadership"'
+f_case "JSON but keyed msg, not message" FLAG '{"level":"info","msg":"acquired leadership"}'
+f_case "unstructured klog text" FLAG 'I1029 21:30:00 leader.go:84] acquired leadership'
+f_case "empty log is absence, not a format change" SILENT ''
+
 printf '\n%s\n' "$([ $rc = 0 ] && echo "verdict logic behaves on all ${cases} cases" || echo 'VERDICT LOGIC IS WRONG')"
 exit $rc
