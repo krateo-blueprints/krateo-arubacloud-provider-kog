@@ -84,6 +84,8 @@ A stage iterating zero items **succeeds**, so Snowplow answered `200` with `X-Sn
 
 **If you created a CloudServer with this provider before 2026-10-29, check your account.** The controller did not delete it, and said nothing.
 
+**This class of bug becomes detectable upstream.** The ambiguity that hid it — a stage iterating zero items being reported identically to a stage with nothing to do — is now [snowplow#989](https://github.com/krateo-platformops/snowplow/issues/989), scheduled for 1.12.62 or later: a separate additive header `X-Snowplow-Stage-Iterations` listing each looping stage with its item count, leaving `X-Snowplow-Stage-Outcomes` unchanged. A `delete: 0 items` would have made this visible on the first run instead of after a stranded server. When it ships, assert on it in any chain that delegates.
+
 Fixed, and verified with jq against the real response shape (`$s.id` -> `[]`; `$s.metadata.id` -> the id). **The fix is not yet proven live** — that needs another real server — which is why this stays at **beta**: `findby`, `get` and now `create` are proven; `update` and `delete` are not.
 
 Drift is **SKIPPED** for a reason the fix also explains: the chain reported `PUT returned 400 for every body shape tried — Flavor: Please specify flavor.; Product: not found`, and the delegated update that should have handled it had all four of its stages inert.
