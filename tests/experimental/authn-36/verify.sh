@@ -68,10 +68,22 @@ case "$(g keys)" in
 esac
 
 echo "=== CHECK 2: the <username>-clientconfig Secret still exists, with its four keys ==="
-sec=$(k get secret sp-caller-clientconfig -n "$NS" -o jsonpath='{range $k,$v := .data}{$k}{" "}{end}' 2>&1)
+# -o json piped to a real parser, NOT jsonpath. The jsonpath form
+#   {range $k,$v := .data}{$k}{" "}{end}
+# is invalid -- kubectl rejects the comma with "unrecognized character in action:
+# U+002C" -- and the check then reported "Secret missing or incomplete" for a Secret
+# that was plainly there. A broken instrument returning a FAILURE is the mirror of the
+# ones that return a confident pass, and it would have sent a false regression report
+# upstream about somebody else's release.
+sec=$(k get secret sp-caller-clientconfig -n "$NS" -o json 2>&1 \
+      | python3 -I -c 'import json,sys
+try: d=json.load(sys.stdin)
+except Exception as e: print("UNREADABLE:", e); raise SystemExit
+print(" ".join(sorted((d.get("data") or {}).keys())))' )
 case "$sec" in
-  *client-key-data*server-url*|*server-url*client-key-data*) ok "Secret present, keys: $sec" ;;
-  *) no "Secret missing or incomplete: $sec" ;;
+  UNREADABLE*|"") no "could not READ the Secret (not the same as it being absent): $sec" ;;
+  *client-key-data*) ok "Secret present, keys: $sec" ;;
+  *) no "Secret present but missing client-key-data: $sec" ;;
 esac
 ann=$(k get secret sp-caller-clientconfig -n "$NS" -o jsonpath='{.metadata.annotations}' 2>/dev/null)
 printf '  note  annotations: %s\n' "${ann:-<none>}"
