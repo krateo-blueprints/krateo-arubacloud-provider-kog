@@ -10,10 +10,10 @@
 # Below 0.34.0 that field parses and is silently ignored (oasgen#220/#227), and the
 # create resolves against the 1.0 document, which has no POST for this path.
 #
-# BILLABLE: an hourly CSO1I1 (1 vCPU / 1 GB, the smallest of the 40 flavors Aruba's
-# catalog returns) plus a 20 GB bootable volume. Minutes, not hours -- but a server is
-# the most expensive thing this repository creates, so the chain tears down in reverse
-# dependency order from a finally block and verifies every delete against the API.
+# BILLABLE: an hourly CSO1A2 (1 vCPU / 2 GB) plus a 20 GB bootable volume. Minutes,
+# not hours -- but a server is the most expensive thing this repository creates, so the
+# chain tears down in reverse dependency order from a finally block and verifies every
+# delete against the API.
 #
 # MEASURED, not guessed:
 #   * flavorName comes from GET /providers/Aruba.Compute/catalog/cloudServerFlavors
@@ -101,7 +101,24 @@ resources:
       # undocumented on the portal -- see Arubacloud/api#26. It returns
       #   {"location":"ITBG-Bergamo","dataCenter":"ITBG-1"}  (also -2, -3)
       dataCenter: ITBG-1
-      flavorName: CSO1I1
+      # NOT CSO1I1, and this cost a day to establish. The smallest flavor the
+      # catalog returns (1 vCPU / 1 GB) is REFUSED on this account:
+      #   {"fieldName":"FlavorId",
+      #    "errorMessage":"76c319ef-d9e7-489b-ab2f-7e9930f2d404 not available for trial"}
+      # which reads like "trial accounts cannot create cloud servers" and is not what
+      # it means. The restriction is PER FLAVOR: CSO1A2 (1 vCPU / 2 GB) is accepted,
+      # 201, measured 2026-10-29 by attempting flavors cheapest-first. It was the
+      # SECOND one tried, so the day spent treating this as an account-wide
+      # entitlement block was a day spent on an inference from one sample.
+      #
+      # Nothing in the catalog distinguishes them. GET
+      # /providers/Aruba.Compute/catalog/cloudServerFlavors returns {cpu, name, ram}
+      # and nothing else -- no entitlement, no availability -- and it returns 40
+      # entries for 21 unique names, so a name is not even a unique key. Eligibility
+      # is discoverable only by attempting a create, and only with an otherwise-valid
+      # request, because the trial check runs after every reference resolves.
+      # Reported as Arubacloud/api#29.
+      flavorName: CSO1A2
       vpc:
         uri: /projects/${PROJECT}/providers/Aruba.Network/vpcs/${id:Vpc}
       bootVolume:
