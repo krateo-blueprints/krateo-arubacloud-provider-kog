@@ -287,15 +287,27 @@ def verify_documented_pin(errors):
                               f"version below the {pin} floor (oasgen#278)")
             if not chart.search(line):
                 continue
-            # the --version may sit on the install line or its continuation
+            # The --version may sit on the install line or its continuation. The
+            # 3-line window is not a guess: every occurrence in this repo was checked
+            # against it. But if a reformat ever moves one further away, a screen that
+            # just `continue`s here reports ALL CLEAR on an unchecked install -- the
+            # same way an INCOMPLETE pattern fails like a dead one. So an install
+            # command whose version cannot be located is itself an error.
+            found = False
             for cand in lines[n:n + 3]:
                 v = version.search(cand)
                 if v:
+                    found = True
                     if v.group(1) != pin:
                         errors.append(f"{f}:{n+1}: documents oasgen-provider chart "
                                       f"{v.group(1)} but CI pins {pin} "
                                       f"(OASGEN_VERSION in validate.yaml)")
                     break
+            if not found and re.search(r"\bhelm\s+(install|upgrade)\b", line):
+                errors.append(f"{f}:{n+1}: installs the oasgen-provider chart but no "
+                              f"--version within 3 lines -- this screen could not "
+                              f"verify it against the {pin} pin, so treat it as "
+                              f"unchecked rather than clean")
 
 
 # Kinds and plurals a stock Kubernetes API server already serves. Hand-written on
