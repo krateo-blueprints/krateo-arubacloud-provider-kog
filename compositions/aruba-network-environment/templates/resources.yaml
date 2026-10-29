@@ -21,11 +21,23 @@
   needs a composition-level reference the chart cannot express -- see
   docs/lifecycle-beyond-crud.md, "Cross-resource references".
 
-  NOTE on CloudServer: it is deliberately absent. Its create exists only in
-  compute-provider_v1.1.json, which the controller cannot reach until oasgen#227
-  ships in 0.34.0, so on the current pin its CRD spec is exactly
-  {configurationRef, metadata.name, projectId}. A composition could create the
-  object but not give it a flavor or a boot volume, which is not a cloud server.
+  NOTE on CloudServer: it is deliberately absent, and the REASON HAS CHANGED --
+  the old one is recorded here because it was true for months and is no longer.
+  It used to be that create exists only in compute-provider_v1.1.json and the
+  controller could not reach it, so the CRD spec was exactly
+  {configurationRef, metadata.name, projectId} and a composition could create the
+  object but not give it a flavor or a boot volume. oasgen#227 shipped in 0.34.0,
+  the RestDefinition now carries a per-verb oasPath, and the spec is complete.
+
+  It stays out for two live reasons instead:
+    * update and delete are delegated to Snowplow RESTActions, so a cluster without
+      snowplow AND authn wedges the resource on its finalizer. That is four
+      prerequisites the oasgen-provider chart does not provide (see
+      scripts/pin_verify.sh), none of which a composition can assume.
+    * create is refused on this account: Aruba answers
+        {"fieldName":"FlavorId","errorMessage":"<id> not available for trial"}
+      and the flavor catalog returns only {name, cpu, ram}, so which flavors a
+      given account may use is not discoverable before the create is attempted.
 */}}
 apiVersion: {{ include "aruba.gen.apiVersion.Vpc" . }}
 kind: Vpc

@@ -1,0 +1,14 @@
+apiVersion: arubacloud.ogen.krateo.io/v1-0-0
+kind: AiKey
+metadata:
+  name: example-aikey
+  namespace: default
+  annotations:
+    krateo.io/connector-verbose: 'true'
+spec:
+  configurationRef:
+    name: aikey-config
+    namespace: default
+  projectId: REPLACE
+  metadata:
+    name: REPLACE_selects_the_existing_object_by_this_value

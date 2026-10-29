@@ -41,12 +41,24 @@ CHART = os.path.join(ROOT, "compositions", "aruba-network-environment")
 OUT = os.path.join(CHART, "templates", "_generated.tpl")
 
 # The kinds this composition fans out into. Order is the order they are created in.
-# CloudServer is deliberately NOT here. Its create lives only in
-# compute-provider_v1.1.json, reachable only through a per-verb oasPath that the
-# controller ignores until oasgen#227 ships (0.34.0). On our 0.27.1 pin the
-# CloudServer CRD's spec is exactly {configurationRef, metadata.name, projectId},
-# so a composition cannot give it a flavor or a boot volume -- it could create an
-# object, not a server. It returns when the pin moves.
+#
+# CloudServer is deliberately NOT here, and the ORIGINAL REASON NO LONGER APPLIES.
+# It used to be that its create lives only in compute-provider_v1.1.json, reachable
+# only through a per-verb oasPath the controller ignored, so on the 0.27.1 pin the
+# CRD's spec was exactly {configurationRef, metadata.name, projectId} and a
+# composition could create an object but not a server. oasgen#227 shipped in 0.34.0,
+# the RestDefinition carries the per-verb oasPath, and the spec is complete -- so
+# "it returns when the pin moves" was wrong, and the pin has moved twice since.
+#
+# It stays out because of two things a composition cannot assume:
+#   * update and delete are delegated to Snowplow RESTActions, which need snowplow
+#     AND authn plus a projected token and an authn allowlist CR -- four
+#     prerequisites the oasgen-provider chart does not provide. Without them the
+#     resource wedges on its finalizer rather than failing cleanly.
+#   * create is refused on a trial account: Aruba answers
+#     {"fieldName":"FlavorId","errorMessage":"<id> not available for trial"} and the
+#     flavor catalog exposes only {name, cpu, ram}, so eligibility is not
+#     discoverable before the attempt.
 KINDS = ["Vpc", "Subnet", "SecurityGroup"]
 
 GROUP = "arubacloud.ogen.krateo.io"

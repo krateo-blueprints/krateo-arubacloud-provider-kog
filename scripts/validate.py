@@ -24,7 +24,7 @@ import yaml
 ROOT = os.path.join(os.path.dirname(__file__), "..")
 import os as _os, sys as _sys
 _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
-from providers import PROVIDERS  # one list; see scripts/providers.py
+from providers import CONFIGMAP_PROVIDERS, PROVIDERS  # one list; see scripts/providers.py
 
 
 # Verbatim from the RestDefinition CRD (ogen.krateo.io_restdefinitions.yaml).
@@ -35,7 +35,11 @@ def main():
     os.chdir(ROOT)
     errors = []
     verify_oas_unmodified(errors)
-    specs = {p: json.load(open(f"openapi/{fn}")) for p, fn in PROVIDERS.items()}
+    # CONFIGMAP_PROVIDERS, not PROVIDERS: a verb may resolve against a document
+    # that is not a provider of its own. compute11 is exactly that -- it ships as
+    # a ConfigMap and carries CloudServer's create, but generates no resources.
+    specs = {p: json.load(open(f"openapi/{fn}"))
+             for p, fn in CONFIGMAP_PROVIDERS.items()}
     cm_names = {yaml.safe_load(open(f))["metadata"]["name"]
                 for f in glob.glob("configmaps/*.yaml")}
 
@@ -56,10 +60,32 @@ def main():
             errors.append(f"{f}: oasPath ConfigMap '{cm}' not found")
         for v in doc["spec"]["resource"]["verbsDescription"]:
             p, m = v["path"], v["method"].lower()
-            if p not in spec["paths"]:
-                errors.append(f"{f}: path missing in OAS: {p}")
-            elif m not in spec["paths"][p]:
-                errors.append(f"{f}: method {m.upper()} not on {p}")
+            # A verb may override the document it resolves against (oasgen 0.34.0,
+            # #227). Checking every verb against the RESOURCE's document would then
+            # be checking the wrong file: CloudServer's create is a POST that exists
+            # only in compute-provider_v1.1.json, and validating it against
+            # compute-provider.json reports a missing method that is not missing.
+            vspec, vlabel = spec, prov
+            if v.get("oasPath"):
+                if not re.match(OASPATH_PATTERN, v["oasPath"]):
+                    errors.append(f"{f}: {v['action']} oasPath rejected by the CRD "
+                                  f"pattern: {v['oasPath']}")
+                    continue
+                vcm = v["oasPath"].split("/")[3]
+                if vcm not in cm_names:
+                    errors.append(f"{f}: {v['action']} oasPath ConfigMap '{vcm}' "
+                                  f"not found")
+                    continue
+                vprov = v["oasPath"].rsplit("/", 1)[-1].removesuffix(".json")
+                if vprov not in specs:
+                    errors.append(f"{f}: {v['action']} oasPath names an unknown "
+                                  f"document: {vprov}")
+                    continue
+                vspec, vlabel = specs[vprov], vprov
+            if p not in vspec["paths"]:
+                errors.append(f"{f}: path missing in {vlabel} OAS: {p}")
+            elif m not in vspec["paths"][p]:
+                errors.append(f"{f}: method {m.upper()} not on {p} in {vlabel} OAS")
             pps = re.findall(r"\{([^}]+)\}", p)
             for rfm in v.get("requestFieldMapping", []):
                 if "inPath" in rfm and rfm["inPath"] not in pps:

@@ -1,0 +1,116 @@
+# CloudServer, end to end, natively created for the first time.
+#
+# REQUIRES a cluster built with WITH_SNOWPLOW=1. CloudServer's update and delete are
+# delegated to Snowplow RESTActions via *ApiRef; without snowplow and URL_SNOWPLOW the
+# controller hard-errors with "no snowplow client is configured" and the CR wedges on
+# its finalizer with a live billable server behind it. See scripts/pin_verify.sh.
+#
+# REQUIRES oasgen-provider >= 0.34.0. The create verb carries a per-verb `oasPath`
+# onto compute-provider_v1.1.json, because the POST exists in NO other document.
+# Below 0.34.0 that field parses and is silently ignored (oasgen#220/#227), and the
+# create resolves against the 1.0 document, which has no POST for this path.
+#
+# BILLABLE: an hourly CSO1I1 (1 vCPU / 1 GB, the smallest of the 40 flavors Aruba's
+# catalog returns) plus a 20 GB bootable volume. Minutes, not hours -- but a server is
+# the most expensive thing this repository creates, so the chain tears down in reverse
+# dependency order from a finally block and verifies every delete against the API.
+#
+# MEASURED, not guessed:
+#   * flavorName comes from GET /providers/Aruba.Compute/catalog/cloudServerFlavors
+#     at api-version=1.0. Note 1.1 answers 403 on that path and the project-scoped
+#     variant 403s too, and it returns a BARE ARRAY rather than the {total, values}
+#     envelope every other collection uses.
+#   * the boot volume MUST be bootable:true WITH an image code -- a plain volume never
+#     boots (sdk-go .FromImage(...).AsBootable()).
+#   * every cross-resource reference is {uri}, per GenericResourceDto.
+#   * securityGroups is required even though the OAS marks nothing required.
+name: cloudserver
+vars:
+  PROJECT: 69a55c8d5e6f0e14f14093ff
+  LOCATION: ITBG-Bergamo
+residue:
+- /projects/${PROJECT}/providers/Aruba.Compute/cloudServers
+- /projects/${PROJECT}/providers/Aruba.Storage/blockStorages
+- /projects/${PROJECT}/providers/Aruba.Network/vpcs
+resources:
+- kind: Vpc
+  name: ga-cs-vpc
+  spec:
+    configurationRef: {name: vpc-config, namespace: default}
+    projectId: ${PROJECT}
+    metadata: {name: ga-cs-vpc, location: {value: "${LOCATION}"}, tags: []}
+    properties:
+      default: false
+      # preset only works where the location has no VPC yet; cloudburst already has one.
+      preset: false
+  drift: /projects/${PROJECT}/providers/Aruba.Network/vpcs/${id:self}
+
+- kind: Subnet
+  name: ga-cs-subnet
+  spec:
+    configurationRef: {name: subnet-config, namespace: default}
+    projectId: ${PROJECT}
+    vpcId: ${id:Vpc}
+    metadata: {name: ga-cs-subnet, location: {value: "${LOCATION}"}, tags: []}
+    properties:
+      # Advanced with an explicit CIDR: Basic lets the CMP pick the address, which
+      # makes the declared value unmatchable and drift uncorrectable.
+      type: Advanced
+      default: false
+      network: {address: 10.20.1.0/24}
+  drift: /projects/${PROJECT}/providers/Aruba.Network/vpcs/${id:Vpc}/subnets/${id:self}
+
+- kind: SecurityGroup
+  name: ga-cs-sg
+  spec:
+    configurationRef: {name: securitygroup-config, namespace: default}
+    projectId: ${PROJECT}
+    vpcId: ${id:Vpc}
+    metadata: {name: ga-cs-sg, location: {value: "${LOCATION}"}, tags: []}
+    properties:
+      default: false
+      preset: false
+  drift: /projects/${PROJECT}/providers/Aruba.Network/vpcs/${id:Vpc}/securityGroups/${id:self}
+
+- kind: BlockStorage
+  name: ga-cs-boot
+  billable: true
+  spec:
+    configurationRef: {name: blockstorage-config, namespace: default}
+    projectId: ${PROJECT}
+    metadata: {name: ga-cs-boot, location: {value: "${LOCATION}"}, tags: []}
+    properties:
+      sizeGb: 20
+      billingPeriod: Hour
+      bootable: true
+      image: LU22-001        # Ubuntu 22.04, from Aruba's published image list
+  drift: /projects/${PROJECT}/providers/Aruba.Storage/blockStorages/${id:self}
+
+- kind: CloudServer
+  name: ga-cs-server
+  billable: true
+  spec:
+    configurationRef: {name: cloudserver-config, namespace: default}
+    projectId: ${PROJECT}
+    metadata: {name: ga-cs-server, location: {value: "${LOCATION}"}, tags: []}
+    properties:
+      # NOT the location. Aruba refused ${LOCATION} with
+      #   {"fieldName":"DataCenter","errorMessage":"ITBG-Bergamo not found on selected location"}
+      # A dataCenter is a zone WITHIN a location, and the only place that mapping
+      # exists is GET /catalog/locationAndDataCenter (api-version=1.0), which is
+      # undocumented on the portal -- see Arubacloud/api#26. It returns
+      #   {"location":"ITBG-Bergamo","dataCenter":"ITBG-1"}  (also -2, -3)
+      dataCenter: ITBG-1
+      flavorName: CSO1I1
+      vpc:
+        uri: /projects/${PROJECT}/providers/Aruba.Network/vpcs/${id:Vpc}
+      bootVolume:
+        uri: /projects/${PROJECT}/providers/Aruba.Storage/blockStorages/${id:BlockStorage}
+      subnets:
+      - uri: /projects/${PROJECT}/providers/Aruba.Network/vpcs/${id:Vpc}/subnets/${id:Subnet}
+      securityGroups:
+      - uri: /projects/${PROJECT}/providers/Aruba.Network/vpcs/${id:Vpc}/securityGroups/${id:SecurityGroup}
+  # Drift is attempted deliberately, and may well be reported SKIPPED: update is
+  # delegated to a RESTAction that handles power state and associations, not tags.
+  # A skip here is a finding about the update path, not a chain failure.
+  drift: /projects/${PROJECT}/providers/Aruba.Compute/cloudServers/${id:self}

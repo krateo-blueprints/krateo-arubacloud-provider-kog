@@ -19,8 +19,16 @@
 #   KEEP=0 scripts/pin_verify.sh     # delete the cluster afterwards
 set -uo pipefail
 
-PIN="${OASGEN_VERSION:-0.27.1}"
-NODE_IMAGE="${NODE_IMAGE:-kindest/node:v1.33.12}"   # same pin as CI; see validate.yaml
+PIN="${OASGEN_VERSION:-0.36.0}"              # 0.36.0 is a FLOOR, not a preference:
+                                             # `profile` is in the provider list, and
+                                             # 0.35.0 is the first release that can
+                                             # PARSE profile.json (libopenapi v0.21.9)
+                                             # while 0.36.0 carries oasgen#236, without
+                                             # which AiKey's PUT silently drops
+                                             # location and tags. Below 0.36.0 AiKey is
+                                             # absent or wrong -- see scripts/providers.py.
+NODE_IMAGE="${NODE_IMAGE:-kindest/node:v1.36.4}"    # same pin as CI; see validate.yaml
+                                                    # 1.36 is REQUIRED by chart 0.28.0+
 ESO_VERSION="${ESO_VERSION:-2.11.0}"               # as installed on the evidence cluster
 CLUSTER="${CLUSTER:-aruba-pin}"
 CTX="kind-${CLUSTER}"
@@ -70,6 +78,38 @@ RDC_IMAGE="${RDC_IMAGE:-}"
 # Authorization header (oasgen#214), so do not set it on an older stack.
 RDC_DEBUG="${RDC_DEBUG:-0}"
 CHAIN_ARGS="${CHAIN_ARGS:-}"                       # e.g. --with-billable
+# Install Snowplow and the CloudServer RESTActions. OFF by default: the free
+# network-security chain does not need them, and snowplow is a second deployment to
+# wait for. Required for any chain touching CloudServer, whose update and delete are
+# delegated through *ApiRef -- without it RDC hard-errors with "no snowplow client is
+# configured" and the CR wedges on its finalizer with a live billable server behind
+# it. This is docs/ga-readiness.md P0-3, which is why those RESTActions had never
+# executed before this script learned to install their dependency.
+WITH_SNOWPLOW="${WITH_SNOWPLOW:-0}"
+SNOWPLOW_VERSION="${SNOWPLOW_VERSION:-1.12.57}"
+# The image digest(s) the chart MUST end up running, space-separated: the check
+# passes if the running image matches ANY of them. A tag is a mutable pointer, so
+# "we tested 1.12.57" is only true if the bits that ran are the bits that were
+# published -- asserted below rather than assumed. Empty disables the check.
+#
+# WHY A LIST AND NOT ONE DIGEST. A multi-arch tag has an INDEX digest and one
+# MANIFEST digest per platform, and which one you see depends on who is reporting.
+# containerd's `imageID` on this kubelet reports the INDEX digest even on arm64,
+# which cost one aborted run: the host is arm64, so the arm64 manifest digest looked
+# like the right thing to assert, and the image was correct all along. Pass every
+# digest published for the version and let the match decide, rather than predicting
+# which one the runtime will name.
+#
+# Published for snowplow 1.12.57 (tag at commit 408c9af4):
+#   index        sha256:1a1a8ee997ad084462eba462ca01a2715970203dfcb469b62ba084088328592b
+#   linux/amd64  sha256:bff1e1e20a94c6b4248a1923cf47f83f0ac2410c87e78bdc9485bfca73b43519
+#   linux/arm64  sha256:162659843afbe56b59562b16274f394cf16177a619c613f63b6d926ec8c9bfd6
+SNOWPLOW_DIGEST="${SNOWPLOW_DIGEST:-}"
+AUTHN_VERSION="${AUTHN_VERSION:-0.27.3}"
+# The endpoint the RESTActions call. Same host the Configurations use; named here
+# rather than inherited, because an empty server-url fails at delegation time
+# with a live resource already created.
+ARUBA_API="${ARUBA_API:-https://api.arubacloud.com}"
 KEEP="${KEEP:-1}"
 
 say() { printf '\n=== %s ===\n' "$*"; }
@@ -97,12 +137,18 @@ die() { printf 'error: %s\n' "$*" >&2; exit 1; }
 # peer had to restore it by hand. Nothing about building a throwaway cluster
 # should reach into a file other people depend on.
 #
-# So kind reads and writes its own file, named after the cluster, and KUBECONFIG
-# puts that file FIRST with the user's config after it. kubectl then still
-# resolves ${SRC_CTX} -- the credential source lives in the shared config and is
-# not ours to copy around -- while every write kind makes lands in ours.
+# So kind reads and writes its OWN file, named after the cluster, and KUBECONFIG
+# points at that file ALONE.
+#
+# An earlier version of this put the user's config second in the list so that
+# ${SRC_CTX} would resolve. That worked, but it left the shared file in scope for
+# every kubectl and helm call in a script whose whole job is creating and
+# destroying clusters -- one `kubectl config use-context` anywhere and the user's
+# default moves. The credential read is ONE command, so it names the shared file
+# explicitly (SRC_KUBECONFIG) instead, and nothing else can reach it.
 PIN_KUBECONFIG="${PIN_KUBECONFIG:-${TMPDIR:-/tmp}/kind-${CLUSTER}.kubeconfig}"
-export KUBECONFIG="${PIN_KUBECONFIG}:${HOME}/.kube/config"
+SRC_KUBECONFIG="${SRC_KUBECONFIG:-${HOME}/.kube/config}"
+export KUBECONFIG="${PIN_KUBECONFIG}"
 
 cleanup() {
   if [ "$KEEP" = "0" ]; then
@@ -121,7 +167,8 @@ trap cleanup EXIT
 for bin in kind helm kubectl python3; do
   command -v "$bin" >/dev/null || die "$bin is not on PATH"
 done
-kubectl --context "$SRC_CTX" get secret aruba-client-credentials -n krateo-system \
+kubectl --kubeconfig "$SRC_KUBECONFIG" --context "$SRC_CTX" \
+  get secret aruba-client-credentials -n krateo-system \
   >/dev/null 2>&1 || die "no aruba-client-credentials in ${SRC_CTX}/krateo-system to copy"
 
 say "creating ${CLUSTER} on ${NODE_IMAGE}"
@@ -145,7 +192,8 @@ say "copying the client credential from ${SRC_CTX} (never touches disk)"
 kubectl --context "$CTX" create namespace krateo-system >/dev/null 2>&1
 # -o yaml straight into apply. The pipe is the point: the secret is never written to a
 # file, never passed as an argument, and never echoed.
-kubectl --context "$SRC_CTX" get secret aruba-client-credentials -n krateo-system -o yaml \
+kubectl --kubeconfig "$SRC_KUBECONFIG" --context "$SRC_CTX" \
+  get secret aruba-client-credentials -n krateo-system -o yaml \
   | python3 -c '
 import sys, yaml
 d = yaml.safe_load(sys.stdin)
@@ -175,6 +223,130 @@ for i in $(seq 1 40); do
   [ "$i" = 40 ] && die "ESO never produced arubacloud-token -- check the credential"
 done
 
+if [ "$WITH_SNOWPLOW" = "1" ]; then
+  # authn FIRST, and its CRDs before it. Not optional and not ours to skip:
+  # snowplow's seed-authn.yaml renders a serviceaccount.authn.krateo.io CR with no
+  # opt-in flag, and its own comment says the chart "FAILS TO INSTALL on a cluster
+  # lacking the krateo-authn-crd ... That is INTENDED -- the platform install
+  # pipeline sequences authn BEFORE snowplow". pin_verify builds a minimal cluster
+  # rather than running that pipeline, so it has to sequence them itself.
+  say "installing authn-crds ${AUTHN_VERSION} (snowplow's hard dependency)"
+  helm --kube-context "$CTX" upgrade --install authn-crds \
+    oci://ghcr.io/krateo-platformops/charts/authn-crds --version "$AUTHN_VERSION" \
+    --namespace krateo-system --create-namespace --wait --timeout 5m \
+    >/dev/null || die "authn-crds install failed"
+  # authn IS REQUIRED. An earlier version of this script said it was not, on the
+  # strength of snowplow coming up 1/1 with readyz=200 and only the CRDs present.
+  # That tested whether snowplow STARTS, not whether it ANSWERS. When the CloudServer
+  # chain finally drove the path, snowplow refused the only endpoint we use:
+  #     resolving delete RESTAction .../cloudserver-delete:
+  #     snowplow returned 401: {"message":"missing authorization header","code":401}
+  # /call needs an authn-issued token. Without authn every *ApiRef delegation fails
+  # and the CR wedges on its finalizer -- correctness, not latency.
+  say "generating authn's RSA signing key"
+  # The chart mounts this Secret and does NOT create it; the platform installer
+  # normally does. Its format is documented in authn's own values.yaml, so none of
+  # this is guesswork: a PEM-encoded RSA private key (RS256) under the key
+  # private.pem, mounted at jwt.mountPath and read as JWT_SIGN_KEY_FILE.
+  #
+  # Generated into a shell variable and piped to the apiserver -- it never reaches
+  # disk, argv or this log, the same handling as the Aruba credential. A throwaway
+  # key for a throwaway cluster: it signs tokens only snowplow in this cluster
+  # validates, via the JWKS authn publishes from the matching public key.
+  AUTHN_KEY="$(openssl genrsa 2048 2>/dev/null)"
+  [ -n "$AUTHN_KEY" ] || die "could not generate an RSA key -- is openssl present?"
+  kubectl --context "$CTX" create secret generic authn-jwt-signing-key \
+    -n krateo-system --from-literal=private.pem="$AUTHN_KEY" \
+    --dry-run=client -o yaml | kubectl --context "$CTX" apply -f - >/dev/null \
+    || die "could not create the authn signing-key Secret"
+  unset AUTHN_KEY
+
+  say "installing authn ${AUTHN_VERSION}"
+  helm --kube-context "$CTX" upgrade --install authn \
+    oci://ghcr.io/krateo-platformops/charts/authn --version "$AUTHN_VERSION" \
+    --namespace krateo-system --create-namespace --wait --timeout 10m \
+    --set service.type=ClusterIP \
+    >/dev/null || die "authn install failed"
+
+  AUTHN_SVC="$(kubectl --context "$CTX" get svc -n krateo-system \
+    -l app.kubernetes.io/name=authn -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)"
+  [ -n "$AUTHN_SVC" ] || die "authn installed but no service found to point RDC at"
+  AUTHN_PORT="$(kubectl --context "$CTX" get svc -n krateo-system "$AUTHN_SVC" \
+    -o jsonpath='{.spec.ports[0].port}')"
+  AUTHN_URL="http://${AUTHN_SVC}.krateo-system.svc.cluster.local:${AUTHN_PORT}"
+  say "  authn at ${AUTHN_URL}"
+
+  say "installing snowplow-crds ${SNOWPLOW_VERSION} (defines kind: RESTAction)"
+  helm --kube-context "$CTX" upgrade --install snowplow-crds \
+    oci://ghcr.io/krateo-platformops/charts/snowplow-crds --version "$SNOWPLOW_VERSION" \
+    --namespace krateo-system --create-namespace --wait --timeout 5m \
+    >/dev/null || die "snowplow-crds install failed"
+  say "installing snowplow ${SNOWPLOW_VERSION} (CloudServer's *ApiRef dependency)"
+  say "  ClusterIP (kind has no LB); first boot prewarms for ~8m before readiness"
+  helm --kube-context "$CTX" upgrade --install snowplow \
+    oci://ghcr.io/krateo-platformops/charts/snowplow --version "$SNOWPLOW_VERSION" \
+    --namespace krateo-system --create-namespace --wait --timeout 15m \
+    --set service.type=ClusterIP \
+    >/dev/null || die "snowplow install failed"
+  # The service RDC must call. Named explicitly rather than guessed: a wrong URL
+  # fails at delegation time, deep inside a chain, with a live resource already made.
+  SNOWPLOW_SVC="$(kubectl --context "$CTX" get svc -n krateo-system \
+    -l app.kubernetes.io/name=snowplow -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)"
+  [ -n "$SNOWPLOW_SVC" ] || die "snowplow installed but no service found to point RDC at"
+  SNOWPLOW_PORT="$(kubectl --context "$CTX" get svc -n krateo-system "$SNOWPLOW_SVC" \
+    -o jsonpath='{.spec.ports[0].port}')"
+  SNOWPLOW_URL="http://${SNOWPLOW_SVC}.krateo-system.svc.cluster.local:${SNOWPLOW_PORT}"
+  say "  snowplow at ${SNOWPLOW_URL}"
+
+  # Which BITS actually ran. imageID carries the digest the kubelet resolved the tag
+  # to, so this is the only statement about the image that survives a tag being
+  # moved. Reported always; fatal only when SNOWPLOW_DIGEST names an expectation.
+  SP_RUNNING="$(kubectl --context "$CTX" get pods -n krateo-system \
+    -l app.kubernetes.io/name=snowplow \
+    -o jsonpath='{.items[0].status.containerStatuses[0].imageID}' 2>/dev/null)"
+  echo "    running image: ${SP_RUNNING:-<unknown>}"
+  if [ -n "$SNOWPLOW_DIGEST" ]; then
+    sp_matched=""
+    for want in $SNOWPLOW_DIGEST; do
+      case "$SP_RUNNING" in *"$want"*) sp_matched="$want"; break ;; esac
+    done
+    if [ -n "$sp_matched" ]; then
+      echo "    digest MATCHES ${sp_matched}"
+    else
+      die "snowplow is NOT running any accepted digest
+    accepted: ${SNOWPLOW_DIGEST}
+    running : ${SP_RUNNING:-<unknown>}
+  Refusing to report a result attributed to bits that did not run."
+    fi
+  fi
+fi
+
+if [ "$WITH_SNOWPLOW" = "1" ]; then
+  say "building the Snowplow endpoint Secret from the ESO-minted token"
+  # restactions/compute/endpoint.yaml ships with REPLACE_WITH_ARUBA_JWT, because a
+  # live token must never be committed. Built here from the Secret ESO just minted,
+  # piped cluster-internally, so the token touches neither disk nor argv nor this
+  # log -- the same handling as the client credential above.
+  SP_TOKEN="$(kubectl --context "$CTX" get secret arubacloud-token -n default \
+    -o jsonpath='{.data.token}' | base64 --decode)"
+  [ -n "$SP_TOKEN" ] || die "arubacloud-token is present but empty"
+  kubectl --context "$CTX" create secret generic arubacloud-endpoint \
+    -n krateo-system \
+    --from-literal=server-url="$ARUBA_API" \
+    --from-literal=token="$SP_TOKEN" \
+    --dry-run=client -o yaml | kubectl --context "$CTX" apply -f - >/dev/null \
+    || die "could not create the arubacloud-endpoint Secret"
+  unset SP_TOKEN
+  say "applying the CloudServer RESTActions"
+  kubectl --context "$CTX" apply -n krateo-system -f restactions/compute/ \
+    --prune=false >/dev/null 2>&1 \
+    || kubectl --context "$CTX" apply -n krateo-system \
+         -f restactions/compute/cloudserver-create.restaction.yaml \
+         -f restactions/compute/cloudserver-update.restaction.yaml \
+         -f restactions/compute/cloudserver-delete.restaction.yaml >/dev/null \
+    || die "RESTActions failed to apply -- expected kind RESTAction (templates.krateo.io/v1) from snowplow-crds"
+fi
+
 HELM_SETS=()
 if [ -n "$PROVIDER_IMAGE" ] || [ -n "$RDC_IMAGE" ]; then
   say "loading locally built images into the kind node"
@@ -192,6 +364,41 @@ if [ "$RDC_DEBUG" != "0" ]; then
   # plain --set coerces `true` to a boolean, which the chart then rejects --
   #   at '/rdc/env/REST_CONTROLLER_DEBUG': got boolean, want string
   HELM_SETS+=(--set-string rdc.env.REST_CONTROLLER_DEBUG=true)
+fi
+if [ "$WITH_SNOWPLOW" = "1" ]; then
+  # RDC's -snowplow-url defaults to the URL_SNOWPLOW env var, and EMPTY MEANS
+  # DISABLED -- mutate_restaction.go then hard-errors on any *ApiRef. No chart sets
+  # it (docs/adversarial-review.md row 3), which is the whole reason CloudServer's
+  # RESTActions had never run anywhere.
+  HELM_SETS+=(--set-string "rdc.env.URL_SNOWPLOW=${SNOWPLOW_URL}")
+  # URL_AUTHN as well, and BOTH are required. Setting only URL_SNOWPLOW gets RDC as
+  # far as reaching snowplow and no further -- /call then answers
+  #     401 {"message":"missing authorization header"}
+  # because RDC has nowhere to obtain the token snowplow demands. Our own
+  # docs/adversarial-review.md row 3 says the chart sets "neither URL_SNOWPLOW nor
+  # URL_AUTHN", and docs/ga-plan.md carries it as an explicit task; I wired one of
+  # the two and spent a cluster build rediscovering the other.
+  HELM_SETS+=(--set-string "rdc.env.URL_AUTHN=${AUTHN_URL}")
+  # ...and the projected ServiceAccount TOKEN, which is the third prerequisite and
+  # the only one no amount of env-var configuration reaches. RDC does not
+  # authenticate as a human. It reads an AUDIENCE-BOUND projected token from
+  #     /var/run/secrets/krateo.io/serviceaccount/token     (RDC DefaultTokenPath)
+  # and POSTs it to authn's /serviceaccount/login to be exchanged for the JWT it
+  # then presents to snowplow, re-reading the file on each cache miss because
+  # projected tokens rotate on disk. The chart mounts NOTHING there -- rdc.volumes
+  # and rdc.volumeMounts are both [] in values.yaml -- so with both URLs set and no
+  # mount the exchange fails before snowplow is ever reached:
+  #     reading projected service account token ".../token": no such file or directory
+  #
+  # The audience MUST be "authn": authn verifies the token with a Kubernetes
+  # TokenReview, which enforces the audience, so the pod's default token is refused
+  # even though it is a perfectly valid token. mountPath is the DIRECTORY and the
+  # projected source's `path` is the filename, which together make the path above.
+  #
+  # --set-json, not --set: these are arrays of objects and --set cannot express one.
+  # values.schema.json types both as {"type":"array","items":{"type":"object"}}.
+  HELM_SETS+=(--set-json 'rdc.volumes=[{"name":"authn-token","projected":{"sources":[{"serviceAccountToken":{"audience":"authn","expirationSeconds":3600,"path":"token"}}]}}]')
+  HELM_SETS+=(--set-json 'rdc.volumeMounts=[{"name":"authn-token","mountPath":"/var/run/secrets/krateo.io/serviceaccount","readOnly":true}]')
 fi
 
 if [ -n "$CHART_SRC" ]; then
@@ -213,9 +420,33 @@ helm --kube-context "$CTX" upgrade --install oasgen-provider-crds \
   "$CRDS_CHART" ${VERSION_ARGS[@]+"${VERSION_ARGS[@]}"} \
   --namespace krateo-system --create-namespace --wait \
   || die "crds chart failed"
+# --timeout 15m, and the number is MEASURED rather than padded. It also COMPENSATES
+# FOR A BUG THAT IS BEING FIXED, which is the more important half of this comment:
+# oasgen-provider#271. The provider's runtime stage is `FROM golang:1.26-trixie` -- a
+# whole Go toolchain -- while rest-dynamic-controller, built in the same repository
+# the same way, uses distroless/static:nonroot. Both binaries are CGO_ENABLED=0 and
+# neither shells out, so the 331 MB buys two static binaries and a CA bundle.
+#
+# So 15m is NOT a statement that this chart needs 15 minutes. oasgen-provider have
+# recorded that raising --wait is the wrong fix, because it treats a 300 MB accident
+# as a requirement and pushes the cost onto every consumer's CI. REVERT THIS TO 5m
+# once #271 ships and the image is distroless-sized; if the pull is still minutes
+# long at that point, that is a new finding and not this one.
+#
+# The measurement that made it diagnosable, on a cold node:
+#
+#   oasgen-provider:0.36.0   331229426 bytes   pulled in 4m29.113s   <-- timed out at 5m
+#   snowplow:1.12.57          23209366 bytes   pulled in    18.615s
+#   authn:0.27.3              14224445 bytes   pulled in     6.514s
+#
+# The deployment was Ready about a minute after helm gave up, so the symptom was
+# `Error: context deadline exceeded` against a chart that was in fact fine -- which
+# reads exactly like a broken release and is not one. A reused cluster has the image
+# cached and installs in seconds; it is only the first pull of a new pin that is slow,
+# so this bites precisely when the pin moves, which is when it is most confusing.
 helm --kube-context "$CTX" upgrade --install oasgen-provider \
   "$PROV_CHART" ${VERSION_ARGS[@]+"${VERSION_ARGS[@]}"} ${HELM_SETS[@]+"${HELM_SETS[@]}"} \
-  --namespace krateo-system --wait --timeout 5m \
+  --namespace krateo-system --wait --timeout 15m \
   || die "provider chart failed"
 
 say "images actually running (this is the whole point of the exercise)"
@@ -258,6 +489,127 @@ for kind in $KINDS; do
     [ "$i" = 40 ] && die "no ready controller for ${kind} after 10m"
   done
 done
+
+if [ "$WITH_SNOWPLOW" = "1" ]; then
+  say "granting each delegating controller an authn identity"
+  # The fourth prerequisite, and the only one that is a Kubernetes OBJECT rather than
+  # a setting. authn does not trust a ServiceAccount token merely because it verifies.
+  # It looks for a serviceaccount.authn.krateo.io ServiceAccount CR in its OWN
+  # namespace whose spec.serviceAccountRef matches the calling SA --
+  #     "The CR's existence is the allowlist; an SA with no matching ServiceAccount
+  #      CR cannot exchange"
+  # -- which is the CRD's own schema description, not an inference. With no CR the
+  # exchange is 403 at authn and RDC never reaches snowplow at all.
+  #
+  # Two things here cost a cluster build each to learn, so they are written down:
+  #
+  #   * the issued USERNAME is the CR's metadata.name, NOT the ServiceAccount's name.
+  #     That username is also what names the <username>-clientconfig Secret authn
+  #     writes on a successful login, and snowplow reads that Secret to act on the
+  #     apiserver AS this identity (CN=username, O=groups). Nobody creates it by
+  #     hand; if it is absent after a delegated call, the LOGIN failed -- look in
+  #     authn's log, not snowplow's.
+  #
+  #   * "authn never authors RBAC" (same schema). The groups become the client
+  #     certificate's O=, so ordinary RBAC bound to the group is what lets snowplow
+  #     read the RESTActions and their endpointRef Secret. Missing RBAC surfaces as
+  #     an authorization error from snowplow, NOT as a 401 -- a different symptom
+  #     from every other step here, which is the point of separating them.
+  #
+  # One identity per DELEGATING resource, derived from the RestDefinitions rather
+  # than hardcoded, so a resource that gains an *ApiRef later is covered without
+  # anyone remembering this block exists.
+  DELEGATING=$(python3 -c "
+import glob, os, yaml
+kinds = set()
+for f in glob.glob(os.path.join('${RESTDEFS_DIR}', '**', '*.yaml'), recursive=True):
+    txt = open(f).read()
+    if 'ApiRef' not in txt:
+        continue
+    for doc in yaml.safe_load_all(txt):
+        if not doc or doc.get('kind') != 'RestDefinition':
+            continue
+        res = ((doc.get('spec') or {}).get('resource')) or {}
+        if any(k.endswith('ApiRef') for k in res):
+            kinds.add(res['kind'])
+print(' '.join(sorted(kinds)))
+") || die "could not read the delegating kinds from ${RESTDEFS_DIR}"
+  echo "    delegating kinds: ${DELEGATING:-none}"
+
+  # The group's RBAC, once. Narrow on purpose: snowplow resolves RESTActions and
+  # reads the one endpoint Secret they reference. A wildcard on secrets would hide
+  # the moment a new RESTAction starts reading a credential nobody authorised.
+  if [ -n "$DELEGATING" ]; then
+    kubectl --context "$CTX" apply -f - >/dev/null <<'RBAC' \
+      || die "could not grant the krateo-rdc group its RBAC"
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: krateo-rdc-restactions
+  namespace: krateo-system
+rules:
+  # Snowplow resolves the requested RESTAction as this identity, and writes its
+  # progress back onto the object's status as it walks the stages.
+  - apiGroups: ["templates.krateo.io"]
+    resources: ["restactions"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["templates.krateo.io"]
+    resources: ["restactions/status"]
+    verbs: ["get", "update", "patch"]
+  # Every api[] entry carries an endpointRef, and that Secret holds the Aruba
+  # server-url and Bearer token. Named explicitly rather than granted wholesale.
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: ["arubacloud-endpoint"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: krateo-rdc-restactions
+  namespace: krateo-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: krateo-rdc-restactions
+subjects:
+  - apiGroup: rbac.authorization.k8s.io
+    kind: Group
+    name: krateo-rdc
+RBAC
+  fi
+
+  for kind in $DELEGATING; do
+    lower=$(printf '%s' "$kind" | tr '[:upper:]' '[:lower:]')
+    dep=$(kubectl --context "$CTX" get deploy -n krateo-system -o name 2>/dev/null \
+          | grep -i -- "-${lower}-controller$" | head -1)
+    [ -n "$dep" ] || die "no generated controller for ${kind} -- cannot grant it an identity"
+    # READ the ServiceAccount name; do not compute it. oasgen names it
+    # <plural>-<group>-v1alpha1 even where the CRD's served version is v1-0-0
+    # (CloudServer's is), so the obvious formula produces a name that does not exist
+    # and the mapping silently matches nothing -- a 403 with no clue why.
+    sa=$(kubectl --context "$CTX" get "$dep" -n krateo-system \
+         -o jsonpath='{.spec.template.spec.serviceAccountName}')
+    [ -n "$sa" ] || die "${dep} declares no serviceAccountName"
+    user="rdc-${lower}"
+    echo "    ${kind}: sa/${sa} -> authn user '${user}' (group krateo-rdc)"
+    kubectl --context "$CTX" apply -f - >/dev/null <<EOF \
+      || die "could not create the authn identity for ${kind}"
+apiVersion: serviceaccount.authn.krateo.io/v1alpha1
+kind: ServiceAccount
+metadata:
+  name: ${user}
+  namespace: krateo-system
+spec:
+  displayName: rest-dynamic-controller (${kind})
+  serviceAccountRef:
+    namespace: krateo-system
+    name: ${sa}
+  groups:
+    - krateo-rdc
+EOF
+  done
+fi
 
 say "images actually running, including the RDCs"
 # Printed again here on purpose. The earlier print runs before any RestDefinition

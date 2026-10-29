@@ -1,0 +1,103 @@
+# A TEST-ONLY RESTAction that exists to make snowplow's #911 observable.
+#
+# NOT PART OF THE PRODUCT. It is never applied by pin_verify.sh, never referenced by
+# a RestDefinition, and lives here rather than in restactions/ so that nothing in the
+# shipped delete path changes in order to test somebody else's fix.
+#
+# WHY IT EXISTS
+# -------------
+# snowplow#911 (in 1.12.57): a write stage whose `dependsOn` stage FAILED or was
+# SKIPPED is not sent, and X-Snowplow-Stage-Outcomes reports it as Skipped with its
+# dependsOn. The shipped cloudserver-delete RESTAction cannot exercise that, and the
+# reason is worth recording because it was not obvious:
+#
+#   * its `server` stage is a GET that SUCCEEDS and simply matches nothing. Per the
+#     1.12.57 rule, a GET that answers 200 and whose filter yields nothing has
+#     SUCCEEDED -- "matched nothing" is not "failed".
+#   * its write stages take their data through an ITERATOR that guards on
+#     `$s.id != null` and yields `[]`, so they succeed over zero items.
+#   * all three carry `continueOnError: true`, which on a WRITE means "send me even
+#     if my dependency did not succeed" -- it disables the skip outright.
+#
+# So the shipped fixture tests that nothing SPURIOUS is sent (expected header: `[]`,
+# no DELETE reaching Aruba), which is a different and also useful property.
+#
+# WHAT THIS CHANGES, AND ONLY THIS
+# --------------------------------
+#   1. `server` makes a request the API genuinely answers 404 for, so the stage FAILS
+#      rather than succeeding-but-empty.
+#   2. the write stages carry NO `continueOnError`, so the skip is not disabled.
+#
+# Everything else -- the iterators, the paths, the payload, the endpointRef -- is
+# copied from the shipped manifest unchanged, so the failure is the only variable.
+#
+# The 404 is REAL, not contrived. `Aruba.Baremetal/hpcs` is documented but returns
+# 404 in every project on this account because the provider is not enabled here
+# (verified 2026-10-20 at api-version 1.0 and 1.1; reported as Arubacloud/api#24).
+# Using a genuine 404 from the live API rather than a made-up path means the stage
+# fails the way a stage really fails.
+#
+# EXPECTED on 1.12.57, per the snowplow lead, in dependency order:
+#   [{"name":"server","ok":false,"reason":"NotFound"},
+#    {"name":"detachVolumes","ok":false,"reason":"Skipped","dependsOn":"server"},
+#    {"name":"delete","ok":false,"reason":"Skipped","dependsOn":"server"}]
+# and ZERO writes reaching Aruba. Any difference is a finding for snowplow.
+#
+# 404 was chosen over 403 deliberately: a 403 would also exercise the
+# forbidden-recording path, so it would test two things at once.
+apiVersion: templates.krateo.io/v1
+kind: RESTAction
+metadata:
+  name: snowplow-911-probe
+  namespace: krateo-system
+  annotations:
+    krateo.io/verbose: "true"
+spec:
+  api:
+    # The ONLY stage that differs in kind from the shipped manifest: this one fails.
+    - name: server
+      endpointRef:
+        name: arubacloud-endpoint
+        namespace: krateo-system
+      verb: GET
+      path: ${ "/projects/" + .spec.projectId + "/providers/Aruba.Baremetal/hpcs?api-version=1.0" }
+      headers:
+        - "Accept: application/json"
+      continueOnError: true
+      filter: >-
+        .spec.metadata.name as $n
+        | { self: ((.values // []) | map(select(.metadata.name == $n)) | .[0]) }
+
+    # Copied verbatim from the shipped manifest EXCEPT for the removal of
+    # `continueOnError: true`, which is what lets the skip happen.
+    - name: detachVolumes
+      endpointRef:
+        name: arubacloud-endpoint
+        namespace: krateo-system
+      dependsOn:
+        name: server
+        iterator: >-
+          (.server.self // {}) as $s
+          | (($s.properties.dataVolumes // []) | map(.uri // .)) as $vols
+          | if $s.id != null and ($vols | length) > 0
+            then [ { id: $s.id, detach: $vols } ] else [] end
+      verb: POST
+      path: ${ "/projects/" + $.spec.projectId + "/providers/Aruba.Compute/cloudServers/" + .id + "/attachDetachDataVolumes?api-version=1.0" }
+      headers:
+        - "Content-Type: application/json"
+      payload: |
+        ${ { volumesToAttach: [], volumesToDetach: .detach } }
+
+    - name: delete
+      endpointRef:
+        name: arubacloud-endpoint
+        namespace: krateo-system
+      dependsOn:
+        name: server
+        iterator: >-
+          (.server.self // {}) as $s
+          | if $s.id != null then [ $s.id ] else [] end
+      verb: DELETE
+      path: ${ "/projects/" + $.spec.projectId + "/providers/Aruba.Compute/cloudServers/" + . + "?api-version=1.0" }
+      headers:
+        - "Accept: application/json"

@@ -32,9 +32,18 @@ env:
   #   0.26.0  #148  jq-shaped request bodies
   #   0.26.1  #166  credential headers redacted in logs -- the reason this is not
   #                 pinned at 0.25.1
-  # 0.28.0 is deliberately NOT taken: #178 raises the chart floor to Kubernetes
-  # 1.36, which would force the node image up in the same breath.
-  OASGEN_VERSION: "0.27.1"
+  # 0.28.0 was deliberately not taken for a while: #178 raises the chart floor to
+  # Kubernetes 1.36, which forces the node image up in the same breath. That floor
+  # has since been taken on purpose -- see node_image below.
+  #   0.35.0  libopenapi v0.21.9, so profile.json can be PARSED at all (a `+` in a
+  #           schema name made it unparseable); without it AiKey does not merely
+  #           fail, it never appears, and nothing reports why
+  #   0.36.0  #236  an update verb on a resource with a PUT and no POST now derives
+  #           its spec from the update body. AiKey is the only such resource here,
+  #           and below this its PUT would silently drop `location` and `tags`
+  # Both are REQUIREMENTS, not preferences: `profile` is in the provider list, so a
+  # pin below 0.36.0 ships an AiKey that is wrong or absent. See scripts/providers.py.
+  OASGEN_VERSION: "0.36.0"
 
 jobs:
   validate:
@@ -92,21 +101,26 @@ jobs:
         with:
           cluster_name: aruba-ci
           # Pinned, for the same reason OASGEN_VERSION is: an unpinned node image
-          # means the Kubernetes version this 34-resource smoke actually proves drifts
-          # with whatever helm/kind-action defaults to that week.
+          # means the Kubernetes version this smoke actually proves drifts with
+          # whatever helm/kind-action defaults to that week.
           #
-          # 1.33 is the floor of the charts we pin's successors (oasgen#153) and the
-          # version from which CRD validation ratcheting is GA with LockToDefault, so
-          # it proves the smoke at the interesting end of that range. It is NOT the
-          # floor any more: oasgen#178 raised it to 1.36 in chart 0.28.0, because
-          # version-scoped watching needs a MutatingAdmissionPolicy that 1.33-1.35 do
-          # not serve. 0.22.2, which we pin, declares no kubeVersion at all and
-          # installs here fine.
+          # RAISED TO 1.36 WITH THE 0.34.0 PIN, in the same commit, because the two
+          # cannot move independently. Measured from the published charts rather than
+          # inferred:
+          #     oasgen-provider 0.27.1  kubeVersion: '>=1.33.0-0'
+          #     oasgen-provider 0.34.0  kubeVersion: '>=1.36.0-0'
+          # The floor rose in chart 0.28.0 (oasgen#178): version-scoped watching needs
+          # a MutatingAdmissionPolicy that 1.33-1.35 do not serve. On a 1.33 node Helm
+          # refuses the chart outright, and the job would fail for a reason that has
+          # nothing to do with the RestDefinitions it exists to test.
           #
-          # So raising OASGEN_VERSION past 0.27.1 means raising this to v1.36 in the
-          # same commit, or Helm refuses the chart and the job fails for a reason that
-          # has nothing to do with the 34 RestDefinitions it is meant to be testing.
-          node_image: kindest/node:v1.33.12
+          # This is a real cost passed to users, not just to CI: installing this
+          # blueprint now requires Kubernetes >= 1.36. It was taken deliberately, to
+          # get oasgen#227 (per-verb oasPath reaching the controller, which is what
+          # makes CloudServer's create reachable at all) and #225 (an appended
+          # additionalStatusFields entry actually regenerating an existing CRD, which
+          # is what makes our status.error append take effect).
+          node_image: kindest/node:v1.36.4
 
       - name: Install Helm
         uses: azure/setup-helm@v4

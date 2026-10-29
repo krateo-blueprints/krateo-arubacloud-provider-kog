@@ -1,5 +1,5 @@
 # Aruba Cloud CloudServer (compute provider) - generated, no proxy.
-# CloudServer has NO single create/update endpoint; its lifecycle (power on/off, associate elastic IPs / security groups / subnets, attach data volumes, restore) is a multi-call sequence. create/update/delete are delegated to Snowplow RESTActions via *ApiRef (NO proxy); observe stays native via get/findby. See docs/lifecycle-beyond-crud.md.
+# CloudServer create is NATIVE via a per-verb oasPath onto the 1.1 document (oasgen#227, 0.34.0); update and delete stay delegated to Snowplow RESTActions because they are multi-call and because delete must detach data volumes first. CloudServer has NO single update endpoint; its lifecycle (power on/off, associate elastic IPs / security groups / subnets, attach data volumes, restore) is a multi-call sequence. create/update/delete are delegated to Snowplow RESTActions via *ApiRef (NO proxy); observe stays native via get/findby. See docs/lifecycle-beyond-crud.md.
 apiVersion: ogen.krateo.io/v1alpha1
 kind: RestDefinition
 metadata:
@@ -17,11 +17,6 @@ spec:
     - status.error
     excludedSpecFields:
     - cloudServerId
-    createApiRef:
-      name: arubacloud-compute-cloudserver-create
-      namespace: krateo-system
-      extras:
-        api-version: '1.0'
     updateApiRef:
       name: arubacloud-compute-cloudserver-update
       namespace: krateo-system
@@ -42,13 +37,21 @@ spec:
       requestFieldMapping:
       - inPath: cloudServerId
         inCustomResource: status.metadata.id
+    - action: create
+      method: POST
+      path: /projects/{projectId}/providers/Aruba.Compute/cloudServers
+      oasPath: configmap://krateo-system/arubacloud-compute11-openapi/compute11.json
+      queries:
+      - name: api-version
+        value: '1.1'
     configurationFields:
     - fromOpenAPI:
         name: api-version
         in: query
       fromRestDefinition:
         actions:
-        - '*'
+        - findby
+        - get
     - fromOpenAPI:
         name: filter
         in: query
