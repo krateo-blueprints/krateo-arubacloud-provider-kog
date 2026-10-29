@@ -8,6 +8,16 @@ timestamp: 2026-10-15T00:00:00Z
 
 # Live-cluster test
 
+> [!IMPORTANT]
+> **Dated evidence — every version on this page is historical by design.** Each
+> section records what a specific release proved on a specific date, and the numbers
+> are left exactly as measured so the record stays usable. **Do not install from any
+> version named here.** The current pin is `OASGEN_VERSION` in
+> `.github/workflows/validate.yaml`, and it is a hard floor: the earliest versions on
+> this page are *below* it, where libopenapi cannot parse these OAS documents at all.
+> For an install, use [Getting started](getting-started.md) or the
+> [README](../README.md).
+
 Everything in this repository had been validated statically until this run. This
 page records what a real cluster proved against the **live Aruba Cloud API**,
 and — more usefully — the **five defects static validation could not have
@@ -274,6 +284,10 @@ What remains unexercised:
 - The other 30 resource kinds: only `Subnet` was driven through a full lifecycle.
 
 ## Reproducing
+
+> Pinned to **0.21.1** on purpose: this reproduces the 2026-08-31 run above, not a
+> current one. To validate the repository as it stands, use `scripts/pin_verify.sh`,
+> which reads the live pin rather than a literal.
 
 ```sh
 kind create cluster --name aruba-kog-test
