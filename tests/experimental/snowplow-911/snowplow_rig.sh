@@ -18,6 +18,10 @@ export KUBECONFIG="$KC"
 NODE_IMAGE="${NODE_IMAGE:-kindest/node:v1.36.4}"
 SNOWPLOW_VERSION="${SNOWPLOW_VERSION:-1.12.57}"
 AUTHN_VERSION="${AUTHN_VERSION:-0.27.3}"
+# Extra `--set` flags for the authn chart, space-separated, e.g. "replicaCount=3".
+# Additive and empty by default, so the snowplow#911 fixture this rig was written
+# for behaves identically whether or not a caller sets it.
+AUTHN_EXTRA_SET="${AUTHN_EXTRA_SET:-}"
 SNOWPLOW_DIGEST="${SNOWPLOW_DIGEST:-}"
 SRC_CTX="${SRC_CONTEXT:-kind-aruba-110}"
 # KUBECONFIG below is narrowed to this rig's own file so nothing here can touch
@@ -53,9 +57,12 @@ k create secret generic authn-jwt-signing-key -n "$NS" \
   --from-literal=private.pem="$AUTHN_KEY" --dry-run=client -o yaml | k apply -f - >/dev/null \
   || die "signing-key Secret failed"
 unset AUTHN_KEY
+authn_sets=(--set service.type=ClusterIP)
+for kv in $AUTHN_EXTRA_SET; do authn_sets+=(--set "$kv"); done
+[ -n "$AUTHN_EXTRA_SET" ] && echo "    extra: ${AUTHN_EXTRA_SET}"
 h upgrade --install authn oci://ghcr.io/krateo-platformops/charts/authn \
   --version "$AUTHN_VERSION" -n "$NS" --wait --timeout 10m \
-  --set service.type=ClusterIP >/dev/null || die "authn failed"
+  "${authn_sets[@]}" >/dev/null || die "authn failed"
 
 say "installing snowplow ${SNOWPLOW_VERSION}"
 h upgrade --install snowplow-crds oci://ghcr.io/krateo-platformops/charts/snowplow-crds \
