@@ -61,22 +61,31 @@ echo "=== authn: ${AUTHN_SVC}:${AUTHN_PORT}   snowplow: ${SP_SVC}:${SP_PORT} ===
 EXTRAS="{\"spec\":{\"projectId\":\"${PROJECT}\",\"metadata\":{\"name\":\"${CRNAME}\"}}}"
 
 echo "=== STEP 1: exchange the projected SA token at authn /serviceaccount/login ==="
+# NEVER print this response body. authn's login returns a whole kubeconfig for the
+# issued identity, including client-key-data -- a PRIVATE KEY. An earlier version of
+# this script piped it through `head -40` and put it in a terminal log. Only the
+# status line and non-secret identity fields are shown.
 k exec -n "$NS" call-probe -- sh -c "
-  set -e
   T=\$(cat /var/run/secrets/krateo.io/serviceaccount/token)
-  curl -sS -i -X POST \
+  curl -sS -o /tmp/login.json -w 'http_status=%{http_code}\n' -X POST \
     -H \"Authorization: Bearer \$T\" \
-    'http://${AUTHN_SVC}.${NS}.svc.cluster.local:${AUTHN_PORT}/serviceaccount/login' \
-  | head -40
+    'http://${AUTHN_SVC}.${NS}.svc.cluster.local:${AUTHN_PORT}/serviceaccount/login'
+  # which fields came back, and the identity -- not the credentials in them
+  echo \"top-level keys: \$(tr ',{}' '\n\n\n' < /tmp/login.json | grep -o '\"[a-zA-Z]*\":' | tr -d '\":' | sort -u | tr '\n' ' ')\"
+  echo \"username      : \$(tr ',{}' '\n\n\n' < /tmp/login.json | grep -m1 '\"username\"' | sed 's/.*:\"//; s/\"\$//')\"
+  echo \"groups        : \$(tr '{}' '\n\n' < /tmp/login.json | grep -m1 '\"groups\"' | sed 's/.*\"groups\"://; s/,\".*//')\"
 " 2>&1
 
 echo
 echo "=== STEP 2: GET /call with the JWT, full response headers ==="
 k exec -n "$NS" call-probe -- sh -c "
   T=\$(cat /var/run/secrets/krateo.io/serviceaccount/token)
+  # The field is accessToken -- camelCase. An earlier pattern looked for
+  # token|jwt|access_token|id_token and matched none of them, which presented as
+  # "NO JWT PARSED" on a login that had in fact returned 200.
   JWT=\$(curl -sS -X POST -H \"Authorization: Bearer \$T\" \
     'http://${AUTHN_SVC}.${NS}.svc.cluster.local:${AUTHN_PORT}/serviceaccount/login' \
-    | tr ',{}' '\n\n\n' | grep -i -E '\"(token|jwt|access_token|id_token)\"' \
+    | tr ',{}' '\n\n\n' | grep -o '\"accessToken\":\"[^\"]*\"' \
     | head -1 | sed 's/.*:\"//; s/\"\$//')
   if [ -z \"\$JWT\" ]; then echo 'NO JWT PARSED -- step 1 body above shows why'; exit 1; fi
   echo \"jwt length: \${#JWT}\"
