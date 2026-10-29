@@ -191,6 +191,14 @@ On a Krateo installer-built cluster, set them through
 today and needs no chart change. The installer does not yet derive these URLs for
 you; when it does, this section will name the version.
 
+That path is a **passthrough**: whatever you set there is written into the composition
+CR verbatim and wins over the chart's own default. So if a URL is not what you expect,
+the chart values will not show you why — read the live CR instead:
+
+```sh
+kubectl get oasgenproviders.composition.krateo.io -o yaml
+```
+
 Tracked upstream as
 [oasgen-provider#262](https://github.com/krateo-platformops/oasgen-provider/issues/262).
 
