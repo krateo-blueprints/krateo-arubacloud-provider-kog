@@ -647,6 +647,13 @@ def main():
             if secrets_created:
                 print(f"    removed {len(secrets_created)} chain Secret(s)")
 
+        # Deletes that could not be proven. A teardown that leaves a billable
+        # resource wedged MUST NOT exit 0: this chain reported exactly that tonight
+        # -- CloudServer and BlockStorage both printed DELETE NOT CONFIRMED, the
+        # residue check then said "clean", and the run exited 0 with a live server on
+        # the account. CI would have read it as a pass.
+        unconfirmed = []          # (kind, name, url, crstate)
+
         if created:
             print("\n=== teardown (reverse dependency order) ===")
             for kind, name in reversed(created):
@@ -738,6 +745,7 @@ def main():
                                        f"— it is wedged, not orphaned")
                         print(f"    DELETE NOT CONFIRMED after {mins:.0f} min: {url} "
                               f"still reads 200 — {crstate}", file=sys.stderr)
+                        unconfirmed.append((kind, name, url, crstate))
                 except Exception as e:                      # never block the teardown
                     print(f"    delete check errored for {kind}/{name}: {e}",
                           file=sys.stderr)
@@ -814,7 +822,37 @@ def main():
             else:
                 print("    WARNING: resources may remain — check the Aruba console", file=sys.stderr)
 
+            # CROSS-CHECK the two instruments against each other. The per-resource
+            # check above does an item GET while the parent is alive; the residue
+            # check lists collections at the end. When a resource fails the first and
+            # is absent from the second, the two DISAGREE -- and tonight the
+            # optimistic one won silently: two resources printed DELETE NOT CONFIRMED
+            # and the residue check still said "clean".
+            #
+            # Which reading was right is not decidable from here, so this does not
+            # pick one. It reports the disagreement, because a run where two
+            # instruments contradict each other has not established anything -- and
+            # "clean" from the one that looked second is the least safe thing to
+            # believe about a billable resource.
+            if unconfirmed:
+                left_ids = {((v.get("metadata") or {}).get("id")) for v in left}
+                for kind, name, url, crstate in unconfirmed:
+                    rid = ids.get(name)
+                    if rid and rid not in left_ids:
+                        print(f"    INSTRUMENT DISAGREEMENT for {kind}/{name} "
+                              f"(id={rid}): its item GET said still present, but the "
+                              f"residue listing did not report it. One of the two is "
+                              f"wrong and this run proves nothing about it. Check the "
+                              f"console by id.", file=sys.stderr)
+
         _drop_secrets()
+
+        if unconfirmed:
+            print(f"\n=== {len(unconfirmed)} DELETE(S) NOT CONFIRMED — run FAILED ===",
+                  file=sys.stderr)
+            for kind, name, url, crstate in unconfirmed:
+                print(f"    {kind}/{name}: {url}", file=sys.stderr)
+            return 1
 
 
 if __name__ == "__main__":
