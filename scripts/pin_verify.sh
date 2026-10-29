@@ -338,13 +338,33 @@ if [ "$WITH_SNOWPLOW" = "1" ]; then
     || die "could not create the arubacloud-endpoint Secret"
   unset SP_TOKEN
   say "applying the CloudServer RESTActions"
-  kubectl --context "$CTX" apply -n krateo-system -f restactions/compute/ \
-    --prune=false >/dev/null 2>&1 \
-    || kubectl --context "$CTX" apply -n krateo-system \
-         -f restactions/compute/cloudserver-create.restaction.yaml \
-         -f restactions/compute/cloudserver-update.restaction.yaml \
-         -f restactions/compute/cloudserver-delete.restaction.yaml >/dev/null \
-    || die "RESTActions failed to apply -- expected kind RESTAction (templates.krateo.io/v1) from snowplow-crds"
+  # NAMED FILES, never `-f restactions/compute/`. That directory also contains
+  # endpoint.yaml -- the Secret, shipping `token: REPLACE_WITH_ARUBA_JWT` because a
+  # live token must never be committed -- so a directory apply OVERWRITES the
+  # endpoint Secret built from the ESO token eight lines above, with the placeholder.
+  #
+  # It used to do exactly that, behind `>/dev/null 2>&1 ||` with a named-file apply as
+  # the fallback. The first command SUCCEEDS (every file is valid), so the fallback
+  # never ran, the clobber was silent, and the swallowed stderr meant there was
+  # nothing to notice. A delegated call would then authenticate to snowplow correctly
+  # and fail at Aruba with a bogus bearer token -- an auth failure two layers from
+  # its cause.
+  #
+  # Found by an audit prompted by a peer's finding about checks that cannot fail:
+  # `|| fallback` with stderr discarded is not a safety net, it is a way to not know.
+  for f in restactions/compute/cloudserver-create.restaction.yaml \
+           restactions/compute/cloudserver-update.restaction.yaml \
+           restactions/compute/cloudserver-delete.restaction.yaml; do
+    kubectl --context "$CTX" apply -n krateo-system -f "$f" >/dev/null \
+      || die "RESTAction ${f} failed to apply -- expected kind RESTAction (templates.krateo.io/v1) from snowplow-crds"
+  done
+  # And prove the Secret still holds a real token rather than the placeholder, because
+  # the whole point of the above is that this can be clobbered without a word.
+  if kubectl --context "$CTX" get secret arubacloud-endpoint -n krateo-system \
+       -o jsonpath='{.data.token}' 2>/dev/null | base64 --decode \
+       | grep -q 'REPLACE_WITH_ARUBA_JWT'; then
+    die "the arubacloud-endpoint Secret holds the committed PLACEHOLDER, not a live token"
+  fi
 fi
 
 HELM_SETS=()

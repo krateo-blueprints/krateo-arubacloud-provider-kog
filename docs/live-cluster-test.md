@@ -2557,11 +2557,32 @@ are discovered one at a time, each invisible until the one before it is satisfie
 | 3 | a projected `serviceAccountToken`, `audience: authn`, at `/var/run/secrets/krateo.io/serviceaccount` | the authn exchange fails before snowplow is called |
 | 4 | a `serviceaccount.authn.krateo.io` CR matching the controller's SA, **plus RBAC for its groups** | authn refuses with `403`; the CR's existence IS the allowlist |
 
-**Measured sufficient.** With all four present: no `missing authorization header`, no
-403 from authn, no token-read error and no clientconfig error anywhere in ~20k lines
-of controller log. The only `401`/`403` strings in the file were digits inside
-timestamp nanoseconds, which is worth saying because grepping for `401` without
-checking what matched is how that result could have been reported as a failure.
+**Proven sufficient for a CALLER — and this is a correction to what this section
+first claimed.** A probe pod using RDC's own mechanism (an `audience: authn` projected
+token exchanged at `/serviceaccount/login`, then the JWT to `/call`) authenticated and
+received valid `X-Snowplow-Stage-Outcomes`. That is real evidence that the four-part
+set is enough to reach and be served by snowplow.
+
+What it is **not** is evidence that RDC itself can delegate. This section originally
+said "with all four present, no 401, no 403 and no missing-token error anywhere in
+~20k lines of controller log" — true, and worthless: RDC never called snowplow at all.
+Verification fails before the delegated delete is dispatched when the id is missing
+(oasgen#261), so those absences are absences on a path that was never walked. One
+`observeApiRef resolution enabled` at startup is the only snowplow line in the run.
+
+Two things that kept that from being obvious:
+
+* the `401`/`403` strings that *were* in the file are digits inside timestamp
+  nanoseconds, so a careless grep returns hits and a careful one returns nothing —
+  and "no matches" felt like a result;
+* `scripts/pin_verify.sh` was simultaneously **clobbering the endpoint Secret**. It
+  applied `-f restactions/compute/`, a directory that also contains `endpoint.yaml`
+  — the Secret shipping `token: REPLACE_WITH_ARUBA_JWT` — overwriting the live token
+  built from ESO eight lines above. Behind `>/dev/null 2>&1 ||` with a named-file
+  fallback that never ran, because the directory apply succeeded. So had RDC reached
+  snowplow, it would have authenticated correctly and then failed at Aruba with a
+  placeholder bearer token. Fixed, with an assertion that the Secret does not hold
+  the placeholder.
 
 Three things here cost a cluster build each, so they are written down:
 
