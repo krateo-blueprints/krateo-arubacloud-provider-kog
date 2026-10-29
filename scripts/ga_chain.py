@@ -653,6 +653,10 @@ def main():
         # residue check then said "clean", and the run exited 0 with a live server on
         # the account. CI would have read it as a pass.
         unconfirmed = []          # (kind, name, url, crstate)
+        # Deletes where the resource ended up gone but this controller cannot be
+        # credited for it. Not a pass and not the same failure as `unconfirmed`:
+        # the cleanup worked, the PROOF did not.
+        unattributed = []         # (kind, name, url)
 
         if created:
             print("\n=== teardown (reverse dependency order) ===")
@@ -662,6 +666,16 @@ def main():
                             "--wait=true", f"--timeout={TIMEOUT}s")
                 out = (r.stdout + r.stderr).strip().splitlines()
                 print("   ", out[-1][:160] if out else "(no output)")
+                # Did the CONTROLLER release the finalizer within the timeout? If
+                # `kubectl delete --wait` timed out, it did not -- and a later 404 then
+                # proves only that the resource is GONE, not that this controller
+                # removed it. Tonight that distinction was the entire finding: the
+                # delegated delete sent nothing across 23 attempts, I removed the server
+                # by hand to stop it billing, the verify loop saw 404 on its 7th check,
+                # and the run printed "delete verified" and exited 0. The harness
+                # recorded the defect it had just produced as a success.
+                wait_timed_out = "timed out waiting for the condition" in (
+                    r.stdout + r.stderr)
 
                 # Prove the DELETE individually, here, while this resource's parent is
                 # still alive. The residue check at the end cannot do it: by then the
@@ -686,8 +700,18 @@ def main():
                         attempt += 1
                         code, gbody = api("GET", url)
                         if code == 404:
-                            print(f"    delete verified: {url} -> 404"
-                                  + (f" (after {attempt} checks)" if attempt > 1 else ""))
+                            after = (f" (after {attempt} checks)" if attempt > 1 else "")
+                            if wait_timed_out:
+                                # Gone, but NOT attributable to this controller.
+                                print(f"    delete UNATTRIBUTED: {url} -> 404{after}, "
+                                      f"but `kubectl delete --wait` had already TIMED OUT "
+                                      f"— the finalizer was not released in time, so this "
+                                      f"404 does not prove the controller deleted it. "
+                                      f"Something removed it while we waited.",
+                                      file=sys.stderr)
+                                unattributed.append((kind, name, url))
+                            else:
+                                print(f"    delete verified: {url} -> 404{after}")
                             confirmed = True
                             break
                         # A TOMBSTONE counts as gone. security/Kmip answers GET with
@@ -847,11 +871,24 @@ def main():
 
         _drop_secrets()
 
-        if unconfirmed:
-            print(f"\n=== {len(unconfirmed)} DELETE(S) NOT CONFIRMED — run FAILED ===",
+        if unattributed:
+            print(f"\n=== {len(unattributed)} DELETE(S) UNATTRIBUTED — the resource is "
+                  f"gone but this controller is NOT proven to have removed it ===",
                   file=sys.stderr)
-            for kind, name, url, crstate in unconfirmed:
+            for kind, name, url in unattributed:
                 print(f"    {kind}/{name}: {url}", file=sys.stderr)
+            print("    Nothing is billing, so this is not a cleanup failure. It is an "
+                  "EVIDENCE failure: do not record these as a proven delete.",
+                  file=sys.stderr)
+
+        if unconfirmed or unattributed:
+            n = len(unconfirmed) + len(unattributed)
+            print(f"\n=== run FAILED: {len(unconfirmed)} unconfirmed, "
+                  f"{len(unattributed)} unattributed ===", file=sys.stderr)
+            for kind, name, url, crstate in unconfirmed:
+                print(f"    unconfirmed  {kind}/{name}: {url}", file=sys.stderr)
+            for kind, name, url in unattributed:
+                print(f"    unattributed {kind}/{name}: {url}", file=sys.stderr)
             return 1
 
 

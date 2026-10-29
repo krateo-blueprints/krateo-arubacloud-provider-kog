@@ -71,9 +71,13 @@ echo "=== CREDENTIAL ABSENCE ASSERTION (-debug turns on request dumps) ==="
 # redacted by name. ASSERT it rather than trust it: on 0.24.0 this same annotation
 # printed 90 live bearer tokens in one controller's log. "I didn't see a token" is a
 # different claim from "there is no token".
-jwt=$(grep -cE 'Bearer ey[A-Za-z0-9_-]{10,}' "$LOG" 2>/dev/null || echo 0)
-auth=$(grep -ciE '^Authorization:' "$LOG" 2>/dev/null || echo 0)
-redact=$(grep -ciE 'Authorization: *(\*{3,}|REDACTED|<redacted>)' "$LOG" 2>/dev/null || echo 0)
+# Same `grep -c` trap as n(): it prints 0 AND exits 1, so `|| echo 0` makes "0\n0"
+# and the -gt test errors. It errored into the SAFE side here, which is worse than
+# failing loudly -- a PASS reached through a broken comparison is still a broken
+# instrument reporting clear.
+jwt=$(grep -cE 'Bearer ey[A-Za-z0-9_-]{10,}' "$LOG" 2>/dev/null); jwt=${jwt:-0}
+auth=$(grep -ciE '^Authorization:' "$LOG" 2>/dev/null); auth=${auth:-0}
+redact=$(grep -ciE 'Authorization: *(\*{3,}|REDACTED|<redacted>)' "$LOG" 2>/dev/null); redact=${redact:-0}
 printf '  %-58s %s\n' 'Authorization header lines in the dump' "$auth"
 printf '  %-58s %s\n' '  of which redacted'                    "$redact"
 printf '  %-58s %s\n' 'live-looking "Bearer ey..." JWTs'       "$jwt"
