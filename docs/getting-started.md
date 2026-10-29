@@ -54,7 +54,7 @@ This walks through installing the provider and managing your first resource (a
   > If you are on 1.33–1.35 and cannot move, pin this repository at **0.2.0**, which
   > validates against oasgen-provider 0.27.1 and installs on `>=1.33`.
 
-- The Krateo **oasgen-provider** and its rest-dynamic-controller, **≥ 0.21.1**.
+- The Krateo **oasgen-provider** and its rest-dynamic-controller, **≥ 0.36.0**.
 
   > oasgen-provider is a **monorepo**: rest-dynamic-controller and both Helm charts
   > live in it, and the standalone controller repo is archived. The chart derives
@@ -63,12 +63,17 @@ This walks through installing the provider and managing your first resource (a
   > A stock upstream oasgen-provider from before this lineage does **not** have the
   > features these RestDefinitions rely on (nested identifiers, `fieldMapping`,
   > `async`, `*ApiRef`, `apiKey` auth).
+  >
+  > **0.36.0 is a floor, not a preference.** Below 0.35.0 libopenapi cannot parse
+  > these OAS documents at all — no RestDefinition becomes Ready and the failure
+  > does not name the parser. Install from `ghcr.io/krateo-platformops` (note the
+  > hyphen); `charts.krateo.io` serves a version far below this floor.
 
   ```sh
   helm install oasgen-provider-crds oci://ghcr.io/krateo-platformops/charts/oasgen-provider-crds \
-    --version 0.21.1 --namespace krateo-system --create-namespace
+    --version 0.36.0 --namespace krateo-system --create-namespace
   helm install oasgen-provider oci://ghcr.io/krateo-platformops/charts/oasgen-provider \
-    --version 0.21.1 --namespace krateo-system
+    --version 0.36.0 --namespace krateo-system
   ```
 - An Aruba Cloud Bearer token — see [authentication](authentication.md) and
   <https://api.arubacloud.com/docs/authentication/>.

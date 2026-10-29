@@ -19,10 +19,13 @@ kubectl logs deploy/oasgen-provider -n krateo-system
 Common causes:
 
 - **Wrong provider image or version.** These RestDefinitions need
-  oasgen-provider **≥ 0.21.1** (nested identifiers, `fieldMapping`, `*ApiRef`,
-  `apiKey` auth). Check the deployment image is
+  oasgen-provider **≥ 0.36.0**. Check the deployment image is
   `ghcr.io/krateo-platformops/oasgen-provider` at that version or newer; older
-  lineages reject or mis-handle these definitions.
+  lineages reject or mis-handle these definitions. Below **0.35.0** the failure is
+  total and unhelpfully silent: libopenapi cannot parse these OAS documents, so
+  *no* RestDefinition reaches Ready and nothing in the message names the parser.
+  Two other registries will hand you something far older — `charts.krateo.io`, and
+  the unhyphenated `krateoplatformops` org, which still resolves but is abandoned.
 - **ConfigMap missing or in the wrong namespace.** `oasPath` is
   `configmap://krateo-system/arubacloud-<provider>-openapi/<published-filename>.json`; apply
   `configmaps/` into the **same namespace** oasgen-provider reads
@@ -30,7 +33,7 @@ Common causes:
 - **No `authentication` block in the generated `<Kind>Configuration`.** On the 7
   providers whose spec declares an `apiKey` scheme this means oasgen is older than
   **0.19.0** — earlier versions skipped that scheme silently. Upgrade the provider
-  (chart ≥ 0.9.20). See [authentication](authentication.md).
+  (the pin is 0.36.0). See [authentication](authentication.md).
 
 ## A resource CR gets `401 Unauthorized`
 
@@ -98,9 +101,10 @@ is never released. Nothing in the logs points at the version.
 kubectl get deploy -n krateo-system -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.spec.template.spec.containers[0].image}{"\n"}{end}' | grep rest-dynamic-controller
 ```
 
-If it is below 0.18.0, upgrade to chart **0.9.19+** (the first release pairing
-oasgen 0.18.0 with RDC 0.18.0), or override `rdc.image.tag` if you are pinned to
-an older chart — see [prerequisites](../README.md#prerequisites). Otherwise, check the
+If it is below 0.36.0, upgrade the provider chart to **0.36.0** — the RDC tag is
+derived from the chart's `appVersion`, so on the monorepo charts there is nothing
+to override and no way for the pair to drift
+— see [prerequisites](../README.md#prerequisites). Otherwise, check the
 RESTAction's jq against the contract in
 [lifecycle-beyond-crud](lifecycle-beyond-crud.md#runtime-contracts-verified-against-rdc-source).
 

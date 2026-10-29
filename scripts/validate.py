@@ -117,6 +117,9 @@ def main():
             errors.append(f"{f}: {e}")
 
     verify_sample_versions(errors, specs)
+    verify_composition_apiversion(errors)
+    verify_documented_pin(errors)
+    verify_no_builtin_shadowing(errors)
     charts = validate_charts(errors)
     validate_composition_generated(errors)
 
@@ -178,6 +181,202 @@ def verify_sample_versions(errors, specs):
             want = f"{group}/v1alpha1" if doc.get("kind", "").endswith("Configuration") else want_res
             if doc["apiVersion"] != want:
                 errors.append(f"{f}: apiVersion {doc['apiVersion']} but the cluster serves {want}")
+
+
+def verify_composition_apiversion(errors):
+    """No file may hardcode a `composition.krateo.io/<version>` apiVersion.
+
+    Sibling rule to verify_sample_versions, and never checked until now.
+    core-provider derives the Composition CRD's version from the chart version with
+    `"v" + strings.ReplaceAll(chartVersion, ".", "-")` -- including the PATCH. So
+    chart 0.3.8 is served at `v0-3-8`, and a literal is wrong the moment the chart
+    gets a patch bump. This repo makes it unconditionally wrong: the chart carries
+    `version: CHART_VERSION`, substituted at release, so at no commit does a correct
+    literal exist to write.
+
+    Writing one costs more than a stale doc. `no matches for kind` is what the API
+    server says both when the apiVersion is wrong and when the CRD was never
+    created, so the reader debugs the wrong layer. The addressable form is to read
+    what core-provider actually created:
+
+        kubectl get compositiondefinition <name> -n <ns> -o jsonpath='{.status.apiVersion}'
+        kubectl get compositiondefinition <name> -n <ns> -o jsonpath='{.status.resource}'
+
+    Reported by the openstack-nova-operator-kog session, which found it shipping in
+    its own examples; `examples/network-environment/README.md` had it here.
+    """
+    pat = re.compile(r"composition\.krateo\.io/v[0-9A-Za-z]")
+    # A screen that reports "all clear" without proving it can detect a known-bad
+    # case is a function that returns false. Assert on both a real miss and a real
+    # hit before trusting the sweep.
+    assert pat.search("apiVersion: composition.krateo.io/v1alpha1")
+    assert pat.search("composition.krateo.io/v0-3-8")
+    assert not pat.search("apiVersion: core.krateo.io/v1alpha1")
+    assert not pat.search("kubectl get compositiondefinition x -o json")
+    for f in sorted(glob.glob("**/*.md", recursive=True) +
+                    glob.glob("**/*.yaml", recursive=True)):
+        if f.startswith(".git" + os.sep) or os.sep + "charts" + os.sep in f:
+            continue
+        for n, line in enumerate(open(f, encoding="utf-8", errors="replace"), 1):
+            if pat.search(line):
+                errors.append(
+                    f"{f}:{n}: hardcoded Composition apiVersion -- core-provider "
+                    f"derives it from the FULL chart version, and this chart's "
+                    f"version is a release-time placeholder. Read it instead: "
+                    f"kubectl get compositiondefinition <name> -n <ns> "
+                    f"-o jsonpath='{{.status.apiVersion}}'")
+
+
+# Docs that are DATED EVIDENCE or a changelog: they record what was true at a past
+# version on purpose, and rewriting them would destroy the record. Everything else
+# is an instruction a reader will follow today.
+HISTORICAL_DOCS = ("docs/live-cluster-test.md", "docs/log.md",
+                   "docs/oasgen-provider-evolution.md", "docs/release.md")
+
+
+def verify_documented_pin(errors):
+    """Every documented install must name the version CI actually pins.
+
+    The pin lives in one place -- OASGEN_VERSION in .github/workflows/validate.yaml,
+    which scripts/pin_verify.sh defaults to -- but the docs spell it out in prose, so
+    nothing stopped them drifting. They had: 0.9.20 in the README quickstart, 0.21.1
+    in the README's own requirements table nine lines later, 0.21.1 in
+    getting-started, and a pre-monorepo chart at 0.9.19 in usage -- against a pin of
+    0.36.0, which is a parse floor. Following any of them lands you below it, where
+    no RestDefinition reaches Ready and nothing in the failure names the parser.
+
+    Also screens the install SOURCE. Three resolve and only one is right:
+    `krateo-platformops` (live), `krateoplatformops` (abandoned, disjoint tags), and
+    charts.krateo.io (serves appVersion 0.10.0 -- below apiKey support AND below the
+    0.26.1 credential-header redaction). Reported by the openstack-nova-operator-kog
+    session, which had all five of its install docs pointing at the last one;
+    oasgen#278.
+    """
+    wf = open(os.path.join(".github", "workflows", "validate.yaml")).read()
+    m = re.search(r'^\s*OASGEN_VERSION:\s*"([^"]+)"', wf, flags=re.M)
+    if not m:
+        errors.append(".github/workflows/validate.yaml: no OASGEN_VERSION to check "
+                      "the docs against")
+        return
+    pin = m.group(1)
+
+    chart = re.compile(r"charts/oasgen-provider(-crds)?\b")
+    version = re.compile(r'--version\s+"?\$?\{?([0-9]+\.[0-9]+\.[0-9]+)')
+    # A screen that cannot detect a known-bad case is a function that returns false.
+    assert version.search("  --version 0.9.20 --namespace krateo-system").group(1) == "0.9.20"
+    assert version.search('--version "0.36.0" -n x').group(1) == "0.36.0"
+    assert version.search('--version "${OASGEN_VERSION}"') is None   # indirection is fine
+    assert chart.search("oci://ghcr.io/krateo-platformops/charts/oasgen-provider-crds")
+    assert not chart.search("oci://ghcr.io/krateo-blueprints/charts/aruba-network-environment")
+
+    bad_source = re.compile(r"ghcr\.io/krateoplatformops/|"
+                            r"https?://charts\.krateo\.io|"
+                            r"helm\s+repo\s+add\s+\S*krateo")
+    assert bad_source.search("helm install x oci://ghcr.io/krateoplatformops/charts/y")
+    assert bad_source.search("helm repo add krateo https://charts.krateo.io")
+    assert not bad_source.search("`charts.krateo.io` serves a build below the floor")
+
+    for f in sorted(glob.glob("**/*.md", recursive=True)):
+        if f.startswith(".git" + os.sep) or f.replace(os.sep, "/") in HISTORICAL_DOCS:
+            continue
+        lines = open(f, encoding="utf-8", errors="replace").read().splitlines()
+        for n, line in enumerate(lines):
+            if bad_source.search(line):
+                errors.append(f"{f}:{n+1}: install source is not "
+                              f"ghcr.io/krateo-platformops -- that registry serves a "
+                              f"version below the {pin} floor (oasgen#278)")
+            if not chart.search(line):
+                continue
+            # the --version may sit on the install line or its continuation
+            for cand in lines[n:n + 3]:
+                v = version.search(cand)
+                if v:
+                    if v.group(1) != pin:
+                        errors.append(f"{f}:{n+1}: documents oasgen-provider chart "
+                                      f"{v.group(1)} but CI pins {pin} "
+                                      f"(OASGEN_VERSION in validate.yaml)")
+                    break
+
+
+# Kinds and plurals a stock Kubernetes API server already serves. Hand-written on
+# purpose: this check must run on a PR with no cluster, which is the only place the
+# collision is still cheap. It is not exhaustive and does not need to be -- it holds
+# every name a cloud-resource kind might plausibly land on. The AUTHORITATIVE screen
+# is `kubectl api-resources` minus CRD-backed groups on a FRESH cluster, which is
+# what the smoke job has; this one just moves the common cases earlier.
+BUILTIN_KINDS = {
+    "Binding", "ComponentStatus", "ConfigMap", "Endpoints", "Event", "LimitRange",
+    "Namespace", "Node", "PersistentVolume", "PersistentVolumeClaim", "Pod",
+    "PodTemplate", "ReplicationController", "ResourceQuota", "Secret", "Service",
+    "ServiceAccount", "ControllerRevision", "DaemonSet", "Deployment", "ReplicaSet",
+    "StatefulSet", "CronJob", "Job", "Ingress", "IngressClass", "NetworkPolicy",
+    "ClusterRole", "ClusterRoleBinding", "Role", "RoleBinding", "Lease",
+    "CustomResourceDefinition", "APIService", "StorageClass", "VolumeAttachment",
+    "CSIDriver", "CSINode", "PriorityClass", "RuntimeClass", "PodDisruptionBudget",
+    "HorizontalPodAutoscaler", "MutatingWebhookConfiguration",
+    "ValidatingWebhookConfiguration", "CertificateSigningRequest",
+}
+BUILTIN_LOWER = {k.lower() for k in BUILTIN_KINDS} | {
+    "bindings", "componentstatuses", "configmaps", "endpoints", "events",
+    "limitranges", "namespaces", "nodes", "persistentvolumes",
+    "persistentvolumeclaims", "pods", "podtemplates", "replicationcontrollers",
+    "resourcequotas", "secrets", "services", "serviceaccounts",
+    "controllerrevisions", "daemonsets", "deployments", "replicasets",
+    "statefulsets", "cronjobs", "jobs", "ingresses", "ingressclasses",
+    "networkpolicies", "clusterroles", "clusterrolebindings", "roles",
+    "rolebindings", "leases", "customresourcedefinitions", "apiservices",
+    "storageclasses", "volumeattachments", "csidrivers", "csinodes",
+    "priorityclasses", "runtimeclasses", "poddisruptionbudgets",
+    "horizontalpodautoscalers", "certificatesigningrequests",
+}
+
+
+def _collides(kind):
+    """The names this kind would occupy, intersected with the built-ins.
+
+    The plural is DERIVED here, which is the weak point: oasgen derives the real one
+    and irregular stems do not survive a naive +s (`Kaas` -> `kaas`, not `kaass`).
+    So this screens the forms a collision could take and accepts a false positive
+    over a miss -- a false positive is one comment to resolve, a miss is a chart that
+    installs on an upgraded cluster and refuses on a fresh one.
+    """
+    low = kind.lower()
+    return ({kind} & BUILTIN_KINDS) | ({low, low + "s", low + "es"} & BUILTIN_LOWER)
+
+
+def verify_no_builtin_shadowing(errors):
+    """No generated CRD may shadow a Kubernetes built-in, on EITHER of its two CRDs.
+
+    oasgen refuses such a kind from 0.32.0 (#200) -- but only on a FRESH cluster. Where
+    the CRD already exists it downgrades to a BuiltInNameCollisionExisting warning
+    event, so a developer who has been upgrading one cluster for weeks sees nothing and
+    the chart fails for the first person who installs it clean. `github-provider-kog`
+    lost a chart to exactly this with a `Deployment` kind; this repo renamed Aruba's
+    `jobs` to `ScheduledJob` for the same reason (see generate_restdefinitions.py).
+
+    Screens BOTH CRDs per RestDefinition: `<Kind>` and the companion
+    `<Kind>Configuration`. Reported by the openstack-nova-operator-kog session.
+    """
+    # A screen that reports "all clear" without proving it can detect a known-bad
+    # case is a function that returns false. These must all be caught.
+    for probe in ("Node", "Service", "Secret", "Deployment", "Event", "Job"):
+        assert _collides(probe), f"screen cannot detect the built-in {probe}"
+    for ok in ("Vpc", "CloudServer", "ScheduledJob", "AiKey", "Kaas"):
+        assert not _collides(ok), f"screen false-positives on {ok}"
+
+    for f in sorted(glob.glob("restdefinitions/**/*.yaml", recursive=True)):
+        kind = ((yaml.safe_load(open(f)) or {}).get("spec", {})
+                .get("resource", {}).get("kind"))
+        if not kind:
+            continue
+        for k in (kind, kind + "Configuration"):
+            hit = _collides(k)
+            if hit:
+                errors.append(
+                    f"{f}: kind '{k}' shadows a Kubernetes built-in ({', '.join(sorted(hit))}). "
+                    f"oasgen refuses it on a fresh cluster (#200) and only warns where the "
+                    f"CRD already exists, so this is invisible until a clean install. Rename "
+                    f"the kind in scripts/generate_restdefinitions.py's plural->kind map.")
 
 
 def find_helm():

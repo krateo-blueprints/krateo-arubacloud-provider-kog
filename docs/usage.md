@@ -11,28 +11,36 @@ timestamp: 2026-09-05T00:00:00Z
 
 ## Prerequisites
 
-A Kubernetes cluster with **oasgen-provider** of oasgen-provider and its
-rest-dynamic-controller (RDC). A stock (non-krateo) oasgen-provider does **not**
-have the features these RestDefinitions rely on (nested identifiers,
-`fieldMapping`, `async`, `*ApiRef`).
+A Kubernetes cluster with the **krateo-platformops** oasgen-provider and its
+rest-dynamic-controller (RDC). A stock upstream oasgen-provider does **not** have
+the features these RestDefinitions rely on (nested identifiers, `fieldMapping`,
+`async`, `*ApiRef`).
 
 | Component | Minimum | Why |
 |-----------|---------|-----|
-| `ghcr.io/krateo-blueprints/krateo-oasgen-provider` | **0.18.0** | typed-map `additionalProperties`; `async.poll.handleParam` + poll-path validation |
-| `ghcr.io/krateo-blueprints/krateo-rest-dynamic-controller` | **0.18.0** | honours `handleParam`; forwards the CR spec on every `*ApiRef` direction |
-| `krateo-oasgen-provider-chart` | **0.9.19** | first release pairing oasgen 0.18.0 **with** RDC 0.18.0 |
+| `ghcr.io/krateo-platformops/oasgen-provider` | **0.36.0** | a hard floor: below 0.35.0 libopenapi cannot parse these OAS documents at all, and `metadata` properties are dropped from generated CRDs until [#236](https://github.com/krateo-platformops/oasgen-provider/issues/236) |
+| `ghcr.io/krateo-platformops/rest-dynamic-controller` | **0.36.0** | derived from the chart's `appVersion`, so not separately selectable |
+| chart `oci://ghcr.io/krateo-platformops/charts/oasgen-provider` | **0.36.0** | released in lockstep with the provider |
+| chart `oci://ghcr.io/krateo-platformops/charts/oasgen-provider-crds` | **0.36.0** | a **separate** install; without it there is no `RestDefinition` CRD |
 
 ```sh
-helm install oasgen-provider oci://ghcr.io/krateo-blueprints/charts/krateo-oasgen-provider \
-  --version 0.9.19 --namespace krateo-system --create-namespace
+helm install oasgen-provider-crds oci://ghcr.io/krateo-platformops/charts/oasgen-provider-crds \
+  --version 0.36.0 --namespace krateo-system --create-namespace
+helm install oasgen-provider oci://ghcr.io/krateo-platformops/charts/oasgen-provider \
+  --version 0.36.0 --namespace krateo-system
 ```
 
-> Do not install chart ≤ 0.9.18 with these manifests. It pins `rdc.image.tag` by
-> hand and does not auto-track RDC releases, so 0.9.18 shipped oasgen 0.18.0
-> against RDC 0.16.1. On that pairing these manifests are accepted and then fail
-> **silently** (`handleParam` ignored; delegated deletes receive no spec). If you
-> are pinned to an older chart, override with `--set rdc.image.tag=0.18.0` and
-> verify the running image — see [Troubleshooting](troubleshooting.md).
+> **Install from `krateo-platformops`, not from anywhere else.** oasgen-provider is
+> now a monorepo in that org; the old `krateo-blueprints/krateo-oasgen-provider`
+> images and the `krateo-oasgen-provider-chart` this page used to name are a
+> pre-monorepo lineage, `charts.krateo.io` serves a build far below the floor
+> ([oasgen#278](https://github.com/krateo-platformops/oasgen-provider/issues/278)),
+> and the unhyphenated `krateoplatformops` org still resolves but is abandoned with
+> a disjoint tag range. The chart derives `rdc.image.tag` from its own `appVersion`,
+> so on 0.36.0 the two images can no longer drift apart — a chart version *is* the
+> pair it ships. On the pre-monorepo charts they could, and chart 0.9.18 shipped
+> oasgen 0.18.0 against RDC 0.16.1, on which these manifests are accepted and then
+> fail **silently** (`handleParam` ignored; delegated deletes receive no spec).
 
 You also need an Aruba Cloud Bearer token (short-lived JWT) — see
 [Configuration](configuration.md) and the Aruba
