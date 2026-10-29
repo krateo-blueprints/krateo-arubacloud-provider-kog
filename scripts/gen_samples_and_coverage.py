@@ -1099,6 +1099,45 @@ stringData:
             "repository was invisible to review and surfaced only on a cluster, so a "
             "resource is only promoted when there is evidence to link.\n\n"
         )
+        # What does NOT count, written here rather than in a commit message because
+        # every instance below was a true statement that answered a question nobody
+        # asked -- and each one was believed for a while.
+        f.write(
+            "### What does not count as evidence\n\n"
+            "Each of these was recorded in this repository as a result, and each is a "
+            "true statement that answers a question nobody asked.\n\n"
+            "**An absence on a path that was never walked.** *\"No 401, no 403 and no "
+            "missing-token error across ~20k lines of controller log\"* was reported as "
+            "proof that delegation worked. The controller had never called the "
+            "delegate at all — verification failed before dispatch — so the absence of "
+            "errors was an absence of traffic. Before reporting that something did not "
+            "fail, establish that it ran.\n\n"
+            "**A check that cannot fail.** A `|| die` guard is read as proof the "
+            "failure mode was considered, and it was — but the command before it "
+            "succeeded unconditionally, so the guard was unreachable while the thing "
+            "it protected was being overwritten. The misleading part was the safety "
+            "net's *existence*: a reviewer's eye stops at the `||` and reads "
+            "reassurance. The question that finds these is not \"is this check "
+            "correct\" but \"what can this check structurally not report\".\n\n"
+            "**A one-shot sample of a varying quantity.** Host CPU was reported at "
+            "1196% of 800% and used to justify deleting a cluster; a later single "
+            "sample read 125%. Both were single instants. Disk at *0 bytes available* "
+            "was the trustworthy reading from the same afternoon, because it is a "
+            "state rather than a sample. Distinguish the two before acting on either.\n\n"
+            "**A conclusion from the cheapest sample.** `CSO1I1` was refused *\"not "
+            "available for trial\"* and read as \"this account cannot create cloud "
+            "servers\". `CSO1A2` is accepted. The refusal was per-flavor, and the "
+            "flavor that had been tried was the smallest one — chosen to minimise "
+            "cost. **Cheapest-first is right for spending and wrong for sampling**: "
+            "when testing whether a capability exists, vary the thing under test, not "
+            "the thing being economised on.\n\n"
+            "**A measurement taken before the thing under test was running.** An image "
+            "swap was read as \"the fix does not work\" while the controller was still "
+            "on the old image: oasgen re-renders each generated controller on its own "
+            "reconcile schedule, so a cluster-level check can report a candidate the "
+            "controller under test has not yet picked up. Verify the artefact is "
+            "running, per controller, before reading anything.\n\n"
+        )
         f.write("| Tier | Bar | Count |\n|------|-----|-------|\n")
         f.write("| **GA** | full `create → observe → drift → delete` against the live API | "
                 f"{counts.get('ga', 0)} |\n")
