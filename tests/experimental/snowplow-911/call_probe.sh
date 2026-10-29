@@ -6,10 +6,17 @@
 # itself, over the same route RDC uses, authenticating as the same identity --
 # nothing here is a privileged shortcut.
 set -uo pipefail
-CTX="kind-aruba-pin"
-export KUBECONFIG="${TMPDIR:-/tmp}/kind-aruba-pin.kubeconfig"
+# The rig's cluster, not a full pin_verify one: this probe talks to snowplow, which
+# needs no oasgen-provider. See snowplow_rig.sh and the README.
+CLUSTER="${CLUSTER:-sp-rig}"
+CTX="kind-${CLUSTER}"
+export KUBECONFIG="${TMPDIR:-/tmp}/kind-${CLUSTER}.kubeconfig"
 NS=krateo-system
-SA="cloudservers-arubacloud.ogen.krateo.io-v1alpha1"
+# The rig's own caller identity. On a real cluster this would be the per-resource SA
+# oasgen generates (e.g. cloudservers-arubacloud.ogen.krateo.io-v1alpha1) -- which
+# must be READ off the generated Deployment, never constructed, because oasgen names
+# it <plural>-<group>-v1alpha1 even where the CRD's served version differs.
+SA="${SA:-sp-caller}"
 RA="${1:?usage: call_probe.sh <restaction-name> <cr-name>}"
 CRNAME="${2:?}"
 PROJECT=69a55c8d5e6f0e14f14093ff

@@ -420,9 +420,20 @@ helm --kube-context "$CTX" upgrade --install oasgen-provider-crds \
   "$CRDS_CHART" ${VERSION_ARGS[@]+"${VERSION_ARGS[@]}"} \
   --namespace krateo-system --create-namespace --wait \
   || die "crds chart failed"
-# --timeout 15m, and the number is MEASURED rather than padded. The provider image is
-# 331 MB -- an order of magnitude bigger than its neighbours -- and on a cold node it
-# pulled in 4m29s, which with scheduling and startup lands just past a 5m deadline:
+# --timeout 15m, and the number is MEASURED rather than padded. It also COMPENSATES
+# FOR A BUG THAT IS BEING FIXED, which is the more important half of this comment:
+# oasgen-provider#271. The provider's runtime stage is `FROM golang:1.26-trixie` -- a
+# whole Go toolchain -- while rest-dynamic-controller, built in the same repository
+# the same way, uses distroless/static:nonroot. Both binaries are CGO_ENABLED=0 and
+# neither shells out, so the 331 MB buys two static binaries and a CA bundle.
+#
+# So 15m is NOT a statement that this chart needs 15 minutes. oasgen-provider have
+# recorded that raising --wait is the wrong fix, because it treats a 300 MB accident
+# as a requirement and pushes the cost onto every consumer's CI. REVERT THIS TO 5m
+# once #271 ships and the image is distroless-sized; if the pull is still minutes
+# long at that point, that is a new finding and not this one.
+#
+# The measurement that made it diagnosable, on a cold node:
 #
 #   oasgen-provider:0.36.0   331229426 bytes   pulled in 4m29.113s   <-- timed out at 5m
 #   snowplow:1.12.57          23209366 bytes   pulled in    18.615s

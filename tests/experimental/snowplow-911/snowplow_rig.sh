@@ -20,6 +20,12 @@ SNOWPLOW_VERSION="${SNOWPLOW_VERSION:-1.12.57}"
 AUTHN_VERSION="${AUTHN_VERSION:-0.27.3}"
 SNOWPLOW_DIGEST="${SNOWPLOW_DIGEST:-}"
 SRC_CTX="${SRC_CONTEXT:-kind-aruba-110}"
+# KUBECONFIG below is narrowed to this rig's own file so nothing here can touch
+# another cluster by accident. That also hides the SOURCE context, so the credential
+# read needs its own --kubeconfig: without it the step fails with
+#   error: context "kind-aruba-110" does not exist
+# which looks like the evidence cluster is gone when it is simply out of scope.
+SRC_KUBECONFIG="${SRC_KUBECONFIG:-${HOME}/.kube/config}"
 NS=krateo-system
 ARUBA_API="${ARUBA_API:-https://api.arubacloud.com}"
 
@@ -71,7 +77,8 @@ if [ -n "$SNOWPLOW_DIGEST" ]; then
 fi
 
 say "the Aruba endpoint Secret (token piped from ${SRC_CTX}, never to disk)"
-TOK="$(kubectl --context "$SRC_CTX" get secret arubacloud-token -n default \
+TOK="$(kubectl --kubeconfig "$SRC_KUBECONFIG" --context "$SRC_CTX" \
+  get secret arubacloud-token -n default \
   -o jsonpath='{.data.token}' | base64 --decode)"
 [ -n "$TOK" ] || die "no Aruba token in ${SRC_CTX}"
 k create secret generic arubacloud-endpoint -n "$NS" \
