@@ -1,3 +1,24 @@
+# THE IDENTIFIER IS `metadata.id`, NOT `.id`. Getting this wrong does not fail — it
+# silently does NOTHING, and it stranded a real billable server on 2026-10-29.
+#
+# A collection item from this API has exactly three top-level keys —
+# {metadata, properties, status} — and the id lives at `metadata.id`. Every iterator
+# here used to test `$s.id`, which is therefore always null, so each one yielded `[]`
+# and NO REQUEST WAS EVER SENT. The stage then *succeeds over zero items*, Snowplow
+# answers 200, and `X-Snowplow-Stage-Outcomes` comes back `[]` — identical to the
+# header you get when there is genuinely nothing to do. RDC then retries forever with
+# `delete of <name> did not remove the external resource, which is still present`,
+# so the CR wedges on its finalizer while the server bills indefinitely.
+#
+# It was measured, not reasoned: with the server live and Active, `/call` on this
+# RESTAction returned `200` with `X-Snowplow-Stage-Outcomes: []`, and a single
+# hand-issued DELETE against the same id removed the server at once. The API was fine;
+# the iterator never produced an id to send.
+#
+# Verified with jq against the real response shape:
+#   $s.id          -> []                              (nothing sent)
+#   $s.metadata.id -> ["6ae371f0421edd1e97fcd0d0"]    (the DELETE fires)
+#
 # CloudServer DELETE (teardown) — delegated from the CloudServer RestDefinition
 # via `deleteApiRef`. The controller holds the finalizer until the server is
 # verifiably gone, and re-invokes this on every reconcile, so it MUST be
@@ -44,8 +65,8 @@ spec:
         iterator: >-
           (.server.self // {}) as $s
           | (($s.properties.dataVolumes // []) | map(.uri // .)) as $vols
-          | if $s.id != null and ($vols | length) > 0
-            then [ { id: $s.id, detach: $vols } ] else [] end
+          | if $s.metadata.id != null and ($vols | length) > 0
+            then [ { id: $s.metadata.id, detach: $vols } ] else [] end
       verb: POST
       continueOnError: true
       path: ${ "/projects/" + $.spec.projectId + "/providers/Aruba.Compute/cloudServers/" + .id + "/attachDetachDataVolumes?api-version=1.0" }
@@ -148,7 +169,7 @@ spec:
         name: server
         iterator: >-
           (.server.self // {}) as $s
-          | if $s.id != null then [ $s.id ] else [] end
+          | if $s.metadata.id != null then [ $s.metadata.id ] else [] end
       verb: DELETE
       continueOnError: true
       path: ${ "/projects/" + $.spec.projectId + "/providers/Aruba.Compute/cloudServers/" + . + "?api-version=1.0" }
