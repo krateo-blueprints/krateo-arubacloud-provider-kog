@@ -66,11 +66,11 @@ spec:
         iterator: >-
           (.server.self // {}) as $s
           | if ($s.metadata.id != null and $s.status.state != "Active")
-            then [ $s.metadata.id ] else [] end
+            then [ { id: $s.metadata.id, projectId: .spec.projectId } ] else [] end
       verb: POST
       continueOnError: true
       # `.` is the server id string here.
-      path: ${ "/projects/" + $.spec.projectId + "/providers/Aruba.Compute/cloudServers/" + . + "/poweron?api-version=1.0" }
+      path: ${ "/projects/" + .projectId + "/providers/Aruba.Compute/cloudServers/" + .id + "/poweron?api-version=1.0" }
 
     # 3. Reconcile associated subnets in a single call (associate the missing,
     #    disassociate the extra). Runs only when there is a delta.
@@ -87,10 +87,10 @@ spec:
           | ($desired - $current) as $add
           | ($current - $desired) as $del
           | if $s.metadata.id != null and (($add | length) > 0 or ($del | length) > 0)
-            then [ { id: $s.metadata.id, add: $add, del: $del } ] else [] end
+            then [ { id: $s.metadata.id, add: $add, del: $del, projectId: .spec.projectId } ] else [] end
       verb: POST
       continueOnError: true
-      path: ${ "/projects/" + $.spec.projectId + "/providers/Aruba.Compute/cloudServers/" + .id + "/associateDisassociateSubnets?api-version=1.0" }
+      path: ${ "/projects/" + .projectId + "/providers/Aruba.Compute/cloudServers/" + .id + "/associateDisassociateSubnets?api-version=1.0" }
       headers:
         - "Content-Type: application/json"
       payload: |
@@ -110,10 +110,10 @@ spec:
           | ($desired - $current) as $add
           | ($current - $desired) as $del
           | if $s.metadata.id != null and (($add | length) > 0 or ($del | length) > 0)
-            then [ { id: $s.metadata.id, add: $add, del: $del } ] else [] end
+            then [ { id: $s.metadata.id, add: $add, del: $del, projectId: .spec.projectId } ] else [] end
       verb: POST
       continueOnError: true
-      path: ${ "/projects/" + $.spec.projectId + "/providers/Aruba.Compute/cloudServers/" + .id + "/associateDisassociateSecurityGroups?api-version=1.0" }
+      path: ${ "/projects/" + .projectId + "/providers/Aruba.Compute/cloudServers/" + .id + "/associateDisassociateSecurityGroups?api-version=1.0" }
       headers:
         - "Content-Type: application/json"
       payload: |
@@ -133,10 +133,10 @@ spec:
           | ($desired - $current) as $attach
           | ($current - $desired) as $detach
           | if $s.metadata.id != null and (($attach | length) > 0 or ($detach | length) > 0)
-            then [ { id: $s.metadata.id, attach: $attach, detach: $detach } ] else [] end
+            then [ { id: $s.metadata.id, attach: $attach, detach: $detach, projectId: .spec.projectId } ] else [] end
       verb: POST
       continueOnError: true
-      path: ${ "/projects/" + $.spec.projectId + "/providers/Aruba.Compute/cloudServers/" + .id + "/attachDetachDataVolumes?api-version=1.0" }
+      path: ${ "/projects/" + .projectId + "/providers/Aruba.Compute/cloudServers/" + .id + "/attachDetachDataVolumes?api-version=1.0" }
       headers:
         - "Content-Type: application/json"
       payload: |

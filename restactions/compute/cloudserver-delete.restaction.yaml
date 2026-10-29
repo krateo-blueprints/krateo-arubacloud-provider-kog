@@ -87,10 +87,10 @@ spec:
           (.server.self // {}) as $s
           | (($s.properties.dataVolumes // []) | map(.uri // .)) as $vols
           | if $s.metadata.id != null and ($vols | length) > 0
-            then [ { id: $s.metadata.id, detach: $vols } ] else [] end
+            then [ { id: $s.metadata.id, detach: $vols, projectId: .spec.projectId } ] else [] end
       verb: POST
       continueOnError: true
-      path: ${ "/projects/" + $.spec.projectId + "/providers/Aruba.Compute/cloudServers/" + .id + "/attachDetachDataVolumes?api-version=1.0" }
+      path: ${ "/projects/" + .projectId + "/providers/Aruba.Compute/cloudServers/" + .id + "/attachDetachDataVolumes?api-version=1.0" }
       headers:
         - "Content-Type: application/json"
       payload: |
@@ -190,7 +190,8 @@ spec:
         name: server
         iterator: >-
           (.server.self // {}) as $s
-          | if $s.metadata.id != null then [ $s.metadata.id ] else [] end
+          | if $s.metadata.id != null
+            then [ { id: $s.metadata.id, projectId: .spec.projectId } ] else [] end
       verb: DELETE
       continueOnError: true
-      path: ${ "/projects/" + $.spec.projectId + "/providers/Aruba.Compute/cloudServers/" + . + "?api-version=1.0" }
+      path: ${ "/projects/" + .projectId + "/providers/Aruba.Compute/cloudServers/" + .id + "?api-version=1.0" }
