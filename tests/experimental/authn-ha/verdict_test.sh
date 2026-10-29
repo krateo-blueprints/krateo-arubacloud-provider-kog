@@ -13,23 +13,32 @@
 set -uo pipefail
 WANT_REPLICAS=3
 rc=0
+cases=0
 
 run_case(){
+  cases=$((cases + 1))
   local want="$1" name="$2"; shift 2
   local -a logs=("$@")
-  local leaders="" standby="" backfilled="" fail=0 i=0 p l s b nl ns nb lp
+  local leaders="" standby="" backfilled="" bf_errs="" fail=0 i=0 p l s b e nl ns nb ne lp
   for lg in "${logs[@]}"; do
     i=$((i+1)); p="authn-pod-$i"
     l=$(printf '%s\n' "$lg" | grep -c 'acquired leadership')
     s=$(printf '%s\n' "$lg" | grep -c 'standing by')
     b=$(printf '%s\n' "$lg" | grep -c 'identity annotation backfill done')
+    # The error line's msg is a PREFIX of the success line's, so the success form must
+    # be excluded explicitly or "backfill done" is counted as an error.
+    e=$(printf '%s\n' "$lg" | grep 'identity annotation backfill' | grep -vc 'backfill done')
     [ "$l" -gt 0 ] && leaders="$leaders $p"
     [ "$s" -gt 0 ] && standby="$standby $p"
     [ "$b" -gt 0 ] && backfilled="$backfilled $p"
+    [ "$e" -gt 0 ] && bf_errs="$bf_errs $p"
   done
   nl=$(printf '%s' "$leaders" | wc -w | tr -d ' ')
   ns=$(printf '%s' "$standby" | wc -w | tr -d ' ')
   nb=$(printf '%s' "$backfilled" | wc -w | tr -d ' ')
+  ne=$(printf '%s' "$bf_errs" | wc -w | tr -d ' ')
+  # A backfill ERROR is a distinct finding from an HA defect, but it is still not a pass.
+  [ "$ne" = "0" ] || fail=1
   [ "$nl" = "1" ] || fail=1
   [ "$ns" = "$((WANT_REPLICAS - 1))" ] || fail=1
   for p in $leaders; do case "$standby" in *"$p"*) fail=1;; esac; done
@@ -68,5 +77,23 @@ run_case FAIL "one pod logged BOTH roles" \
 standing by
 identity annotation backfill done' 'standing by' 'standing by'
 
-printf '\n%s\n' "$([ $rc = 0 ] && echo 'verdict logic behaves on all 7 cases' || echo 'VERDICT LOGIC IS WRONG')"
+# Cases the authn maintainers supplied from go/authn/main.go. The first two are the
+# substring trap: the error line's msg is a PREFIX of the success line's.
+run_case FAIL "backfill ERRORED on the leader" \
+  'acquired leadership
+msg="identity annotation backfill" error="connection refused"' 'standing by' 'standing by'
+run_case PASS "empty cluster: done with scanned=0 is still success" \
+  'acquired leadership
+msg="identity annotation backfill done" scanned=0 stamped=0 skipped=0' 'standing by' 'standing by'
+run_case PASS "leader re-acquired its term: both lines twice, same pod" \
+  'acquired leadership
+identity annotation backfill done
+acquired leadership
+identity annotation backfill done' 'standing by' 'standing by'
+run_case FAIL "done AND an error on the leader" \
+  'acquired leadership
+identity annotation backfill done
+msg="identity annotation backfill" error="context deadline exceeded"' 'standing by' 'standing by'
+
+printf '\n%s\n' "$([ $rc = 0 ] && echo "verdict logic behaves on all ${cases} cases" || echo 'VERDICT LOGIC IS WRONG')"
 exit $rc

@@ -38,6 +38,29 @@ pods=$(k get pods -n "$NS" -l app.kubernetes.io/name=authn \
 POD_LIST=$(k get pods -n "$NS" -l app.kubernetes.io/name=authn \
              -o jsonpath='{range .items[*]}{.metadata.name}{" "}{end}' 2>/dev/null)
 [ -n "$POD_LIST" ] || { no "could not list authn pods -- refusing to interpret anything below"; exit 1; }
+
+# A restarted container's logs are GONE, so every count below would be taken from a
+# partial record and read as "the line never appeared". Flagged by the authn
+# maintainers. Where it happened, the `--previous` log is also read (see LOGS_OF).
+RESTARTED=""
+for p in $POD_LIST; do
+  rc=$(k get pod "$p" -n "$NS" -o jsonpath='{.status.containerStatuses[0].restartCount}' 2>/dev/null)
+  [ -n "$rc" ] || { no "$p: restartCount unreadable"; continue; }
+  if [ "$rc" -gt 0 ]; then
+    RESTARTED="$RESTARTED $p"
+    note "$p has restartCount=${rc} -- its pre-restart log is gone; reading --previous too"
+  fi
+done
+[ -n "$RESTARTED" ] && note "restarted pods:$RESTARTED (counts below span current + previous)"
+
+# One read per pod, current log plus the previous container where one exists. Two
+# greps over two separate reads can disagree if the pod writes between them.
+LOGS_OF() {
+  local pod="$1" cur prev
+  cur=$(k logs "$pod" -n "$NS" --tail=-1 2>/dev/null)
+  case "$RESTARTED" in *" $pod"*) prev=$(k logs "$pod" -n "$NS" --previous --tail=-1 2>/dev/null) ;; esac
+  printf '%s\n%s\n' "${prev:-}" "$cur"
+}
 for p in $POD_LIST; do
   iid=$(k get pod "$p" -n "$NS" -o jsonpath='{.status.containerStatuses[0].imageID}' 2>/dev/null)
   [ -n "$iid" ] || { no "$p: imageID unreadable"; continue; }
@@ -46,19 +69,35 @@ for p in $POD_LIST; do
 done
 
 say "CHECK 1+2: exactly one leader, the rest standing by"
-leaders=""; standby=""; backfilled=""
+leaders=""; standby=""; backfilled=""; bf_errs=""; BF_ERR_TEXT=""; BF_DONE_TEXT=""
 for p in $POD_LIST; do
   # Read each pod's log ONCE into a variable. Two greps over two reads can disagree if
   # the pod logs between them, and that disagreement would look like a double leader.
-  lg=$(k logs "$p" -n "$NS" --tail=-1 2>/dev/null)
-  if [ -z "$lg" ]; then no "$p: logs unreadable (NOT the same as 'logged nothing')"; continue; fi
+  lg=$(LOGS_OF "$p")
+  if [ -z "$(printf '%s' "$lg" | tr -d '[:space:]')" ]; then
+    no "$p: logs unreadable or empty (NOT the same as 'logged nothing')"; continue
+  fi
   l=$(printf '%s\n' "$lg" | grep -c 'acquired leadership')
   s=$(printf '%s\n' "$lg" | grep -c 'standing by')
   b=$(printf '%s\n' "$lg" | grep -c 'identity annotation backfill done')
-  note "$(printf '%-34s leadership=%s standing_by=%s backfill=%s' "$p" "$l" "$s" "$b")"
+  # The error line's msg is "identity annotation backfill" -- a PREFIX of the success
+  # line, so a plain grep for it counts "backfill done" as an error. Exclude the
+  # success form explicitly. Verified against both real log shapes.
+  e=$(printf '%s\n' "$lg" | grep 'identity annotation backfill' | grep -vc 'backfill done')
+  note "$(printf '%-34s leadership=%s standing_by=%s backfill_done=%s backfill_err=%s' \
+            "$p" "$l" "$s" "$b" "$e")"
+  # Per pod and per TERM, not globally: the closure runs once per leadership term, so
+  # a pod that loses the Lease and wins it back logs both lines again from the same
+  # pod and that is correct. Counting pods keeps a re-acquisition from reading as a
+  # double leader; the per-pod counts above make the extra term visible.
+  [ "$l" -gt 1 ] && note "$p acquired leadership ${l}x -- re-acquisition, not a second leader"
   [ "$l" -gt 0 ] && leaders="$leaders $p"
   [ "$s" -gt 0 ] && standby="$standby $p"
   [ "$b" -gt 0 ] && backfilled="$backfilled $p"
+  [ "$b" -gt 0 ] && BF_DONE_TEXT="$(printf '%s\n' "$lg" | grep 'identity annotation backfill done' | tail -1)"
+  [ "$e" -gt 0 ] && bf_errs="$bf_errs $p"
+  [ "$e" -gt 0 ] && BF_ERR_TEXT="${BF_ERR_TEXT}
+$(printf '%s\n' "$lg" | grep 'identity annotation backfill' | grep -v 'backfill done' | head -2)"
 done
 nl=$(printf '%s' "$leaders" | wc -w | tr -d ' ')
 ns=$(printf '%s' "$standby" | wc -w | tr -d ' ')
@@ -91,24 +130,70 @@ case "$holder" in
      note "renewTime=${rt:-<unreadable>}" ;;
 esac
 
-say "CHECK 4: 'identity annotation backfill done' on the LEADER ONLY"
-# The check authn asked for by name. A backfill running on all three is the defect.
+say "CHECK 4: backfill outcome -- done on the LEADER ONLY, or an error, or neither"
+# The check authn asked for by name, split three ways from their reading of
+# go/authn/main.go (the ownIdentity closure). identitybackfill.Run always produces
+# exactly one of two lines, so there is NO legitimate silence:
+#   * "identity annotation backfill done" with scanned/stamped/skipped -- success even
+#     with nothing to do (an empty cluster logs scanned=0, not silence)
+#   * msg "identity annotation backfill" with an `error` field -- a BACKFILL failure,
+#     which is a different finding from an HA defect and must be reported as such
+#   * neither -- either nobody won the election, or the logs were read too early; it
+#     runs right after the leader's Ensure, usually within seconds
 #
-# Reuses the SINGLE log read from above rather than running `k logs` again. Two reads
-# of a live pod's log can disagree if it writes between them, and I warned about
-# exactly that two checks ago before doing it here -- a second read could report the
-# backfill on a pod that check 1 had already classified as standing by, and the
-# contradiction would look like an HA defect rather than my own instrument.
+# The verdict comes from ONE read per pod, taken above. Two reads of a live pod's log
+# can disagree if it writes between them, and I warned about exactly that in check 1
+# before re-reading here anyway -- a second read could report the backfill on a pod
+# that check 1 had classified as standing by, and the contradiction would look like an
+# HA defect rather than my own instrument.
+#
+# There is exactly ONE deliberate exception, written down here so it stays an
+# exception: the "neither line on any pod" branch re-reads once after 30s, because
+# that outcome alone can mean "too early" rather than "broken".
 bf="$backfilled"
 nb=$(printf '%s' "$bf" | wc -w | tr -d ' ')
-if [ "$nb" = "0" ]; then
-  no "no pod logged the backfill -- either it has not run yet or the string changed"
+ne=$(printf '%s' "$bf_errs" | wc -w | tr -d ' ')
+
+# "Neither line on any pod" is the one outcome that may simply be too early. Re-read
+# ONCE after 30s before calling it, as the maintainers asked -- and only in that case,
+# so a genuine failure is not retried into looking intermittent.
+if [ "$nb" = "0" ] && [ "$ne" = "0" ]; then
+  note "no backfill line yet on any pod -- it runs seconds after the leader's Ensure; re-reading once in 30s"
+  sleep 30
+  bf=""; bf_errs=""
+  for p in $POD_LIST; do
+    lg=$(LOGS_OF "$p")
+    b=$(printf '%s\n' "$lg" | grep -c 'identity annotation backfill done')
+    e=$(printf '%s\n' "$lg" | grep 'identity annotation backfill' | grep -vc 'backfill done')
+    [ "${b:-0}" -gt 0 ] && bf="$bf $p"
+    [ "${b:-0}" -gt 0 ] && BF_DONE_TEXT="$(printf '%s\n' "$lg" | grep 'identity annotation backfill done' | tail -1)"
+    [ "${e:-0}" -gt 0 ] && bf_errs="$bf_errs $p"
+    [ "${e:-0}" -gt 0 ] && BF_ERR_TEXT="${BF_ERR_TEXT}
+$(printf '%s\n' "$lg" | grep 'identity annotation backfill' | grep -v 'backfill done' | head -2)"
+  done
+  nb=$(printf '%s' "$bf" | wc -w | tr -d ' ')
+  ne=$(printf '%s' "$bf_errs" | wc -w | tr -d ' ')
+  note "after re-read: done on ${nb} pod(s), error on ${ne} pod(s)"
+fi
+
+if [ "$ne" -gt 0 ]; then
+  # A distinct finding, NOT an HA defect. Quote it, as they asked.
+  no "backfill ERRORED on$bf_errs -- a backfill failure, not a leader-election defect"
+  printf '%s\n' "$BF_ERR_TEXT" | sed '/^$/d; s/^/        /'
+elif [ "$nb" = "0" ]; then
+  no "neither backfill line on any pod after a re-read -- per the maintainers there is no legitimate silence, so this is either no leader or a missing log"
 elif [ "$nb" != "1" ]; then
-  no "$nb pods ran the backfill:$bf -- it should be leader-only"
+  no "$nb pods logged the backfill:$bf -- it should be leader-only"
 else
   lp=$(printf '%s' "$leaders" | tr -s ' ' '\n' | grep -v '^$' | head -1)
-  case "$bf" in *"$lp"*) ok "backfill ran on the leader only ($lp)" ;;
+  case "$bf" in *"$lp"*) ok "backfill done on the leader only ($lp)" ;;
     *) no "backfill ran on$bf but the leader is $lp" ;; esac
+  # The integer fields are the evidence that it actually scanned, not just logged.
+  # Printed from the text captured during the single read above, NOT a fresh `k logs`:
+  # this is display only and could not change the verdict, but re-reading here would
+  # contradict the rule stated three lines up, and a rule with an exception nobody
+  # wrote down is how the double-read crept in the first time.
+  printf '%s\n' "${BF_DONE_TEXT:-<no done line captured>}" | sed 's/^/        /'
 fi
 
 say "CHECK 5: /serviceaccount/login returns 200 from EVERY replica, individually"
