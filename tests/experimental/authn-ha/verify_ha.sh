@@ -55,6 +55,37 @@ done
 
 # One read per pod, current log plus the previous container where one exists. Two
 # greps over two separate reads can disagree if the pod writes between them.
+# exact_msg <want> -- lines whose msg/message field is EXACTLY <want>.
+#
+# Suggested by the authn maintainers in place of `grep -v`, and better. Handles JSON
+# ("msg": / "message":) and logfmt (msg= / message=), because they wrote `msg` in
+# their log examples and `.message` in their jq suggestion, and picking one blind is
+# how a selector silently matches nothing and reports a clean run.
+#
+# The CLOSING quote is mandatory in both forms. My first version made it optional and
+# reproduced the exact prefix bug this exists to avoid: on logfmt
+# `msg="identity annotation backfill done"` the optional quote let the boundary match
+# the space before `done`, so the success line counted as an error -- the same wrong
+# answer, one layer deeper. Verified against JSON/msg, JSON/message and logfmt.
+exact_msg() {
+  local want="$1"
+  grep -E "\"(msg|message)\"[[:space:]]*:[[:space:]]*\"${want}\"|(^|[[:space:]])(msg|message)=\"${want}\""
+}
+
+# leader_values -- the leader= / "leader": values from `standing by` lines.
+# Per the maintainers, "standing by" comes from client-go's OnNewLeader and fires only
+# when the observed holderIdentity CHANGES, so a steady follower logs it once. More
+# than one is diagnosable from these values, which is why they are extracted rather
+# than counted:
+#   * distinct non-empty values -> real leader changes, one should match a term
+#   * leader="" -> graceful release (ReleaseOnCancel empties holderIdentity)
+#   * the SAME value repeated -> a defect on their side, to be reported
+leader_values() {
+  grep 'standing by' \
+    | grep -oE '"leader"[[:space:]]*:[[:space:]]*"[^"]*"|(^|[[:space:]])leader="[^"]*"' \
+    | sed 's/.*"leader"[[:space:]]*:[[:space:]]*"//; s/.*leader="//; s/"$//'
+}
+
 LOGS_OF() {
   local pod="$1" cur prev
   cur=$(k logs "$pod" -n "$NS" --tail=-1 2>/dev/null)
@@ -79,11 +110,19 @@ for p in $POD_LIST; do
   fi
   l=$(printf '%s\n' "$lg" | grep -c 'acquired leadership')
   s=$(printf '%s\n' "$lg" | grep -c 'standing by')
-  b=$(printf '%s\n' "$lg" | grep -c 'identity annotation backfill done')
+  b=$(printf '%s\n' "$lg" | exact_msg 'identity annotation backfill done' | grep -c .)
   # The error line's msg is "identity annotation backfill" -- a PREFIX of the success
   # line, so a plain grep for it counts "backfill done" as an error. Exclude the
   # success form explicitly. Verified against both real log shapes.
-  e=$(printf '%s\n' "$lg" | grep 'identity annotation backfill' | grep -vc 'backfill done')
+  e=$(printf '%s\n' "$lg" | exact_msg 'identity annotation backfill' | grep -c .)
+  # CROSS-CHECK the exact matcher against the cruder substring one. They must agree.
+  # If exact_msg's field name were wrong for this build's log format it would match
+  # NOTHING and report a clean backfill -- indistinguishable from a healthy run. A
+  # disagreement is reported rather than silently resolved in favour of either.
+  e_sub=$(printf '%s\n' "$lg" | grep 'identity annotation backfill' | grep -vc 'backfill done')
+  if [ "$e" != "$e_sub" ]; then
+    no "$p: exact-msg found ${e} backfill errors, substring found ${e_sub} -- the matchers DISAGREE, so this build's log format is not what either assumes; treat this pod's backfill result as UNREAD"
+  fi
   note "$(printf '%-34s leadership=%s standing_by=%s backfill_done=%s backfill_err=%s' \
             "$p" "$l" "$s" "$b" "$e")"
   # Per pod and per TERM, not globally: the closure runs once per leadership term, so
@@ -91,6 +130,24 @@ for p in $POD_LIST; do
   # pod and that is correct. Counting pods keeps a re-acquisition from reading as a
   # double leader; the per-pod counts above make the extra term visible.
   [ "$l" -gt 1 ] && note "$p acquired leadership ${l}x -- re-acquisition, not a second leader"
+  # A follower logs `standing by` once per OBSERVED leader change, so >1 is a real
+  # event rather than noise. Classify it from the leader= values instead of printing a
+  # bare count a reader would have to guess at.
+  if [ "$s" -gt 1 ]; then
+    lvs=$(printf '%s\n' "$lg" | leader_values | tr '\n' '|' | sed 's/|$//')
+    uniq_n=$(printf '%s\n' "$lg" | leader_values | grep -v '^$' | sort -u | grep -c .)
+    note "$p logged 'standing by' ${s}x; leader values: [${lvs}] (${uniq_n} distinct non-empty)"
+    case "|${lvs}|" in
+      *"||"*) note "  an empty leader= is a graceful release (ReleaseOnCancel); authn will suppress it" ;;
+    esac
+    # NON-EMPTY occurrences, not the raw `standing by` count: an empty leader= is a
+    # graceful release and counting it as an occurrence reports a normal shutdown as a
+    # defect in someone else's code. verdict_test.sh caught exactly that.
+    nonempty_n=$(printf '%s\n' "$lg" | leader_values | grep -vc '^$')
+    if [ "$nonempty_n" -gt 1 ] && [ "$uniq_n" = "1" ]; then
+      no "  $p logged the SAME non-empty leader= value ${nonempty_n}x -- the maintainers asked for this to be reported as a defect on their side"
+    fi
+  fi
   [ "$l" -gt 0 ] && leaders="$leaders $p"
   [ "$s" -gt 0 ] && standby="$standby $p"
   [ "$b" -gt 0 ] && backfilled="$backfilled $p"
@@ -163,8 +220,8 @@ if [ "$nb" = "0" ] && [ "$ne" = "0" ]; then
   bf=""; bf_errs=""
   for p in $POD_LIST; do
     lg=$(LOGS_OF "$p")
-    b=$(printf '%s\n' "$lg" | grep -c 'identity annotation backfill done')
-    e=$(printf '%s\n' "$lg" | grep 'identity annotation backfill' | grep -vc 'backfill done')
+    b=$(printf '%s\n' "$lg" | exact_msg 'identity annotation backfill done' | grep -c .)
+    e=$(printf '%s\n' "$lg" | exact_msg 'identity annotation backfill' | grep -c .)
     [ "${b:-0}" -gt 0 ] && bf="$bf $p"
     [ "${b:-0}" -gt 0 ] && BF_DONE_TEXT="$(printf '%s\n' "$lg" | grep 'identity annotation backfill done' | tail -1)"
     [ "${e:-0}" -gt 0 ] && bf_errs="$bf_errs $p"

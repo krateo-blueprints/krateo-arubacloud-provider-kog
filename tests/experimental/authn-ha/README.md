@@ -36,8 +36,21 @@ lines — **there is no legitimate silence**:
 
 **The error line's msg is a prefix of the success line's**, so a plain
 `grep -c 'identity annotation backfill'` counts `backfill done` as an error. Demonstrated:
-that grep returns **2** on a log holding one success and one error. The script excludes
-the success form explicitly, and `verdict_test.sh` covers both directions.
+that grep returns **2** on a log holding one success and one error.
+
+Matched with `exact_msg`, which requires the msg/message field to equal the string
+exactly — the maintainers' suggestion, and better than `grep -v`. It accepts both JSON
+(`"msg":` / `"message":`) and logfmt (`msg=` / `message=`), because they wrote `msg` in
+their log examples and `.message` in their jq suggestion and a field name guessed wrong
+matches nothing and reports a clean run. **The closing quote is mandatory in both
+forms**: making it optional reproduced the very prefix bug it exists to avoid, since on
+logfmt `msg="identity annotation backfill done"` the boundary then matched the space
+before `done`.
+
+Because a wrong field name is indistinguishable from a healthy backfill, the exact
+matcher is **cross-checked against the cruder substring one on every pod**. A
+disagreement is reported as "treat this pod's backfill result as UNREAD" rather than
+resolved in favour of either.
 
 ### Two counting rules from the maintainers
 
@@ -46,6 +59,24 @@ term, so a pod that loses the Lease and wins it back logs `acquired leadership` 
 `done` again from the same pod — correct behaviour. Counting *pods* keeps a
 re-acquisition from reading as a second leader; the per-pod counts are printed so the
 extra term stays visible.
+
+**`standing by` is once per observed leader change, not per attempt.** It is
+client-go's `OnNewLeader` callback, which fires only when the observed
+`holderIdentity` changes, and the elector is reused across re-campaigns — so a steady
+follower logs it exactly once, naming the leader. More than one is therefore a real
+event, and the script classifies it from the `leader=` values rather than printing a
+count a reader would have to guess at:
+
+| `leader=` values | Meaning |
+|---|---|
+| distinct non-empty | real leader changes; one should match a pod's term |
+| one empty (`leader=""`) | graceful release — `ReleaseOnCancel` empties `holderIdentity`; authn will suppress it |
+| the same non-empty value repeated | a defect on authn's side, reported as such |
+
+The empty value is excluded from the occurrence count, not just the distinct count.
+`verdict_test.sh` caught that: counting raw `standing by` lines made a normal graceful
+shutdown come out as "the same leader re-logged", which would have reported a false
+defect against someone else's release.
 
 **A restarted container's logs are gone.** Any pod with `restartCount > 0` would have
 every count taken from a partial record and read as "the line never appeared". The
@@ -95,8 +126,12 @@ cluster needed:
 bash tests/experimental/authn-ha/verdict_test.sh
 ```
 
-Eleven cases: four must pass, seven must fail. The summary counts the cases it ran
-rather than naming a number, so it cannot claim coverage it does not have.
+Nineteen cases. The summary counts the cases it ran rather than naming a number, so
+it cannot claim coverage it does not have — it was left asserting 7 while running 11
+once already.
+
+Three groups: the election verdict (4 pass, 7 fail), `exact_msg` against all three log
+shapes, and `leader_values` classification.
 
 The case that justifies the file is **"backfill ran on a follower"** — its counts are
 *identical* to healthy (`leaders=1 standby=2 backfill=1`) and it must still fail,

@@ -95,5 +95,74 @@ run_case FAIL "done AND an error on the leader" \
 identity annotation backfill done
 msg="identity annotation backfill" error="context deadline exceeded"' 'standing by' 'standing by'
 
+# ---------------------------------------------------------------------------
+# exact_msg and leader_values, the two helpers verify_ha.sh matches logs with.
+# Both are tested against all THREE log shapes authn might emit, because the
+# maintainers wrote `msg` in their log examples and `.message` in their jq
+# suggestion, and a field name guessed wrong matches nothing and reports a clean run.
+# ---------------------------------------------------------------------------
+exact_msg() {
+  local want="$1"
+  grep -E "\"(msg|message)\"[[:space:]]*:[[:space:]]*\"${want}\"|(^|[[:space:]])(msg|message)=\"${want}\""
+}
+leader_values() {
+  grep 'standing by' \
+    | grep -oE '"leader"[[:space:]]*:[[:space:]]*"[^"]*"|(^|[[:space:]])leader="[^"]*"' \
+    | sed 's/.*"leader"[[:space:]]*:[[:space:]]*"//; s/.*leader="//; s/"$//'
+}
+
+printf '\n--- exact_msg: the prefix must NOT bleed, on every log shape ---\n'
+m_case(){
+  cases=$((cases + 1))
+  local name="$1" body="$2"
+  local d e
+  d=$(printf '%s\n' "$body" | exact_msg 'identity annotation backfill done' | grep -c .)
+  e=$(printf '%s\n' "$body" | exact_msg 'identity annotation backfill' | grep -c .)
+  if [ "$d" = 1 ] && [ "$e" = 1 ]; then
+    printf '  ok    %-42s done=%s err=%s\n' "$name" "$d" "$e"
+  else
+    printf '  BAD   %-42s done=%s err=%s (want 1/1)\n' "$name" "$d" "$e"; rc=1
+  fi
+}
+m_case "JSON with msg="      '{"level":"info","msg":"identity annotation backfill done","scanned":0}
+{"level":"error","msg":"identity annotation backfill","error":"refused"}'
+m_case "JSON with message="   '{"level":"info","message":"identity annotation backfill done","scanned":0}
+{"level":"error","message":"identity annotation backfill","error":"refused"}'
+m_case "logfmt with msg="     'time=t level=info msg="identity annotation backfill done" scanned=0
+time=t level=error msg="identity annotation backfill" error="refused"'
+
+printf '\n--- leader_values: >1 standing by is classified, not just counted ---\n'
+l_case(){
+  cases=$((cases + 1))
+  local name="$1" want_uniq="$2" want_verdict="$3" body="$4"
+  local u verdict
+  u=$(printf '%s\n' "$body" | leader_values | grep -v '^$' | sort -u | grep -c .)
+  # NON-EMPTY occurrences, not raw `standing by` lines. An empty leader= is a
+  # graceful release (ReleaseOnCancel), so counting it as an occurrence turns a
+  # normal shutdown into a reported defect in someone else's code -- which is
+  # exactly what this case caught when the rule used the raw count.
+  n=$(printf '%s\n' "$body" | leader_values | grep -vc '^$')
+  if [ "$n" -gt 1 ] && [ "$u" = "1" ]; then verdict=REPORT; else verdict=OK; fi
+  if [ "$u" = "$want_uniq" ] && [ "$verdict" = "$want_verdict" ]; then
+    printf '  ok    %-42s distinct=%s -> %s\n' "$name" "$u" "$verdict"
+  else
+    printf '  BAD   %-42s distinct=%s/%s verdict=%s/%s\n' "$name" "$u" "$want_uniq" "$verdict" "$want_verdict"; rc=1
+  fi
+}
+l_case "steady follower: one leader observed" 1 OK \
+  'msg="standing by" leader="authn-pod-1_abc"'
+l_case "real failover: two distinct leaders" 2 OK \
+  'msg="standing by" leader="authn-pod-1_abc"
+msg="standing by" leader="authn-pod-2_def"'
+l_case "graceful release: empty then new leader" 1 OK \
+  'msg="standing by" leader="authn-pod-1_abc"
+msg="standing by" leader=""'
+l_case "SAME leader re-logged -- authn defect" 1 REPORT \
+  'msg="standing by" leader="authn-pod-1_abc"
+msg="standing by" leader="authn-pod-1_abc"'
+l_case "JSON shape, two distinct leaders" 2 OK \
+  '{"msg":"standing by","leader":"authn-pod-1_abc"}
+{"msg":"standing by","leader":"authn-pod-2_def"}'
+
 printf '\n%s\n' "$([ $rc = 0 ] && echo "verdict logic behaves on all ${cases} cases" || echo 'VERDICT LOGIC IS WRONG')"
 exit $rc
