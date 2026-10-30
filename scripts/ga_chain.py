@@ -549,6 +549,8 @@ def main():
         except Exception:
             pass
 
+    drift_rc = 0
+    teardown_rc = 0
     try:
         for res in chain["resources"]:
             kind, name = res["kind"], res["name"]
@@ -628,7 +630,9 @@ def main():
         print(f"\nRESULT: {len(created)} resources created and observed")
         for k, v in drift_results.items():
             print(f"  drift {k}: {'ok' if v else ('SKIPPED' if v is None else 'FAILED')}")
-        return 0 if all(v is not False for v in drift_results.values()) else 1
+        # NOT `return`: the teardown in the finally below computes its own
+        # verdict, and returning here would run it and then discard it.
+        drift_rc = 0 if all(v is not False for v in drift_results.values()) else 1
 
     finally:
         if "--keep" in flags:
@@ -904,14 +908,22 @@ def main():
                   file=sys.stderr)
 
         if unconfirmed or unattributed:
-            n = len(unconfirmed) + len(unattributed)
             print(f"\n=== run FAILED: {len(unconfirmed)} unconfirmed, "
                   f"{len(unattributed)} unattributed ===", file=sys.stderr)
             for kind, name, url, crstate in unconfirmed:
                 print(f"    unconfirmed  {kind}/{name}: {url}", file=sys.stderr)
             for kind, name, url in unattributed:
                 print(f"    unattributed {kind}/{name}: {url}", file=sys.stderr)
-            return 1
+            # SET, never return. This block's own comment thirty lines up says that
+            # returning from a `finally` swallows a propagating exception and turns a
+            # failed run into a silent pass -- I wrote that warning and then added a
+            # `return 1` here anyway. Python 3.14 flagged it as a SyntaxWarning during
+            # a live billable run, which is the only reason I saw it.
+            teardown_rc = 1
+
+    # Outside the try/finally: an exception from the try has already propagated past
+    # here with its traceback intact, which is the whole point of not returning above.
+    return max(drift_rc, teardown_rc)
 
 
 if __name__ == "__main__":
