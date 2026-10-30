@@ -121,6 +121,7 @@ def main():
     verify_documented_pin(errors)
     verify_no_builtin_shadowing(errors)
     verify_restaction_filter_envelope(errors)
+    verify_restaction_jq_compiles(errors)
     charts = validate_charts(errors)
     validate_composition_generated(errors)
 
@@ -489,6 +490,63 @@ def verify_restaction_filter_envelope(errors):
                     f".{name}.* for the response body. jq resolves the absent keys to "
                     f"null silently, so the stage SUCCEEDS over an empty result and "
                     f"nothing is ever sent (snowplow#997).")
+
+
+def verify_restaction_jq_compiles(errors):
+    """Every jq expression in every RESTAction must COMPILE.
+
+    Stronger than any pattern match, and it exists because a pattern match is what I
+    reached for first. `$.spec.projectId` appeared in six path templates: `$` in jq
+    must be followed by a variable NAME, so the whole expression is a syntax error.
+    snowplow rejected it and logged `skipping api call: path jq expression errored` at
+    DEBUG -- invisible at its default LOG_LEVEL=warn -- so every delegated write stage
+    was silently disabled, delete and update alike. Nothing was ever sent.
+
+    jq separates the two failures by exit code, which is what makes this usable:
+        exit 3  syntax error  -- the expression can NEVER work, for any input
+        otherwise             -- fine, or a runtime type error that depends on the
+                                 input, which is NOT checked here since these run
+                                 against live API responses
+    Only a syntax error is an error here. snowplow#1001 proposes rejecting
+    uncompilable templates at load time for the same reason: no input can save them.
+    """
+    jq = shutil.which("jq")
+    if not jq:
+        # Loud, not silent. A skipped check that prints nothing is indistinguishable
+        # from one that passed -- the failure mode this whole file exists to prevent.
+        print("WARNING: jq not found - RESTAction jq expressions NOT compile-checked.")
+        print("         install jq to enable this gate (brew install jq / apt-get install jq)")
+        return
+    checked = 0
+    for f in sorted(glob.glob("restactions/**/*.yaml", recursive=True)):
+        try:
+            doc = yaml.safe_load(open(f))
+        except Exception:
+            continue
+        if not isinstance(doc, dict) or doc.get("kind") != "RESTAction":
+            continue
+        for st in (doc.get("spec") or {}).get("api") or []:
+            name = st.get("name", "?")
+            exprs = []
+            m = re.match(r"^\s*\$\{(.*)\}\s*$", st.get("path") or "", flags=re.S)
+            if m:
+                exprs.append(("path", m.group(1).strip()))
+            if st.get("filter"):
+                exprs.append(("filter", st["filter"]))
+            it = (st.get("dependsOn") or {}).get("iterator")
+            if it:
+                exprs.append(("dependsOn.iterator", it))
+            for kind, expr in exprs:
+                checked += 1
+                r = subprocess.run([jq, "-n", expr], capture_output=True, text=True)
+                if r.returncode == 3 or "syntax error" in (r.stderr or ""):
+                    detail = (r.stderr or "").strip().splitlines()
+                    errors.append(
+                        f"{f}: stage '{name}' {kind} is not valid jq -- it can never "
+                        f"work, for any input: "
+                        f"{detail[0][:170] if detail else '(no detail)'}")
+    if checked:
+        print(f"Compile-checked {checked} RESTAction jq expression(s).")
 
 
 def find_helm():
