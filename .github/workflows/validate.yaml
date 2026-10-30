@@ -189,6 +189,32 @@ jobs:
             sleep 15
           done
 
+      - name: Each Configuration CRD exposes EXACTLY its document's auth method
+        # From the openstack-nova-operator-kog session. The load-bearing idea is
+        # theirs: the comparison is EQUALITY, not membership.
+        #
+        #     got == ["apiKey"]      a completeness assertion
+        #     "apiKey" in got        passes on a CRD that ALSO carries bearer
+        #
+        # Membership cannot see the interesting failure -- a document generating BOTH
+        # methods -- and nor can the rejection evidence this repo already has. A
+        # published 0.2.0 chart sent authentication.bearer to three resources whose
+        # document declares apiKey and the API server refused it; that proves the
+        # wrong thing is REFUSED, while this proves there is nothing wrong to reach
+        # for. Complementary, and neither subsumes the other.
+        #
+        # The expectation is derived from the same OAS the generator reads, so it
+        # cannot drift from the documents: 7 of the 12 provider documents declare
+        # apiKey in:header, 5 declare http/bearer. Reads only; no vendor API.
+        #
+        # Gates on each CRD's Established condition rather than the RestDefinition's
+        # Ready -- nova measured Ready going true BEFORE the CRDs exist, twice
+        # (oasgen-provider#314), so reading off Ready is a race that fails as absent.
+        # No KUBE_CONTEXT: every other step in this job uses the ambient context
+        # that kind-action sets, and hardcoding `kind-aruba-ci` here would be a
+        # second place for the cluster_name to drift out of step with.
+        run: python3 scripts/assert_auth_crds.py
+
       - name: Samples are accepted by the generated CRDs
         # The generated CRDs use strict decoding, so this catches a sample whose
         # apiVersion or field set no longer matches what oasgen generated -- the
