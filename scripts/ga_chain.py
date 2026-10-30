@@ -549,7 +549,43 @@ def drift_check(kind, name, url, spec=None, drift_body=None, drift_assert=None):
               f"{errs} — cannot inject into {kind}/{name} (state at refusal: {cur})",
               file=sys.stderr)
         return None
-    print(f"    drift injected via {shape} (tags=[drifted-by-hand]); waiting for correction")
+    # CONFIRM THE INJECTION LANDED BEFORE WAITING FOR IT TO BE UNDONE.
+    #
+    # Without this the check cannot fail. It sends a PATCH, gets a 2xx, and then polls
+    # until `tags == []` -- so an API that ACCEPTS the write and silently does not
+    # persist the tag makes the very first poll succeed, and the probe reports
+    # DRIFT CORRECTED for a correction that never happened because a drift that never
+    # happened. `_drift_explicit`'s own docstring already said this -- "a probe that
+    # injects without asserting cannot tell correction from the API quietly ignoring
+    # the write" -- and the tag-trick path, which is the one 27 GA resources use, had
+    # no such assertion.
+    #
+    # Caught on CloudServer: the run reported DRIFT CORRECTED while snowplow's log
+    # showed the reconciling stage making ZERO api calls. Nothing corrected anything;
+    # the tag was never there to correct. That result was one commit away from being
+    # recorded as GA evidence.
+    #
+    # A short poll, not a single read: the write may be asynchronous, which is why 202
+    # is accepted above. Not finding the tag is NOT a pass and NOT a failure of the
+    # controller -- it is the probe being unable to create the condition it tests, so
+    # it returns None (skipped) and says which shape was accepted.
+    injected = False
+    for _ in range(6):
+        code, now = api("GET", url)
+        if code == 200 and isinstance(now, dict):
+            if "drifted-by-hand" in ((now.get("metadata") or {}).get("tags") or []):
+                injected = True
+                break
+        time.sleep(5)
+    if not injected:
+        print(f"    drift: {shape} was ACCEPTED ({code}) but the tag did not persist "
+              f"for {kind}/{name} — the API took the write and dropped it, so there is "
+              f"no drift to correct and this proves NOTHING about convergence. Not a "
+              f"controller failure; the probe could not create the condition.",
+              file=sys.stderr)
+        return None
+    print(f"    drift injected via {shape} (tags=[drifted-by-hand]) and CONFIRMED "
+          f"present upstream; waiting for correction")
 
     kubectl("annotate", f"{kind}.{GROUP}", name, "-n", NS,
             f"drift-probe={int(time.time())}", "--overwrite")
