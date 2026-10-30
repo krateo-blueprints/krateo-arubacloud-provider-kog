@@ -8,6 +8,27 @@ timestamp: 2026-10-29T00:00:00Z
 
 # authn 0.28.1 HA verification
 
+> [!IMPORTANT]
+> **THIS HARNESS WAS NEVER RUN.** It is complete and its verdict logic is tested
+> against 24 cases, but no cluster has executed it and it has produced **no result**
+> about authn 0.28.1. Recorded here so nobody reads the detail below as evidence.
+>
+> The authn session withdrew the request on 2026-10-30: their own kind e2e for 0.28.1
+> already covered one `acquired leadership`, two `standing by`, the backfill on the
+> leader only, **and** the failover this harness deliberately skips. An independent
+> cross-check would have been worth having, but not at the price of quiet windows on
+> a host that produced two in fourteen hours while billable CloudServer work needed
+> them. They also declined to run it themselves on the same contended host, on the
+> grounds that a leader-election timing measurement there proves nothing — which is
+> the argument this repo had been making about its own measurements.
+>
+> It is kept rather than deleted because building it produced findings that stand on
+> their own: the prefix-overlap bug where `"identity annotation backfill"` is a prefix
+> of `"…done"`, and the graceful-release false positive where counting raw
+> `standing by` lines reports a normal `ReleaseOnCancel` shutdown as a defect. Both
+> were corrected before anything was reported upstream. If the cross-check is ever
+> wanted, it runs as written.
+
 Requested by the `authn` session for **authn#45**: they need these checks on a
 cluster that is not theirs. Scope was settled with them directly, so this runs
 **checks 1–4 and nothing else**.
