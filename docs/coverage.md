@@ -36,8 +36,8 @@ Each of these was recorded in this repository as a result, and each is a true st
 
 | Tier | Bar | Count |
 |------|-----|-------|
-| **GA** | full `create → observe → drift → delete` against the live API | 28 |
-| beta | observe verified live; mutation unproven | 1 |
+| **GA** | full `create → observe → drift → delete` against the live API | 27 |
+| beta | observe verified live; mutation unproven | 2 |
 | experimental | generated, valid, reaches `Ready`, sample admitted | 5 |
 | **blocked** | known non-functional, reason recorded | 2 |
 
@@ -72,7 +72,9 @@ What this does and does not put at risk: every provider feature these RestDefini
 | Provider | Kind | Tier | Verbs | Identifier(s) | Evidence |
 |----------|------|------|-------|---------------|----------|
 | baremetal | `Hpc` | experimental | findby,get,create | `metadata.name` | **cannot be exercised on this account**: `GET /projects/{id}/providers/Aruba.Baremetal/hpcs` returns **404** (verified 2026-10-20, api-version 1.0 and 1.1), so the provider is not enabled here. Two reasons nothing was created to find out more: the OAS declares **no DELETE for hpcs at all** — only `post`, `get`, and PUTs for `name` and `automaticrenew` — so a bare-metal cluster created through this RestDefinition could not be removed through it, and bare metal is the one resource class here where an accident is not measured in cents |
-| compute | `CloudServer` | **GA** | findby,get,create | `metadata.name` | **FULL LIFECYCLE PROVEN LIVE (2026-10-30)**, after two defects that made every delegated delete a silent no-op. A `CSO1A2` was created, observed, deleted by its own delegated RESTAction, and the finalizer released by the controller **without intervention**: 5/5 deletes verified and attributed, 0 wait-timeouts, 0 unattributed, 0 instrument disagreements, snowplow logging one `calling api name=delete` and no `skipping api call`, and the account clean by id afterwards. GA on the `create → observe → delete` bar.
+| compute | `CloudServer` | beta | findby,get,create | `metadata.name` | **create, observe and delete PROVEN LIVE (2026-10-30); drift UNPROVEN, so this sits at beta.** It was promoted to GA for a few hours on the premise that its update was blocked by a vendor defect. That premise was wrong — see the withdrawal below — and the promotion is reverted with it: an API that declares PATCH and has never been exercised with it is *unproven*, which is exactly what beta means. One run with the corrected method settles it.
+
+**FULL DELEGATED LIFECYCLE PROVEN LIVE (2026-10-30)**, after two defects that made every delegated delete a silent no-op. A `CSO1A2` was created, observed, deleted by its own delegated RESTAction, and the finalizer released by the controller **without intervention**: 5/5 deletes verified and attributed, 0 wait-timeouts, 0 unattributed, 0 instrument disagreements, snowplow logging one `calling api name=delete` and no `skipping api call`, and the account clean by id afterwards. GA on the `create → observe → delete` bar.
 
 **Its update is UNTESTED, and the “vendor blocker” claim that stood here is WITHDRAWN.** It said Aruba’s PUT answers 400 for every body shape tried — `Flavor: Please specify flavor.; Product: not found`, reproduced on three separate servers. The reproduction was real and the conclusion was wrong: **the OAS declares `DELETE, GET, PATCH` for `cloudServers/{cloudServerId}` and no PUT**, and this repo’s drift machinery hardcoded PUT at both call sites. Across the whole vendored set, 29 item paths declare PUT and exactly one declares PATCH without it — this one. So the 400 was Aruba rejecting a PUT to a PATCH-only endpoint, reaching a create-like handler, which is why it asked for a `Flavor` and a `Product`: that is CREATE-body validation. The error named the cause and it was read as the symptom, three times.
 

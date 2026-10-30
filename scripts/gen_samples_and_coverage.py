@@ -591,8 +591,14 @@ TIERS = {
         "LoadBalancer inside a KaaS cluster",
     ),
     ("compute", "CloudServer"): (
-        "ga",
-        "**FULL LIFECYCLE PROVEN LIVE (2026-10-30)**, after two defects that made every "
+        "beta",
+        "**create, observe and delete PROVEN LIVE (2026-10-30); drift UNPROVEN, so "
+        "this sits at beta.** It was promoted to GA for a few hours on the premise that "
+        "its update was blocked by a vendor defect. That premise was wrong \u2014 see "
+        "the withdrawal below \u2014 and the promotion is reverted with it: an API that "
+        "declares PATCH and has never been exercised with it is *unproven*, which is "
+        "exactly what beta means. One run with the corrected method settles it.\n\n"
+        "**FULL DELEGATED LIFECYCLE PROVEN LIVE (2026-10-30)**, after two defects that made every "
         "delegated delete a silent no-op. A `CSO1A2` was created, observed, deleted by "
         "its own delegated RESTAction, and the finalizer released by the controller "
         "**without intervention**: 5/5 deletes verified and attributed, 0 wait-timeouts, "
