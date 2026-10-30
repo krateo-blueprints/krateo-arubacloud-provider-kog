@@ -17,6 +17,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+import warnings
 import sys
 
 import yaml
@@ -122,6 +123,7 @@ def main():
     verify_no_builtin_shadowing(errors)
     verify_restaction_filter_envelope(errors)
     verify_restaction_jq_compiles(errors)
+    verify_python_compiles_without_warnings(errors)
     charts = validate_charts(errors)
     validate_composition_generated(errors)
 
@@ -547,6 +549,75 @@ def verify_restaction_jq_compiles(errors):
                         f"{detail[0][:170] if detail else '(no detail)'}")
     if checked:
         print(f"Compile-checked {checked} RESTAction jq expression(s).")
+
+
+def verify_python_compiles_without_warnings(errors):
+    """Every .py in this repo must compile with SyntaxWarning promoted to an error.
+
+    This exists because of a specific failure, and the point is the shape of it rather
+    than the bug. `scripts/ga_chain.py` had a `return` inside a `finally` block, which
+    silently swallows a propagating exception. Thirty lines above it, in the same
+    block, was a comment I had written:
+
+        # Deliberately not `return`: returning from a finally block swallows an
+        # exception that was propagating, turning a failed run into a silent pass.
+
+    The rule was documented in the file and then violated in the file. It was caught
+    only because Python 3.14 emitted a SyntaxWarning that happened to land in a log I
+    happened to read during a live billable run -- not by any check here.
+
+    That is the fourth instance of one pattern between this session and the
+    openstack-nova-operator-kog session in a day: a hazard explained in a comment and
+    then not avoided in the function beside it. Their matching pair is a `_collides()`
+    docstring explaining why over-deriving plurals is deliberate, thirty lines from a
+    grep whose `[a-z.]` class silently truncated `status.server_group.id`. A comment
+    is documentation; it does not enforce anything. So the rules worth keeping get
+    converted into checks, and this is that conversion for one of them.
+
+    `-W error::SyntaxWarning` is what makes it a gate: it turns
+    `'return' in a 'finally' block` from a warning nobody reads into a SyntaxError.
+    """
+    # A screen that cannot detect a known-bad case is a function that returns false.
+    # Compile the exact pattern from a STRING -- not a file -- so the self-test needs
+    # no temp path and cannot be defeated by an import that breaks when the file moves,
+    # which is how an earlier negative test of mine proved nothing at all.
+    bad = "def f():\n    try:\n        return 0\n    finally:\n        return 1\n"
+    good = "def f():\n    rc = 0\n    try:\n        rc = 1\n    finally:\n        pass\n    return rc\n"
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", SyntaxWarning)
+        try:
+            compile(bad, "<selftest>", "exec")
+            raise AssertionError("the gate does NOT detect `return` in a `finally`")
+        except SyntaxWarning:
+            pass
+        except SyntaxError:
+            pass          # 3.12+ raises it outright, which is the same protection
+        compile(good, "<selftest>", "exec")   # must NOT raise
+
+    checked = 0
+    for f in sorted(glob.glob("scripts/**/*.py", recursive=True)
+                    + glob.glob("tests/**/*.py", recursive=True)):
+        try:
+            src = open(f, encoding="utf-8").read()
+        except Exception as e:
+            errors.append(f"{f}: unreadable ({e})")
+            continue
+        checked += 1
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always", SyntaxWarning)
+            try:
+                compile(src, f, "exec")
+            except SyntaxError as e:
+                errors.append(f"{f}: does not compile -- {e}")
+                continue
+        for w in caught:
+            if issubclass(w.category, SyntaxWarning):
+                errors.append(f"{f}:{w.lineno}: SyntaxWarning -- {w.message}. These "
+                              f"are promoted to errors here: a `return` in a `finally` "
+                              f"swallows a propagating exception and turns a failed "
+                              f"run into a silent pass.")
+    if checked:
+        print(f"Compiled {checked} Python file(s) with SyntaxWarning as an error.")
 
 
 def find_helm():
