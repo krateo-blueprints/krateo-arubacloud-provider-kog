@@ -37,7 +37,7 @@ This walks through installing the provider and managing your first resource (a
   green while reconciling no instance at all. Upstream's own framing, which is the right
   one: a refused install is the better failure.
 
-  > **You need Kubernetes 1.36 or newer.** We pin oasgen-provider 0.36.0, whose chart
+  > **You need Kubernetes 1.36 or newer.** We pin oasgen-provider 0.41.0, whose chart
   > declares `kubeVersion: '>=1.36.0-0'`, and Helm refuses the chart on anything older.
   > CI verifies on `kindest/node:v1.36.4`. The floor is the same at 0.34.0 and 0.37.0,
   > so it is the 1.36 bound that costs you something, not the exact pin.
@@ -54,7 +54,7 @@ This walks through installing the provider and managing your first resource (a
   > If you are on 1.33–1.35 and cannot move, pin this repository at **0.2.0**, which
   > validates against oasgen-provider 0.27.1 and installs on `>=1.33`.
 
-- The Krateo **oasgen-provider** and its rest-dynamic-controller, **≥ 0.36.0**.
+- The Krateo **oasgen-provider** and its rest-dynamic-controller, **≥ 0.41.0**.
 
   > oasgen-provider is a **monorepo**: rest-dynamic-controller and both Helm charts
   > live in it, and the standalone controller repo is archived. The chart derives
@@ -64,16 +64,16 @@ This walks through installing the provider and managing your first resource (a
   > features these RestDefinitions rely on (nested identifiers, `fieldMapping`,
   > `async`, `*ApiRef`, `apiKey` auth).
   >
-  > **0.36.0 is a floor, not a preference.** Below 0.35.0 libopenapi cannot parse
+  > **0.41.0 is the pin; 0.36.0 is the floor.** Below 0.35.0 libopenapi cannot parse
   > these OAS documents at all — no RestDefinition becomes Ready and the failure
   > does not name the parser. Install from `ghcr.io/krateo-platformops` (note the
   > hyphen); `charts.krateo.io` serves a version far below this floor.
 
   ```sh
   helm install oasgen-provider-crds oci://ghcr.io/krateo-platformops/charts/oasgen-provider-crds \
-    --version 0.36.0 --namespace krateo-system --create-namespace
+    --version 0.41.0 --namespace krateo-system --create-namespace
   helm install oasgen-provider oci://ghcr.io/krateo-platformops/charts/oasgen-provider \
-    --version 0.36.0 --namespace krateo-system
+    --version 0.41.0 --namespace krateo-system
   ```
 - An Aruba Cloud Bearer token — see [authentication](authentication.md) and
   <https://api.arubacloud.com/docs/authentication/>.

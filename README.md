@@ -26,7 +26,7 @@ plugins**, and every load-bearing claim has been
 ```sh
 # 0. The RestDefinition CRD ships as a SEPARATE chart from the provider
 helm install oasgen-provider-crd oci://ghcr.io/krateo-platformops/charts/oasgen-provider-crds \
-  --version 0.36.0 --namespace krateo-system
+  --version 0.41.0 --namespace krateo-system
 
 # 1. Auth token (short-lived Aruba JWT)
 kubectl apply -f samples/arubacloud-token-secret.yaml
@@ -56,10 +56,10 @@ have the features this repo relies on (nested identifiers, `fieldMapping`,
 
 | Component | Minimum | Why |
 |-----------|---------|-----|
-| `ghcr.io/krateo-platformops/oasgen-provider` | **0.36.0** | **a hard floor, not a preference.** Below 0.35.0 libopenapi cannot parse these OAS documents at all, so no RestDefinition becomes Ready; `metadata` properties are dropped from generated CRDs until [#236](https://github.com/krateo-platformops/oasgen-provider/issues/236) in 0.36.0. Earlier features this repo relies on arrived sooner — `apiKey`-in-header auth and typed-map `additionalProperties` in 0.21.1, per-verb `oasPath` in 0.34.0 ([#227](https://github.com/krateo-platformops/oasgen-provider/pull/227)) — but none of them help below the parse floor |
-| `ghcr.io/krateo-platformops/rest-dynamic-controller` | **0.36.0** | derived from the chart's `appVersion`, so it is not separately selectable. Sends the `apiKey` header + `valuePrefix`, honours `handleParam`, forwards the CR spec on every `*ApiRef` direction, trims Secret-sourced credentials, and redacts credential **headers** in verbose dumps from 0.26.1 ([#166](https://github.com/krateo-platformops/oasgen-provider/pull/166) — see [Authentication](docs/authentication.md)) |
-| chart `oci://ghcr.io/krateo-platformops/charts/oasgen-provider` | **0.36.0** | the two components are released in lockstep at identical versions |
-| chart `oci://ghcr.io/krateo-platformops/charts/oasgen-provider-crds` | **0.36.0** | same version as the provider chart; it is a separate install |
+| `ghcr.io/krateo-platformops/oasgen-provider` | **0.41.0** | **a hard floor, not a preference.** Below 0.35.0 libopenapi cannot parse these OAS documents at all, so no RestDefinition becomes Ready; `metadata` properties are dropped from generated CRDs until [#236](https://github.com/krateo-platformops/oasgen-provider/issues/236) in 0.36.0. Earlier features this repo relies on arrived sooner — `apiKey`-in-header auth and typed-map `additionalProperties` in 0.21.1, per-verb `oasPath` in 0.34.0 ([#227](https://github.com/krateo-platformops/oasgen-provider/pull/227)) — but none of them help below the parse floor |
+| `ghcr.io/krateo-platformops/rest-dynamic-controller` | **0.41.0** | derived from the chart's `appVersion`, so it is not separately selectable. Sends the `apiKey` header + `valuePrefix`, honours `handleParam`, forwards the CR spec on every `*ApiRef` direction, trims Secret-sourced credentials, and redacts credential **headers** in verbose dumps from 0.26.1 ([#166](https://github.com/krateo-platformops/oasgen-provider/pull/166) — see [Authentication](docs/authentication.md)) |
+| chart `oci://ghcr.io/krateo-platformops/charts/oasgen-provider` | **0.41.0** | the two components are released in lockstep at identical versions |
+| chart `oci://ghcr.io/krateo-platformops/charts/oasgen-provider-crds` | **0.41.0** | same version as the provider chart; it is a separate install |
 
 This is the version CI pins (`OASGEN_VERSION` in `.github/workflows/validate.yaml`
 and `PIN` in `scripts/pin_verify.sh`) and the only version any claim in these docs
@@ -76,10 +76,10 @@ drift apart — a chart version *is* the pair it ships.
 ```sh
 # CRDs first — they are a separate chart
 helm install oasgen-provider-crds oci://ghcr.io/krateo-platformops/charts/oasgen-provider-crds \
-  --version 0.36.0 --namespace krateo-system --create-namespace
+  --version 0.41.0 --namespace krateo-system --create-namespace
 
 helm install oasgen-provider oci://ghcr.io/krateo-platformops/charts/oasgen-provider \
-  --version 0.36.0 --namespace krateo-system
+  --version 0.41.0 --namespace krateo-system
 ```
 
 > [!IMPORTANT]

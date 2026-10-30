@@ -19,7 +19,7 @@
 #   KEEP=0 scripts/pin_verify.sh     # delete the cluster afterwards
 set -uo pipefail
 
-PIN="${OASGEN_VERSION:-0.36.0}"              # 0.36.0 is a FLOOR, not a preference:
+PIN="${OASGEN_VERSION:-0.41.0}"              # 0.36.0 is a FLOOR, not a preference:
                                              # `profile` is in the provider list, and
                                              # 0.35.0 is the first release that can
                                              # PARSE profile.json (libopenapi v0.21.9)
@@ -484,20 +484,30 @@ helm --kube-context "$CTX" upgrade --install oasgen-provider-crds \
   "$CRDS_CHART" ${VERSION_ARGS[@]+"${VERSION_ARGS[@]}"} \
   --namespace krateo-system --create-namespace --wait \
   || die "crds chart failed"
-# --timeout 15m, and the number is MEASURED rather than padded. It also COMPENSATES
-# FOR A BUG THAT IS BEING FIXED, which is the more important half of this comment:
-# oasgen-provider#271. The provider's runtime stage is `FROM golang:1.26-trixie` -- a
-# whole Go toolchain -- while rest-dynamic-controller, built in the same repository
-# the same way, uses distroless/static:nonroot. Both binaries are CGO_ENABLED=0 and
-# neither shells out, so the 331 MB buys two static binaries and a CA bundle.
+# Back to --timeout 5m. oasgen-provider#271 shipped in 0.41.0: the runtime stage was
+# `FROM golang:1.26-trixie`, a whole Go toolchain, for two CGO_ENABLED=0 binaries that
+# never shell out. It is distroless now.
 #
-# So 15m is NOT a statement that this chart needs 15 minutes. oasgen-provider have
-# recorded that raising --wait is the wrong fix, because it treats a 300 MB accident
-# as a requirement and pushes the cost onto every consumer's CI. REVERT THIS TO 5m
-# once #271 ships and the image is distroless-sized; if the pull is still minutes
-# long at that point, that is a new finding and not this one.
+# Measured from the registry manifests, which is what actually crosses the wire --
+# compressed layer bytes, not the on-disk size `docker images` reports:
 #
-# The measurement that made it diagnosable, on a cold node:
+#   oasgen-provider:0.41.0  arm64    32 MB / 16 layers
+#   oasgen-provider:0.41.0  amd64    36 MB / 16 layers
+#   oasgen-provider:0.36.0  arm64   316 MB / 11 layers
+#
+# So ~10x less on the wire here, not the 2.8x that 331->117 MB implies; 117 MB is the
+# uncompressed figure. PREDICTION ON RECORD, so this is falsifiable: if bandwidth was
+# the dominant term, 32 MB should pull in roughly 27s against the 4m29s measured for
+# 316 MB -- and snowplow independently gives 23 MB in 18.6s, which is the same rate.
+# If it still takes minutes, bandwidth was NOT the dominant term, layer count went
+# 11 -> 16, and that is a new finding to take back to #271 rather than a reason to
+# raise this number again.
+#
+# One operational consequence of distroless, because it cost me a diagnostic: there is
+# no shell, so `kubectl exec <pod> -- env` no longer works on a generated controller.
+# Read the env off the pod spec and the ConfigMap behind envFrom instead.
+#
+# The 0.36.0 measurement that made #271 diagnosable, kept because it is the evidence:
 #
 #   oasgen-provider:0.36.0   331229426 bytes   pulled in 4m29.113s   <-- timed out at 5m
 #   snowplow:1.12.57          23209366 bytes   pulled in    18.615s
@@ -510,7 +520,7 @@ helm --kube-context "$CTX" upgrade --install oasgen-provider-crds \
 # so this bites precisely when the pin moves, which is when it is most confusing.
 helm --kube-context "$CTX" upgrade --install oasgen-provider \
   "$PROV_CHART" ${VERSION_ARGS[@]+"${VERSION_ARGS[@]}"} ${HELM_SETS[@]+"${HELM_SETS[@]}"} \
-  --namespace krateo-system --wait --timeout 15m \
+  --namespace krateo-system --wait --timeout 5m \
   || die "provider chart failed"
 
 say "images actually running (this is the whole point of the exercise)"

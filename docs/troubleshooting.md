@@ -19,7 +19,7 @@ kubectl logs deploy/oasgen-provider -n krateo-system
 Common causes:
 
 - **Wrong provider image or version.** These RestDefinitions need
-  oasgen-provider **≥ 0.36.0**. Check the deployment image is
+  oasgen-provider **≥ 0.41.0**. Check the deployment image is
   `ghcr.io/krateo-platformops/oasgen-provider` at that version or newer; older
   lineages reject or mis-handle these definitions. Below **0.35.0** the failure is
   total and unhelpfully silent: libopenapi cannot parse these OAS documents, so
@@ -33,7 +33,7 @@ Common causes:
 - **No `authentication` block in the generated `<Kind>Configuration`.** On the 7
   providers whose spec declares an `apiKey` scheme this means oasgen is older than
   **0.19.0** — earlier versions skipped that scheme silently. Upgrade the provider
-  (the pin is 0.36.0). See [authentication](authentication.md).
+  (the pin is 0.41.0). See [authentication](authentication.md).
 
 ## A resource CR gets `401 Unauthorized`
 
@@ -101,7 +101,7 @@ is never released. Nothing in the logs points at the version.
 kubectl get deploy -n krateo-system -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.spec.template.spec.containers[0].image}{"\n"}{end}' | grep rest-dynamic-controller
 ```
 
-If it is below 0.36.0, upgrade the provider chart to **0.36.0** — the RDC tag is
+If it is below 0.41.0, upgrade the provider chart to **0.41.0** — the RDC tag is
 derived from the chart's `appVersion`, so on the monorepo charts there is nothing
 to override and no way for the pair to drift
 — see [prerequisites](../README.md#prerequisites). Otherwise, check the

@@ -46,7 +46,7 @@ Files:
 
 ## Preconditions
 
-- A cluster with the **krateo** oasgen-provider + RDC (chart ≥ **0.36.0**) — see
+- A cluster with the **krateo** oasgen-provider + RDC (chart ≥ **0.41.0**) — see
   [Usage](../../docs/usage.md#prerequisites).
 - This repo's OAS ConfigMaps and RestDefinitions already applied (so the
   `Vpc`/`Subnet`/`SecurityGroup` CRDs exist).
