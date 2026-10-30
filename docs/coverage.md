@@ -36,12 +36,14 @@ Each of these was recorded in this repository as a result, and each is a true st
 
 | Tier | Bar | Count |
 |------|-----|-------|
-| **GA** | full `create → observe → drift → delete` against the live API | 27 |
-| beta | observe verified live; mutation unproven | 2 |
+| **GA** | full `create → observe → drift → delete` against the live API | 28 |
+| beta | observe verified live; mutation unproven | 1 |
 | experimental | generated, valid, reaches `Ready`, sample admitted | 5 |
 | **blocked** | known non-functional, reason recorded | 2 |
 
 Where the API has **no update verb**, drift is *inapplicable* rather than unproven and the GA bar is `create → observe → delete`, re-runnable from a chain: nothing can diverge that a controller could correct. That rule is stated because the table was inconsistent without it — `KeyPair` was GA on that basis while `Database`, `DatabaseUser`, `Grant` and `DatabaseBackup` sat at beta on the same verb shape. It also raises the bar in one respect: *delete* must be **verified against the API while the resource's parent still exists**, because from Kubernetes a cascade and a real DELETE look identical.
+
+A **third case** exists, and the table is inconsistent without it: an API that *declares* an update verb which does not work. `compute/CloudServer` is GA on `create → observe → delete` while its drift assertion reports **SKIPPED**, because Aruba's PUT answers 400 for every body shape tried. That is neither *inapplicable* (a PUT is declared) nor *unproven* (it was exercised three times, on three servers, and refused). Recording it as a **blocker on the update verb** keeps the lifecycle claim honest without overstating coverage or burying a working create/observe/delete behind a vendor defect. The distinction matters: *unproven* means nobody looked, and somebody did.
 
 **One exception to the experimental bar, stated so the count is not misread.** `profile/AiKey` is generated and valid but has *never been applied to a cluster*, so it has not cleared the "reaches `Ready`, sample admitted" half of that bar. It is counted as experimental because that is the lowest tier it can hold without being `blocked`, and it is not blocked: nothing is known to be broken about it. The API simply offers no way to bring one into existence — see its row for the detail.
 
@@ -70,7 +72,24 @@ What this does and does not put at risk: every provider feature these RestDefini
 | Provider | Kind | Tier | Verbs | Identifier(s) | Evidence |
 |----------|------|------|-------|---------------|----------|
 | baremetal | `Hpc` | experimental | findby,get,create | `metadata.name` | **cannot be exercised on this account**: `GET /projects/{id}/providers/Aruba.Baremetal/hpcs` returns **404** (verified 2026-10-20, api-version 1.0 and 1.1), so the provider is not enabled here. Two reasons nothing was created to find out more: the OAS declares **no DELETE for hpcs at all** — only `post`, `get`, and PUTs for `name` and `automaticrenew` — so a bare-metal cluster created through this RestDefinition could not be removed through it, and bare metal is the one resource class here where an accident is not measured in cents |
-| compute | `CloudServer` | beta | findby,get,create | `metadata.name` | **observe proven live** (2026-10-20): a server was created directly over the API and the CR converged on it, reporting back the same id the POST returned (`6ad732b8`), which exercises the only two verbs it declares — `findby` and `get`. Before this the sample had only ever been applied against an empty collection, which proves nothing. Run it with `scripts/ga_cloudserver_observe.py`.
+| compute | `CloudServer` | **GA** | findby,get,create | `metadata.name` | **FULL LIFECYCLE PROVEN LIVE (2026-10-30)**, after two defects that made every delegated delete a silent no-op. A `CSO1A2` was created, observed, deleted by its own delegated RESTAction, and the finalizer released by the controller **without intervention**: 5/5 deletes verified and attributed, 0 wait-timeouts, 0 unattributed, 0 instrument disagreements, snowplow logging one `calling api name=delete` and no `skipping api call`, and the account clean by id afterwards. GA on the `create → observe → delete` bar.
+
+**Its update is a recorded blocker, not an untested gap.** Aruba's PUT answers 400 for every body shape tried (declared spec and response echo): `Flavor: Please specify flavor.; Product: not found` — on a body that specified a flavor, naming a `Product` field the OAS does not require. Reproduced on three separate servers. The drift assertion reports SKIPPED rather than passing vacuously.
+
+**The two defects were both in this repo’s RESTActions and both were invisible by construction.** Recorded because the shapes generalise to any delegated resource:
+
+1. *A stage `filter` is evaluated on an envelope* — `{extras, <stage name>}` — not on the response body. The filters read `.spec.metadata.name` and `.values`, which is what `path` and `dependsOn.iterator` see (those get the resolver dict). In a filter both are absent, and jq resolves them to null **silently**, so the filter returned a well-formed result that was simply always empty. `self` was null on every call, both iterators yielded `[]`, nothing was sent. snowplow#998.
+2. *`$.` is not valid jq* — `$` must be followed by a variable name. Six path templates used `$.spec.projectId`, so jq rejected the whole expression and snowplow logged `skipping api call: path jq expression errored` at DEBUG, invisible at its default `LOG_LEVEL=warn`. Every delegated write stage was disabled, update included. snowplow#1001.
+
+Both are gated in CI now: `verify_restaction_filter_envelope` rejects a filter reading a root key outside `{extras, slice, <stage>}`, and `verify_restaction_jq_compiles` compiles all 20 expressions with real jq. They catch different things — jq compiles a filter reading absent keys perfectly happily, which is exactly why the first bug outlived the second.
+
+**What reported success while nothing happened**, stated because the absence of a signal was the only signal: snowplow answered 200, `X-Snowplow-Stage-Outcomes` was `[]` (it lists only stages that did NOT succeed, so `[]` means all succeeded), and RDC logged `Mutated via RESTAction`. Every layer was correct and the server stayed Active through 23 attempts. Only oasgen#261’s not-addressable guard noticed, by refusing to drop the finalizer — without it this would have orphaned a billable server on **every** delete for as long as the bug persisted. snowplow#989’s per-stage iteration counts would have shown `delete: 0 items` on the first call.
+
+---
+
+*Everything below predates 2026-10-30 and is kept verbatim. Each paragraph was true when written, including the two confident claims that turned out wrong.*
+
+**observe proven live** (2026-10-20): a server was created directly over the API and the CR converged on it, reporting back the same id the POST returned (`6ad732b8`), which exercises the only two verbs it declares — `findby` and `get`. Before this the sample had only ever been applied against an empty collection, which proves nothing. Run it with `scripts/ga_cloudserver_observe.py`.
 
 **Create is NATIVE and wired as of 2026-10-28**, and the long note that used to stand here — that it was unreachable and quarantined under `tests/experimental/` — is obsolete. The create endpoint exists only in `compute-provider_v1.1.json`, so the verb carries a per-verb `oasPath` onto that document, which requires oasgen [#227](https://github.com/krateo-platformops/oasgen-provider/pull/227) (0.34.0); below it the field parses and is silently ignored and the create resolves against the 1.0 document, which has no POST for the path.
 
