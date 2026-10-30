@@ -43,7 +43,7 @@ env:
   #           and below this its PUT would silently drop `location` and `tags`
   # Both are REQUIREMENTS, not preferences: `profile` is in the provider list, so a
   # pin below 0.36.0 ships an AiKey that is wrong or absent. See scripts/providers.py.
-  OASGEN_VERSION: "0.36.0"
+  OASGEN_VERSION: "0.41.0"
 
 jobs:
   validate:

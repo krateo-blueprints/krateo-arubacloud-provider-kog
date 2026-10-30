@@ -18,16 +18,16 @@ the features these RestDefinitions rely on (nested identifiers, `fieldMapping`,
 
 | Component | Minimum | Why |
 |-----------|---------|-----|
-| `ghcr.io/krateo-platformops/oasgen-provider` | **0.36.0** | a hard floor: below 0.35.0 libopenapi cannot parse these OAS documents at all, and `metadata` properties are dropped from generated CRDs until [#236](https://github.com/krateo-platformops/oasgen-provider/issues/236) |
-| `ghcr.io/krateo-platformops/rest-dynamic-controller` | **0.36.0** | derived from the chart's `appVersion`, so not separately selectable |
-| chart `oci://ghcr.io/krateo-platformops/charts/oasgen-provider` | **0.36.0** | released in lockstep with the provider |
-| chart `oci://ghcr.io/krateo-platformops/charts/oasgen-provider-crds` | **0.36.0** | a **separate** install; without it there is no `RestDefinition` CRD |
+| `ghcr.io/krateo-platformops/oasgen-provider` | **0.41.0** | a hard floor: below 0.35.0 libopenapi cannot parse these OAS documents at all, and `metadata` properties are dropped from generated CRDs until [#236](https://github.com/krateo-platformops/oasgen-provider/issues/236) |
+| `ghcr.io/krateo-platformops/rest-dynamic-controller` | **0.41.0** | derived from the chart's `appVersion`, so not separately selectable |
+| chart `oci://ghcr.io/krateo-platformops/charts/oasgen-provider` | **0.41.0** | released in lockstep with the provider |
+| chart `oci://ghcr.io/krateo-platformops/charts/oasgen-provider-crds` | **0.41.0** | a **separate** install; without it there is no `RestDefinition` CRD |
 
 ```sh
 helm install oasgen-provider-crds oci://ghcr.io/krateo-platformops/charts/oasgen-provider-crds \
-  --version 0.36.0 --namespace krateo-system --create-namespace
+  --version 0.41.0 --namespace krateo-system --create-namespace
 helm install oasgen-provider oci://ghcr.io/krateo-platformops/charts/oasgen-provider \
-  --version 0.36.0 --namespace krateo-system
+  --version 0.41.0 --namespace krateo-system
 ```
 
 > **Install from `krateo-platformops`, not from anywhere else.** oasgen-provider is
@@ -37,7 +37,7 @@ helm install oasgen-provider oci://ghcr.io/krateo-platformops/charts/oasgen-prov
 > ([oasgen#278](https://github.com/krateo-platformops/oasgen-provider/issues/278)),
 > and the unhyphenated `krateoplatformops` org still resolves but is abandoned with
 > a disjoint tag range. The chart derives `rdc.image.tag` from its own `appVersion`,
-> so on 0.36.0 the two images can no longer drift apart — a chart version *is* the
+> so on 0.41.0 the two images can no longer drift apart — a chart version *is* the
 > pair it ships. On the pre-monorepo charts they could, and chart 0.9.18 shipped
 > oasgen 0.18.0 against RDC 0.16.1, on which these manifests are accepted and then
 > fail **silently** (`handleParam` ignored; delegated deletes receive no spec).
