@@ -115,14 +115,37 @@ KEEP="${KEEP:-1}"
 say() { printf '\n=== %s ===\n' "$*"; }
 # Split registry/repository:tag into --set arguments for one of the chart's image
 # blocks ("image" or "rdc.image"). Appends to the HELM_SETS array.
+# Split an image ref into registry/repository/tag for the chart's values.
+#
+# A ref with NO registry -- e.g. `rest-dynamic-controller:261-candidate`, which is
+# what `docker build -t` produces by default -- has no `/`, so both ${ref%%/*} and
+# ${ref#*/} return the WHOLE string: registry and repository would each become
+# `rest-dynamic-controller`, and the chart would render
+# `rest-dynamic-controller/rest-dynamic-controller:261-candidate`, which does not
+# exist. The symptom is an ImagePullBackOff on an image that is present on the node,
+# and the hunt starts in the wrong place.
+#
+# Latent until someone passes a locally built tag, which is exactly when this is used:
+# testing an unreleased controller fix. Found while running oasgen's #261 candidate,
+# and worked around at the time by retagging under the expected repository -- fixed
+# properly here so the next person does not need to know.
 img_sets() {
   local prefix="$1" ref="$2" reg repo tag
   tag="${ref##*:}"
   ref="${ref%:*}"
-  reg="${ref%%/*}"
-  repo="${ref#*/}"
-  HELM_SETS+=(--set "${prefix}.registry=${reg}"
-              --set "${prefix}.repository=${repo}"
+  case "$ref" in
+    */*) reg="${ref%%/*}"; repo="${ref#*/}" ;;
+    *)   # no registry component: the whole ref is the repository
+         reg=""; repo="$ref" ;;
+  esac
+  if [ -n "$reg" ]; then
+    HELM_SETS+=(--set "${prefix}.registry=${reg}")
+  else
+    # The chart joins registry and repository with a slash, so an empty registry must
+    # be passed explicitly as empty rather than left at the chart's default.
+    HELM_SETS+=(--set-string "${prefix}.registry=")
+  fi
+  HELM_SETS+=(--set "${prefix}.repository=${repo}"
               --set "${prefix}.tag=${tag}"
               --set "${prefix}.pullPolicy=Never")
 }
@@ -167,9 +190,30 @@ trap cleanup EXIT
 for bin in kind helm kubectl python3; do
   command -v "$bin" >/dev/null || die "$bin is not on PATH"
 done
-kubectl --kubeconfig "$SRC_KUBECONFIG" --context "$SRC_CTX" \
-  get secret aruba-client-credentials -n krateo-system \
-  >/dev/null 2>&1 || die "no aruba-client-credentials in ${SRC_CTX}/krateo-system to copy"
+# Distinguish "the credential is absent" from "the source cluster did not answer".
+# These are different problems with different fixes, and `>/dev/null 2>&1 || die`
+# reported both as the first: the evidence cluster's apiserver intermittently returns
+#     Unable to connect to the server: net/http: TLS handshake timeout
+# under load, and a run aborted claiming the credential did not exist while it was
+# sitting there, 9 days old, two keys. The third instance today of a check that cannot
+# tell a failed question from a negative answer -- see docs/coverage.md, "What does
+# not count as evidence".
+#
+# stderr is CAPTURED rather than discarded, so the message can be shown and matched.
+src_err=$(kubectl --kubeconfig "$SRC_KUBECONFIG" --context "$SRC_CTX" \
+  get secret aruba-client-credentials -n krateo-system 2>&1 >/dev/null)
+if [ -n "$src_err" ]; then
+  case "$src_err" in
+    *NotFound*|*"not found"*)
+      die "no aruba-client-credentials in ${SRC_CTX}/krateo-system to copy
+  The credential is genuinely absent. Create it with scripts/eso-bootstrap.sh." ;;
+    *)
+      die "could not ASK ${SRC_CTX} whether aruba-client-credentials exists:
+    ${src_err}
+  This is not the same as the credential being missing. The evidence cluster's
+  apiserver is unreachable or overloaded -- check it is running and retry." ;;
+  esac
+fi
 
 say "creating ${CLUSTER} on ${NODE_IMAGE}"
 if kind get clusters 2>/dev/null | grep -qx "$CLUSTER"; then
@@ -338,13 +382,33 @@ if [ "$WITH_SNOWPLOW" = "1" ]; then
     || die "could not create the arubacloud-endpoint Secret"
   unset SP_TOKEN
   say "applying the CloudServer RESTActions"
-  kubectl --context "$CTX" apply -n krateo-system -f restactions/compute/ \
-    --prune=false >/dev/null 2>&1 \
-    || kubectl --context "$CTX" apply -n krateo-system \
-         -f restactions/compute/cloudserver-create.restaction.yaml \
-         -f restactions/compute/cloudserver-update.restaction.yaml \
-         -f restactions/compute/cloudserver-delete.restaction.yaml >/dev/null \
-    || die "RESTActions failed to apply -- expected kind RESTAction (templates.krateo.io/v1) from snowplow-crds"
+  # NAMED FILES, never `-f restactions/compute/`. That directory also contains
+  # endpoint.yaml -- the Secret, shipping `token: REPLACE_WITH_ARUBA_JWT` because a
+  # live token must never be committed -- so a directory apply OVERWRITES the
+  # endpoint Secret built from the ESO token eight lines above, with the placeholder.
+  #
+  # It used to do exactly that, behind `>/dev/null 2>&1 ||` with a named-file apply as
+  # the fallback. The first command SUCCEEDS (every file is valid), so the fallback
+  # never ran, the clobber was silent, and the swallowed stderr meant there was
+  # nothing to notice. A delegated call would then authenticate to snowplow correctly
+  # and fail at Aruba with a bogus bearer token -- an auth failure two layers from
+  # its cause.
+  #
+  # Found by an audit prompted by a peer's finding about checks that cannot fail:
+  # `|| fallback` with stderr discarded is not a safety net, it is a way to not know.
+  for f in restactions/compute/cloudserver-create.restaction.yaml \
+           restactions/compute/cloudserver-update.restaction.yaml \
+           restactions/compute/cloudserver-delete.restaction.yaml; do
+    kubectl --context "$CTX" apply -n krateo-system -f "$f" >/dev/null \
+      || die "RESTAction ${f} failed to apply -- expected kind RESTAction (templates.krateo.io/v1) from snowplow-crds"
+  done
+  # And prove the Secret still holds a real token rather than the placeholder, because
+  # the whole point of the above is that this can be clobbered without a word.
+  if kubectl --context "$CTX" get secret arubacloud-endpoint -n krateo-system \
+       -o jsonpath='{.data.token}' 2>/dev/null | base64 --decode \
+       | grep -q 'REPLACE_WITH_ARUBA_JWT'; then
+    die "the arubacloud-endpoint Secret holds the committed PLACEHOLDER, not a live token"
+  fi
 fi
 
 HELM_SETS=()
@@ -458,11 +522,20 @@ say "applying OAS ConfigMaps and RestDefinitions"
 # deploys each generated controller into its RestDefinition's namespace.
 kubectl --context "$CTX" apply -n krateo-system -f configmaps/ >/dev/null \
   || die "configmaps failed"
-# -R, as CI does: restdefinitions/ is one directory per provider, and without it
-# kubectl refuses the directory outright ("recognized file extensions are ...").
 [ "$RESTDEFS_DIR" = "restdefinitions/" ] || say "RestDefinitions from ${RESTDEFS_DIR}"
-kubectl --context "$CTX" apply -n krateo-system -R -f "$RESTDEFS_DIR" >/dev/null \
-  || die "restdefinitions failed"
+
+# ONLY the RestDefinitions this chain needs, by default.
+#
+# Applying all 36 spawns 36 controller Deployments, and a single kind node cannot
+# bring them up together: pods wedge in ContainerCreating with
+#     Timeout waiting for systemd to create kubelet-kubepods-besteffort-pod<...>.slice
+# and it gets WORSE while you wait -- 29 stuck, not 29 draining. The node is not
+# short of CPU or memory when this happens (36% and 27% allocated), so it reads like
+# a provider fault and is not one. One chain never needs more than a handful.
+#
+# RESTDEFS_SCOPE=all restores applying every definition, which is what CI's smoke
+# test wants: there, applying all of them IS the test.
+RESTDEFS_SCOPE="${RESTDEFS_SCOPE:-chain}"
 
 say "waiting for the controllers ${CHAIN} needs"
 # Derived from the chain itself rather than hardcoded, so this works for any chain
@@ -475,6 +548,46 @@ c = yaml.safe_load(open('$CHAIN'))
 print(' '.join(sorted({r['kind'].lower() for r in (c.get('resources') or [])})))
 ") || die "could not read kinds from $CHAIN"
 echo "    kinds: ${KINDS}"
+
+if [ "$RESTDEFS_SCOPE" = "all" ]; then
+  # -R: restdefinitions/ is one directory per provider, and without it kubectl
+  # refuses the directory outright ("recognized file extensions are ...").
+  say "applying EVERY RestDefinition (RESTDEFS_SCOPE=all)"
+  kubectl --context "$CTX" apply -n krateo-system -R -f "$RESTDEFS_DIR" >/dev/null \
+    || die "restdefinitions failed"
+else
+  # The kind -> file mapping is read from each file's spec.resource.kind, NOT from
+  # its filename, so renaming a generated file cannot silently drop a definition the
+  # chain needs. Values arrive through the environment rather than being interpolated
+  # into the program text: KINDS is shell-built, and quoting it into a Python literal
+  # is how this got written wrong the first time.
+  RD_FILES=$(KINDS="$KINDS" RESTDEFS_DIR="$RESTDEFS_DIR" python3 -c '
+import glob, os, sys, yaml
+wanted = {k.strip().lower() for k in os.environ["KINDS"].split()}
+hits, seen = [], set()
+for f in sorted(glob.glob(os.path.join(os.environ["RESTDEFS_DIR"], "**", "*.yaml"), recursive=True)):
+    for doc in yaml.safe_load_all(open(f)):
+        if not doc or doc.get("kind") != "RestDefinition":
+            continue
+        k = ((doc.get("spec") or {}).get("resource") or {}).get("kind", "")
+        if k.lower() in wanted:
+            hits.append(f)
+            seen.add(k.lower())
+missing = wanted - seen
+if missing:
+    sys.stderr.write("no RestDefinition declares kind(s): " + ", ".join(sorted(missing)) + "\n")
+    sys.exit(1)
+print("\n".join(hits))
+') || die "could not map the chain's kinds onto RestDefinitions in ${RESTDEFS_DIR}"
+  say "applying only what the chain needs, not every definition"
+  printf '%s\n' "$RD_FILES" | sed 's|^|    |'
+  # One -f per file: a chain's definitions live in different provider directories.
+  APPLY_ARGS=()
+  while IFS= read -r f; do [ -n "$f" ] && APPLY_ARGS+=(-f "$f"); done <<< "$RD_FILES"
+  kubectl --context "$CTX" apply -n krateo-system "${APPLY_ARGS[@]}" >/dev/null \
+    || die "restdefinitions failed"
+fi
+
 for kind in $KINDS; do
   for i in $(seq 1 40); do
     # Anchored on `-<kind>-controller$`: a bare `-vpc` also matches
@@ -631,15 +744,40 @@ say "applying the generated Configurations (and ONLY those)"
 # is gone (the kind is `ScheduledJob` now), but the hazard is not: any resource oasgen
 # declines to generate takes the whole run down with it. Each failure is named instead,
 # and the run only dies if a configuration THIS CHAIN references is among them.
+# Under RESTDEFS_SCOPE=chain only the chain's CRDs exist, so applying all 36
+# configurations means 31 of them fail ONE AT A TIME through API discovery -- slow,
+# noisy, and correctly non-fatal but for a reason that no longer applies. The set the
+# chain actually needs is derived from the same `configurationRef`s the check below
+# verifies, so it drives the apply too instead of filtering failures afterwards.
+if [ "$RESTDEFS_SCOPE" = "all" ]; then
+  CFG_FILES=$(find samples -name '*-configuration.yaml' | sort)
+else
+  CFG_FILES=$(CHAIN="$CHAIN" python3 -c '
+import glob, os, sys, yaml
+chain = yaml.safe_load(open(os.environ["CHAIN"]))
+kinds = {r["kind"].lower() for r in (chain.get("resources") or [])}
+hits, seen = [], set()
+for f in sorted(glob.glob("samples/**/*-configuration.yaml", recursive=True)):
+    k = os.path.basename(f)[: -len("-configuration.yaml")].lower()
+    if k in kinds:
+        hits.append(f); seen.add(k)
+missing = kinds - seen
+if missing:
+    sys.stderr.write("no configuration sample for kind(s): " + ", ".join(sorted(missing)) + "\n")
+    sys.exit(1)
+print("\n".join(hits))
+') || die "could not map the chain's kinds onto configuration samples"
+fi
 applied=0 missing=""
 while IFS= read -r f; do
+  [ -n "$f" ] || continue
   if kubectl --context "$CTX" apply -n default -f "$f" >/dev/null 2>&1; then
     applied=$((applied + 1))
   else
     missing="${missing} $(basename "$f")"
   fi
-done < <(find samples -name '*-configuration.yaml' | sort)
-echo "    applied ${applied}"
+done <<< "$CFG_FILES"
+echo "    applied ${applied} of $(printf '%s\n' "$CFG_FILES" | grep -c .)"
 [ -n "$missing" ] && echo "    NOT applied (no CRD -- fatal only if the chain needs it):${missing}"
 python3 - "$CHAIN" <<'EOF' || die "a configuration this chain references did not apply"
 import sys, yaml

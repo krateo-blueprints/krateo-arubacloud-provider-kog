@@ -15,7 +15,7 @@ Runnable, self-contained walkthroughs live under
 
 | Example | What it does |
 |---------|--------------|
-| [network-environment](../examples/network-environment/README.md) | Provisions a complete Aruba environment (`Vpc` + `Subnet` + `SecurityGroup` + `CloudServer` + their Configurations) from one input set, via the `aruba-network-environment` Composition |
+| [network-environment](../examples/network-environment/README.md) | Provisions an Aruba network environment (`Vpc` + `Subnet` + `SecurityGroup` + their Configurations) from one input set, via the `aruba-network-environment` Composition. `CloudServer` is deliberately excluded — its delegated update/delete need four prerequisites a Composition cannot assume |
 
 ## Per-resource samples
 

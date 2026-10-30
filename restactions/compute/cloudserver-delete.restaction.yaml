@@ -1,3 +1,45 @@
+# STAGE FILTER INPUT IS AN ENVELOPE, NOT THE RESPONSE BODY.
+# A `filter` is evaluated on `{ "extras": <request extras>, "<stage name>": <body> }`
+# (plus `slice` when paginated) -- snowplow's internal/resolvers/restactions/api
+# handler.go, jsonHandlerCore. So inside a filter:
+#     .spec.metadata.name   -> null      ; it lives at .extras.spec.metadata.name
+#     .values               -> absent    ; it lives at .<stage name>.values
+# jq resolves both to null SILENTLY, so the filter returns a well-formed result that
+# is simply always empty, the stage reports success, and X-Snowplow-Stage-Outcomes
+# comes back `[]` -- because that header lists only stages that did NOT succeed.
+#
+# This is what stranded a real billable CloudServer: `$n` was null on every call, so
+# `select(.metadata.name == $n)` matched nothing, `self` was null, both downstream
+# iterators yielded `[]`, and NO REQUEST WAS EVER SENT. Diagnosed with the snowplow
+# session as snowplow#997 and confirmed live with a probe filter of `{ k: keys, ... }`,
+# which returned k = ["extras","server"].
+#
+# NOTE the three DIFFERENT input shapes in this one file. Confusing them is exactly
+# how this happened:
+#   path                -> the resolver dict (a copy of extras):  .spec.projectId
+#   filter              -> the ENVELOPE above:                    .extras.spec…  .<stage>.…
+#   dependsOn.iterator  -> the resolver dict:                     .server.self
+# THE IDENTIFIER IS `metadata.id`, NOT `.id`. Getting this wrong does not fail — it
+# silently does NOTHING, and it stranded a real billable server on 2026-10-29.
+#
+# A collection item from this API has exactly three top-level keys —
+# {metadata, properties, status} — and the id lives at `metadata.id`. Every iterator
+# here used to test `$s.id`, which is therefore always null, so each one yielded `[]`
+# and NO REQUEST WAS EVER SENT. The stage then *succeeds over zero items*, Snowplow
+# answers 200, and `X-Snowplow-Stage-Outcomes` comes back `[]` — identical to the
+# header you get when there is genuinely nothing to do. RDC then retries forever with
+# `delete of <name> did not remove the external resource, which is still present`,
+# so the CR wedges on its finalizer while the server bills indefinitely.
+#
+# It was measured, not reasoned: with the server live and Active, `/call` on this
+# RESTAction returned `200` with `X-Snowplow-Stage-Outcomes: []`, and a single
+# hand-issued DELETE against the same id removed the server at once. The API was fine;
+# the iterator never produced an id to send.
+#
+# Verified with jq against the real response shape:
+#   $s.id          -> []                              (nothing sent)
+#   $s.metadata.id -> ["6ae371f0421edd1e97fcd0d0"]    (the DELETE fires)
+#
 # CloudServer DELETE (teardown) — delegated from the CloudServer RestDefinition
 # via `deleteApiRef`. The controller holds the finalizer until the server is
 # verifiably gone, and re-invokes this on every reconcile, so it MUST be
@@ -31,8 +73,8 @@ spec:
         - "Accept: application/json"
       continueOnError: true
       filter: >-
-        .spec.metadata.name as $n
-        | { self: ((.values // []) | map(select(.metadata.name == $n)) | .[0]) }
+        .extras.spec.metadata.name as $n
+        | { self: ((.server.values // []) | map(select(.metadata.name == $n)) | .[0]) }
 
     # Detach any attached data volumes first (skipped when there are none).
     - name: detachVolumes
@@ -44,11 +86,11 @@ spec:
         iterator: >-
           (.server.self // {}) as $s
           | (($s.properties.dataVolumes // []) | map(.uri // .)) as $vols
-          | if $s.id != null and ($vols | length) > 0
-            then [ { id: $s.id, detach: $vols } ] else [] end
+          | if $s.metadata.id != null and ($vols | length) > 0
+            then [ { id: $s.metadata.id, detach: $vols, projectId: .spec.projectId } ] else [] end
       verb: POST
       continueOnError: true
-      path: ${ "/projects/" + $.spec.projectId + "/providers/Aruba.Compute/cloudServers/" + .id + "/attachDetachDataVolumes?api-version=1.0" }
+      path: ${ "/projects/" + .projectId + "/providers/Aruba.Compute/cloudServers/" + .id + "/attachDetachDataVolumes?api-version=1.0" }
       headers:
         - "Content-Type: application/json"
       payload: |
@@ -148,7 +190,8 @@ spec:
         name: server
         iterator: >-
           (.server.self // {}) as $s
-          | if $s.id != null then [ $s.id ] else [] end
+          | if $s.metadata.id != null
+            then [ { id: $s.metadata.id, projectId: .spec.projectId } ] else [] end
       verb: DELETE
       continueOnError: true
-      path: ${ "/projects/" + $.spec.projectId + "/providers/Aruba.Compute/cloudServers/" + . + "?api-version=1.0" }
+      path: ${ "/projects/" + .projectId + "/providers/Aruba.Compute/cloudServers/" + .id + "?api-version=1.0" }

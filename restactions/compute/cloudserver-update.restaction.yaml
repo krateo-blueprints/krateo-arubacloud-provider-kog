@@ -1,3 +1,24 @@
+# STAGE FILTER INPUT IS AN ENVELOPE, NOT THE RESPONSE BODY.
+# A `filter` is evaluated on `{ "extras": <request extras>, "<stage name>": <body> }`
+# (plus `slice` when paginated) -- snowplow's internal/resolvers/restactions/api
+# handler.go, jsonHandlerCore. So inside a filter:
+#     .spec.metadata.name   -> null      ; it lives at .extras.spec.metadata.name
+#     .values               -> absent    ; it lives at .<stage name>.values
+# jq resolves both to null SILENTLY, so the filter returns a well-formed result that
+# is simply always empty, the stage reports success, and X-Snowplow-Stage-Outcomes
+# comes back `[]` -- because that header lists only stages that did NOT succeed.
+#
+# This is what stranded a real billable CloudServer: `$n` was null on every call, so
+# `select(.metadata.name == $n)` matched nothing, `self` was null, both downstream
+# iterators yielded `[]`, and NO REQUEST WAS EVER SENT. Diagnosed with the snowplow
+# session as snowplow#997 and confirmed live with a probe filter of `{ k: keys, ... }`,
+# which returned k = ["extras","server"].
+#
+# NOTE the three DIFFERENT input shapes in this one file. Confusing them is exactly
+# how this happened:
+#   path                -> the resolver dict (a copy of extras):  .spec.projectId
+#   filter              -> the ENVELOPE above:                    .extras.spec…  .<stage>.…
+#   dependsOn.iterator  -> the resolver dict:                     .server.self
 # CloudServer UPDATE (day-2) — delegated from the CloudServer RestDefinition via
 # `updateApiRef`. This is the part that genuinely cannot be a single CRUD verb:
 # power state and the set of associated subnets / security groups / elastic IPs /
@@ -32,8 +53,8 @@ spec:
       headers:
         - "Accept: application/json"
       filter: >-
-        .spec.metadata.name as $n
-        | { self: ((.values // []) | map(select(.metadata.name == $n)) | .[0]) }
+        .extras.spec.metadata.name as $n
+        | { self: ((.server.values // []) | map(select(.metadata.name == $n)) | .[0]) }
 
     # 2. Ensure powered on (skipped when already running).
     - name: powerOn
@@ -44,12 +65,12 @@ spec:
         name: server
         iterator: >-
           (.server.self // {}) as $s
-          | if ($s.id != null and $s.status.state != "Active")
-            then [ $s.id ] else [] end
+          | if ($s.metadata.id != null and $s.status.state != "Active")
+            then [ { id: $s.metadata.id, projectId: .spec.projectId } ] else [] end
       verb: POST
       continueOnError: true
       # `.` is the server id string here.
-      path: ${ "/projects/" + $.spec.projectId + "/providers/Aruba.Compute/cloudServers/" + . + "/poweron?api-version=1.0" }
+      path: ${ "/projects/" + .projectId + "/providers/Aruba.Compute/cloudServers/" + .id + "/poweron?api-version=1.0" }
 
     # 3. Reconcile associated subnets in a single call (associate the missing,
     #    disassociate the extra). Runs only when there is a delta.
@@ -65,11 +86,11 @@ spec:
           | (($s.properties.subnets // []) | map(.uri // .)) as $current
           | ($desired - $current) as $add
           | ($current - $desired) as $del
-          | if $s.id != null and (($add | length) > 0 or ($del | length) > 0)
-            then [ { id: $s.id, add: $add, del: $del } ] else [] end
+          | if $s.metadata.id != null and (($add | length) > 0 or ($del | length) > 0)
+            then [ { id: $s.metadata.id, add: $add, del: $del, projectId: .spec.projectId } ] else [] end
       verb: POST
       continueOnError: true
-      path: ${ "/projects/" + $.spec.projectId + "/providers/Aruba.Compute/cloudServers/" + .id + "/associateDisassociateSubnets?api-version=1.0" }
+      path: ${ "/projects/" + .projectId + "/providers/Aruba.Compute/cloudServers/" + .id + "/associateDisassociateSubnets?api-version=1.0" }
       headers:
         - "Content-Type: application/json"
       payload: |
@@ -88,11 +109,11 @@ spec:
           | (($s.properties.securityGroups // []) | map(.uri // .)) as $current
           | ($desired - $current) as $add
           | ($current - $desired) as $del
-          | if $s.id != null and (($add | length) > 0 or ($del | length) > 0)
-            then [ { id: $s.id, add: $add, del: $del } ] else [] end
+          | if $s.metadata.id != null and (($add | length) > 0 or ($del | length) > 0)
+            then [ { id: $s.metadata.id, add: $add, del: $del, projectId: .spec.projectId } ] else [] end
       verb: POST
       continueOnError: true
-      path: ${ "/projects/" + $.spec.projectId + "/providers/Aruba.Compute/cloudServers/" + .id + "/associateDisassociateSecurityGroups?api-version=1.0" }
+      path: ${ "/projects/" + .projectId + "/providers/Aruba.Compute/cloudServers/" + .id + "/associateDisassociateSecurityGroups?api-version=1.0" }
       headers:
         - "Content-Type: application/json"
       payload: |
@@ -111,11 +132,11 @@ spec:
           | (($s.properties.dataVolumes // []) | map(.uri // .)) as $current
           | ($desired - $current) as $attach
           | ($current - $desired) as $detach
-          | if $s.id != null and (($attach | length) > 0 or ($detach | length) > 0)
-            then [ { id: $s.id, attach: $attach, detach: $detach } ] else [] end
+          | if $s.metadata.id != null and (($attach | length) > 0 or ($detach | length) > 0)
+            then [ { id: $s.metadata.id, attach: $attach, detach: $detach, projectId: .spec.projectId } ] else [] end
       verb: POST
       continueOnError: true
-      path: ${ "/projects/" + $.spec.projectId + "/providers/Aruba.Compute/cloudServers/" + .id + "/attachDetachDataVolumes?api-version=1.0" }
+      path: ${ "/projects/" + .projectId + "/providers/Aruba.Compute/cloudServers/" + .id + "/attachDetachDataVolumes?api-version=1.0" }
       headers:
         - "Content-Type: application/json"
       payload: |

@@ -6,9 +6,12 @@ description: >-
   RestDefinitions in this repository. Every field it sends is derived from the
   vendored OAS by scripts/gen_composition.py, and CI applies the rendered chart
   against the generated CRDs so it cannot drift from them.
-  CloudServer is deliberately not included: its create lives only in
-  compute-provider_v1.1.json and is unreachable until oasgen#227 ships, so a
-  composition could create the object but not give it a flavor or boot volume.
+  CloudServer is deliberately not included, and the original reason no longer
+  applies: oasgen#227 shipped in 0.34.0 and its create is proven live. It stays
+  out because its update and delete are delegated to Snowplow RESTActions, which
+  need four prerequisites the oasgen-provider chart does not provide, and because
+  create is refused on a trial account with no way to check eligibility first.
+  See scripts/gen_composition.py's KINDS comment for the full reasoning.
 type: application
 version: CHART_VERSION
 appVersion: "1.0.0"

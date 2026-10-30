@@ -8,6 +8,16 @@ timestamp: 2026-10-15T00:00:00Z
 
 # Live-cluster test
 
+> [!IMPORTANT]
+> **Dated evidence — every version on this page is historical by design.** Each
+> section records what a specific release proved on a specific date, and the numbers
+> are left exactly as measured so the record stays usable. **Do not install from any
+> version named here.** The current pin is `OASGEN_VERSION` in
+> `.github/workflows/validate.yaml`, and it is a hard floor: the earliest versions on
+> this page are *below* it, where libopenapi cannot parse these OAS documents at all.
+> For an install, use [Getting started](getting-started.md) or the
+> [README](../README.md).
+
 Everything in this repository had been validated statically until this run. This
 page records what a real cluster proved against the **live Aruba Cloud API**,
 and — more usefully — the **five defects static validation could not have
@@ -274,6 +284,10 @@ What remains unexercised:
 - The other 30 resource kinds: only `Subnet` was driven through a full lifecycle.
 
 ## Reproducing
+
+> Pinned to **0.21.1** on purpose: this reproduces the 2026-08-31 run above, not a
+> current one. To validate the repository as it stands, use `scripts/pin_verify.sh`,
+> which reads the live pin rather than a literal.
 
 ```sh
 kind create cluster --name aruba-kog-test
@@ -2542,3 +2556,140 @@ any project — neither verb, anywhere. Both stay experimental, but the question
 Aruba is now specific: *these paths are in your published OAS documents; are they
 deployed?* That is a different question from "may we have access", and only one of
 them has an answer we can act on.
+
+## The four prerequisites `*ApiRef` delegation needs, and the proof they are enough (2026-10-28)
+
+`CloudServer` delegates update and delete to Snowplow RESTActions. Those RESTActions
+had been in this repository for weeks and had **never executed anywhere**. This is the
+run that made them execute, and the reason it took so long is that the prerequisites
+are discovered one at a time, each invisible until the one before it is satisfied.
+
+| # | Missing | Symptom |
+|---|---|---|
+| 1 | `rdc.env.URL_SNOWPLOW` | empty means **disabled**; `mutate_restaction.go` hard-errors `no snowplow client is configured` and the CR wedges on its finalizer |
+| 2 | `rdc.env.URL_AUTHN` | snowplow `401 {"message":"missing authorization header"}` |
+| 3 | a projected `serviceAccountToken`, `audience: authn`, at `/var/run/secrets/krateo.io/serviceaccount` | the authn exchange fails before snowplow is called |
+| 4 | a `serviceaccount.authn.krateo.io` CR matching the controller's SA, **plus RBAC for its groups** | authn refuses with `403`; the CR's existence IS the allowlist |
+
+**Proven sufficient for a CALLER — and this is a correction to what this section
+first claimed.** A probe pod using RDC's own mechanism (an `audience: authn` projected
+token exchanged at `/serviceaccount/login`, then the JWT to `/call`) authenticated and
+received valid `X-Snowplow-Stage-Outcomes`. That is real evidence that the four-part
+set is enough to reach and be served by snowplow.
+
+What it is **not** is evidence that RDC itself can delegate. This section originally
+said "with all four present, no 401, no 403 and no missing-token error anywhere in
+~20k lines of controller log" — true, and worthless: RDC never called snowplow at all.
+Verification fails before the delegated delete is dispatched when the id is missing
+(oasgen#261), so those absences are absences on a path that was never walked. One
+`observeApiRef resolution enabled` at startup is the only snowplow line in the run.
+
+Two things that kept that from being obvious:
+
+* the `401`/`403` strings that *were* in the file are digits inside timestamp
+  nanoseconds, so a careless grep returns hits and a careful one returns nothing —
+  and "no matches" felt like a result;
+* `scripts/pin_verify.sh` was simultaneously **clobbering the endpoint Secret**. It
+  applied `-f restactions/compute/`, a directory that also contains `endpoint.yaml`
+  — the Secret shipping `token: REPLACE_WITH_ARUBA_JWT` — overwriting the live token
+  built from ESO eight lines above. Behind `>/dev/null 2>&1 ||` with a named-file
+  fallback that never ran, because the directory apply succeeded. So had RDC reached
+  snowplow, it would have authenticated correctly and then failed at Aruba with a
+  placeholder bearer token. Fixed, with an assertion that the Secret does not hold
+  the placeholder.
+
+Three things here cost a cluster build each, so they are written down:
+
+* **authn the DEPLOYMENT is required, not merely `authn-crds`.** An earlier version of
+  `pin_verify.sh` said otherwise, on the strength of snowplow coming up 1/1 with
+  `readyz` returning 200 and only the CRDs installed. That tested whether snowplow
+  **starts**, not whether it **answers**. Every `/call` route sits behind
+  `middleware.UserConfig`, which needs an authn-signed bearer token and the caller's
+  `<username>-clientconfig` Secret.
+* **The issued username is the ServiceAccount CR's `metadata.name`**, not the
+  Kubernetes ServiceAccount's name — and that username is what names the
+  `<username>-clientconfig` Secret authn writes on a successful login. Nobody creates
+  that Secret by hand; if it is absent after a delegated call, the LOGIN failed.
+* **The controller's ServiceAccount name must be READ, not constructed.** oasgen names
+  it `<plural>-<group>-v1alpha1` even where the CRD's served version is different —
+  `CloudServer`'s is `v1-0-0`, derived from `info.version`. A constructed name matches
+  nothing and the only symptom is a 403 from authn.
+
+Filed as [oasgen-provider#262](https://github.com/krateo-platformops/oasgen-provider/issues/262).
+The URLs are deliberately **not** written into the install docs as literals: the Krateo
+installer's `exposure.port` collapses component Services onto one shared port, so an
+address correct on one cluster is dead on another.
+
+## A failed create cannot be deleted — and the guard already exists (2026-10-28)
+
+The delegated delete never released the finalizer, and the reason turned out to have
+nothing to do with snowplow or with authentication.
+
+```
+ERROR Cannot delete external resource  kind=CloudServer event=delete
+      err="verifying deletion via get: missing path parameter: cloudServerId"
+```
+
+`status.metadata` was `null`, because the create had failed — Aruba refuses every
+flavor on a trial account. So the delete verification needs an id that can never come
+to exist, the loop never terminates, and the object cannot be removed without
+stripping its finalizer by hand. Ours sat with a `deletionTimestamp` for **eight
+hours**.
+
+**The control is what makes this a measurement rather than an anecdote.** A `Vpc`
+whose create also failed, with no `*ApiRef` anywhere, deletes cleanly:
+
+```
+INFO  External resource is not addressable, releasing finalizer without calling the API
+      op=Delete kind=Vpc name=wedge-probe
+INFO  Successfully requested deletion of external resource
+```
+
+Same cluster, same controller image, same `status.metadata: null`. So the
+not-addressable guard exists and works — it is simply not applied on the
+`deleteApiRef` path. That is
+[oasgen-provider#261](https://github.com/krateo-platformops/oasgen-provider/issues/261),
+scheduled for 0.41.0, and it is **not recoverable by fixing configuration**: the
+missing input is an id, not a setting. This answers a question that had been put the
+other way round — whether a wedged CR recovers once the env vars are set — and the
+answer is no, for a reason neither party had assumed.
+
+## snowplow #911 confirmed, and why our own fixture could not test it (2026-10-28)
+
+snowplow 1.12.57 skips a write stage whose `dependsOn` stage failed or was skipped.
+Our shipped `cloudserver-delete` RESTAction **cannot** exercise that, and the three
+reasons are worth keeping because none was obvious:
+
+1. a GET that answers 200 and whose filter matches nothing has **succeeded** —
+   "matched nothing" is not "failed";
+2. its write stages take their data through an **iterator** guarded on
+   `$s.id != null`, so they succeed over zero items rather than being skipped;
+3. all three stages carry `continueOnError: true`, which on a **write** means "send me
+   even if my dependency did not succeed" — it disables the skip outright.
+
+So `tests/experimental/snowplow-911/` adds a fixture that changes exactly two things:
+`server` requests a path the API genuinely answers **404** for
+(`Aruba.Baremetal/hpcs`, which 404s in every project on this account because the
+provider is not enabled — [Arubacloud/api#24](https://github.com/Arubacloud/api/issues/24)),
+and the writes carry no `continueOnError`.
+
+Both measured on the published image, digest asserted from the pod's `imageID` rather
+than trusted from the tag:
+
+| fixture | 1.12.57 | 1.12.58 |
+|---|---|---|
+| shipped `cloudserver-delete` | `[]` | `[]` |
+| `snowplow-911-probe` | `server: NotFound`, then two `Skipped` with `dependsOn: server` | identical |
+
+`/call` answers **200** in both cases: a failed stage and two skipped writes are
+diagnosed entirely in the `X-Snowplow-Stage-Outcomes` header, not in the status.
+
+Witnessed from outside both our logs: after every probe, Aruba's `cloudServers`
+collection was still `total=0`, so no write was dialled. The `delete` stage targets the
+real API with the real credential, so a spurious DELETE would have been visible there
+rather than merely absent from a log.
+
+**The rig installs no oasgen-provider at all.** `/call` is answered by snowplow, so
+the provider is an unrelated moving part — and 36 generated controllers on one kind
+node saturate the node's systemd, which is how the full-stack attempt died.
+
