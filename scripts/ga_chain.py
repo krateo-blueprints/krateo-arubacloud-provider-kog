@@ -35,6 +35,7 @@ last.
 
 import atexit
 import base64
+import glob
 import json
 import os
 import re
@@ -56,6 +57,7 @@ try:
 except Exception:
     pass
 
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CONTEXT = os.environ.get("KUBE_CONTEXT", "kind-aruba-ga")
 NS = os.environ.get("NS", "default")
 GROUP = "arubacloud.ogen.krateo.io"
@@ -325,6 +327,56 @@ def wait_settled(url, timeout=None):
         time.sleep(10)
 
 
+# The update method is DERIVED from the vendored OAS, not assumed to be PUT.
+#
+# This machinery hardcoded `api("PUT", ...)` at both drift call sites. Across the whole
+# vendored set, 29 item paths declare PUT and exactly ONE declares PATCH with no PUT:
+# `Aruba.Compute/cloudServers/{cloudServerId}`. So CloudServer's drift was PUTting to a
+# PATCH-only endpoint, and Aruba answered
+#     400 {"errors":[{"fieldName":"Flavor","errorMessage":"Please specify flavor."},
+#                    {"fieldName":"Product","errorMessage":"not found"}]}
+# which is CREATE-body validation -- the PUT was reaching a create-like handler. I read
+# those field names as an update defect in Aruba's API and was one command away from
+# filing it upstream, on three servers' worth of evidence for the wrong conclusion.
+# The error named the cause and I read it as the symptom.
+_OAS_CACHE = {}
+
+
+def _oas_docs():
+    """Every vendored OAS document, loaded once."""
+    if not _OAS_CACHE:
+        for f in sorted(glob.glob(os.path.join(ROOT, "openapi", "*.json"))):
+            try:
+                _OAS_CACHE[f] = json.load(open(f))
+            except Exception:
+                continue
+    return _OAS_CACHE
+
+
+def update_method(url):
+    """PUT or PATCH for this concrete URL, per the OAS. None if it declares neither.
+
+    Matches a concrete path against the templated ones: same segment count, and each
+    OAS segment either equals the concrete segment or is a `{placeholder}`. Returns
+    PUT when both exist, since that is what 29 of the 30 resources use and what every
+    existing drift assertion was proven against.
+    """
+    concrete = [seg for seg in url.split("?")[0].split("/") if seg]
+    for doc in _oas_docs().values():
+        for tmpl, ops in (doc.get("paths") or {}).items():
+            segs = [seg for seg in tmpl.split("/") if seg]
+            if len(segs) != len(concrete):
+                continue
+            if not all(t.startswith("{") or t == c for t, c in zip(segs, concrete)):
+                continue
+            verbs = {v.lower() for v in ops}
+            if "put" in verbs:
+                return "PUT"
+            if "patch" in verbs:
+                return "PATCH"
+    return None
+
+
 def _drift_explicit(kind, name, url, body, assertion):
     """Inject drift with an explicit PUT body and converge on one named field.
 
@@ -346,9 +398,12 @@ def _drift_explicit(kind, name, url, body, assertion):
             cur = cur.get(part)
         return cur
 
+    _m = update_method(url) or "PUT"
+    if _m != "PUT":
+        print(f"    drift: using {_m} — the OAS declares no PUT for this path")
     code, resp = None, None
     for _ in range(3):
-        code, resp = api("PUT", url, body)
+        code, resp = api(_m, url, body)
         if code in (200, 202, 204):
             break
         if not busy_refusal(resp):
@@ -403,6 +458,12 @@ def drift_check(kind, name, url, spec=None, drift_body=None, drift_assert=None):
     `tags: []`, and before 0.22.1 an empty list matched any remote list, so this
     assertion passed vacuously while the resource stayed diverged.
     """
+    # Same derivation as _drift_explicit: PUT is what 29 of 30 resources declare,
+    # but CloudServer declares PATCH and no PUT, and sending PUT there reaches a
+    # create-like handler that answers 400 about a missing Flavor.
+    _m = update_method(url) or "PUT"
+    if _m != "PUT":
+        print(f"    drift: using {_m} — the OAS declares no PUT for this path")
     # Ready on the CR does not mean writable upstream: the controller reports Ready as
     # soon as its observe succeeds, which can be while the resource is still Updating.
     code, body = wait_settled(url)
@@ -457,7 +518,7 @@ def drift_check(kind, name, url, spec=None, drift_body=None, drift_assert=None):
     shape, code, detail = None, None, None
     for label, cand in candidates:
         for _ in range(3):
-            code, resp = api("PUT", url, cand)
+            code, resp = api(_m, url, cand)
             if code in (200, 202, 204):
                 break
             detail = resp
