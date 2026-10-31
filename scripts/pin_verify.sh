@@ -866,6 +866,26 @@ case "${CHAIN_ARGS:-}" in
     ;;
 esac
 
+# SKIP_CHAIN builds the cluster, installs the RestDefinitions this chain names, applies
+# the Configurations, and STOPS -- for a chain that an external probe must drive rather
+# than ga_chain.py. tests/ga/chains/job.yaml is the case: it needs CS_ID, the id of a
+# CloudServer that a RestDefinition CANNOT create because its POST lives in the 1.1 OAS
+# document (oasgen#108), so scripts/ga_job_probe.py creates the server over the API,
+# runs the chain itself, and removes the server in a finally.
+#
+# This exists so that flow does not have to rely on the chain FAILING on an empty CS_ID
+# to leave a cluster behind. A setup step whose success condition is an error is not a
+# setup step.
+if [ "${SKIP_CHAIN:-0}" = "1" ]; then
+  say "SKIP_CHAIN=1 -- cluster ready, not running ${CHAIN}"
+  say "drive it yourself, e.g. KUBE_CONTEXT=${CTX} python3 -u scripts/ga_job_probe.py"
+  if [ "$KEEP" = "0" ]; then
+    say "NOTE: KEEP=0, so this cluster is deleted the moment this script exits."
+    say "      Set KEEP=1 if an external probe needs to reach it."
+  fi
+  exit 0
+fi
+
 say "running ${CHAIN} on the released stack"
 # CHAIN_ARGS carries flags through to the runner, e.g. --with-billable. Unquoted on
 # purpose so it word-splits into separate arguments.
