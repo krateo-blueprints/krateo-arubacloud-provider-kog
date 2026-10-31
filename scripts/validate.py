@@ -9,6 +9,7 @@
     `helm template` (skipped with a warning if the helm binary is absent).
 Exits non-zero if anything fails.
 """
+import ast
 import glob
 import hashlib
 import json
@@ -123,7 +124,7 @@ def main():
     verify_no_builtin_shadowing(errors)
     verify_restaction_filter_envelope(errors)
     verify_restaction_jq_compiles(errors)
-    verify_python_compiles_without_warnings(errors)
+    verify_no_return_in_finally(errors)
     charts = validate_charts(errors)
     validate_composition_generated(errors)
 
@@ -551,48 +552,75 @@ def verify_restaction_jq_compiles(errors):
         print(f"Compile-checked {checked} RESTAction jq expression(s).")
 
 
-def verify_python_compiles_without_warnings(errors):
-    """Every .py in this repo must compile with SyntaxWarning promoted to an error.
+def _returns_in_finally(src, filename):
+    """Line numbers of `return` statements lexically inside a `finally` block.
 
-    This exists because of a specific failure, and the point is the shape of it rather
-    than the bug. `scripts/ga_chain.py` had a `return` inside a `finally` block, which
-    silently swallows a propagating exception. Thirty lines above it, in the same
-    block, was a comment I had written:
+    Reads the TREE rather than relying on an interpreter warning, because the warning
+    is version-dependent and the defect is not: `'return' in a 'finally' block` only
+    arrived in Python 3.14, and CI runs 3.12. The first version of this gate asserted
+    the warning was detectable and CI failed with
+
+        AssertionError: the gate does NOT detect `return` in a `finally`
+
+    which is the self-test doing its job -- refusing to ship a gate that would have
+    protected nothing on the only interpreter that matters here. An AST walk works on
+    every version.
+
+    Does NOT descend into functions or classes defined inside the finally: a `return`
+    there belongs to that inner scope and is perfectly legal, which a naive
+    `ast.walk` would flag.
+    """
+    hits = []
+    tree = ast.parse(src, filename)
+    try_types = (ast.Try, ast.TryStar) if hasattr(ast, "TryStar") else (ast.Try,)
+    for node in ast.walk(tree):
+        if not isinstance(node, try_types):
+            continue
+        stack = list(node.finalbody)
+        while stack:
+            n = stack.pop()
+            if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef,
+                              ast.Lambda)):
+                continue
+            if isinstance(n, ast.Return):
+                hits.append(n.lineno)
+            stack.extend(ast.iter_child_nodes(n))
+    return sorted(hits)
+
+
+def verify_no_return_in_finally(errors):
+    """No .py in this repo may `return` from inside a `finally` block.
+
+    A `return` there swallows an exception that was propagating, turning a failed run
+    into a silent pass. `scripts/ga_chain.py` had one, thirty lines below a comment in
+    the same block that I had written explaining why not to:
 
         # Deliberately not `return`: returning from a finally block swallows an
         # exception that was propagating, turning a failed run into a silent pass.
 
-    The rule was documented in the file and then violated in the file. It was caught
-    only because Python 3.14 emitted a SyntaxWarning that happened to land in a log I
-    happened to read during a live billable run -- not by any check here.
+    The rule was documented in the file and then violated in the file, and it was
+    caught only because Python 3.14 emitted a warning that happened to land in a log I
+    happened to read during a live billable run. This is that rule converted from a
+    comment into a check -- a comment enforces nothing.
 
-    That is the fourth instance of one pattern between this session and the
-    openstack-nova-operator-kog session in a day: a hazard explained in a comment and
-    then not avoided in the function beside it. Their matching pair is a `_collides()`
-    docstring explaining why over-deriving plurals is deliberate, thirty lines from a
-    grep whose `[a-z.]` class silently truncated `status.server_group.id`. A comment
-    is documentation; it does not enforce anything. So the rules worth keeping get
-    converted into checks, and this is that conversion for one of them.
-
-    `-W error::SyntaxWarning` is what makes it a gate: it turns
-    `'return' in a 'finally' block` from a warning nobody reads into a SyntaxError.
+    Fourth instance of one pattern between this session and openstack-nova-operator-kog
+    in a day: a hazard explained in a comment and then not avoided in the function
+    beside it. Theirs was a `_collides()` docstring about deliberate over-derivation,
+    thirty lines from a grep whose `[a-z.]` class silently truncated
+    `status.server_group.id`.
     """
     # A screen that cannot detect a known-bad case is a function that returns false.
-    # Compile the exact pattern from a STRING -- not a file -- so the self-test needs
-    # no temp path and cannot be defeated by an import that breaks when the file moves,
-    # which is how an earlier negative test of mine proved nothing at all.
-    bad = "def f():\n    try:\n        return 0\n    finally:\n        return 1\n"
-    good = "def f():\n    rc = 0\n    try:\n        rc = 1\n    finally:\n        pass\n    return rc\n"
-    with warnings.catch_warnings():
-        warnings.simplefilter("error", SyntaxWarning)
-        try:
-            compile(bad, "<selftest>", "exec")
-            raise AssertionError("the gate does NOT detect `return` in a `finally`")
-        except SyntaxWarning:
-            pass
-        except SyntaxError:
-            pass          # 3.12+ raises it outright, which is the same protection
-        compile(good, "<selftest>", "exec")   # must NOT raise
+    # Both directions, and the two scope cases that a naive walk gets wrong.
+    assert _returns_in_finally(
+        "def f():\n    try:\n        return 0\n    finally:\n        return 1\n", "<t>") == [5]
+    assert _returns_in_finally(
+        "def f():\n    try:\n        return 1\n    finally:\n        pass\n", "<t>") == []
+    assert _returns_in_finally(
+        "def f():\n    try:\n        pass\n    finally:\n        def g():\n"
+        "            return 2\n", "<t>") == []          # inner scope: legal
+    assert _returns_in_finally(
+        "def f():\n    try:\n        pass\n    finally:\n        if 1:\n"
+        "            return 3\n", "<t>") == [6]         # nested in a block: still a hit
 
     checked = 0
     for f in sorted(glob.glob("scripts/**/*.py", recursive=True)
@@ -602,22 +630,19 @@ def verify_python_compiles_without_warnings(errors):
         except Exception as e:
             errors.append(f"{f}: unreadable ({e})")
             continue
+        try:
+            hits = _returns_in_finally(src, f)
+        except SyntaxError as e:
+            errors.append(f"{f}: does not parse -- {e}")
+            continue
         checked += 1
-        with warnings.catch_warnings(record=True) as caught:
-            warnings.simplefilter("always", SyntaxWarning)
-            try:
-                compile(src, f, "exec")
-            except SyntaxError as e:
-                errors.append(f"{f}: does not compile -- {e}")
-                continue
-        for w in caught:
-            if issubclass(w.category, SyntaxWarning):
-                errors.append(f"{f}:{w.lineno}: SyntaxWarning -- {w.message}. These "
-                              f"are promoted to errors here: a `return` in a `finally` "
-                              f"swallows a propagating exception and turns a failed "
-                              f"run into a silent pass.")
+        for ln in hits:
+            errors.append(
+                f"{f}:{ln}: `return` inside a `finally` block. It swallows an "
+                f"exception that was propagating and turns a failed run into a silent "
+                f"pass. Set a flag in the finally and return after the try/finally.")
     if checked:
-        print(f"Compiled {checked} Python file(s) with SyntaxWarning as an error.")
+        print(f"Checked {checked} Python file(s) for `return` in a `finally`.")
 
 
 def find_helm():
