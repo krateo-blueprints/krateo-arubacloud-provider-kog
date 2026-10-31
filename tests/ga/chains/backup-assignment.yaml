@@ -6,7 +6,22 @@
 # 2026-09-04; as of 2026-10-31 the `-b` pair is wedged identically -- `ga-bpa-b`
 # created 2026-10-23, still `Deleting`, DELETE -> 400 `Invalid status`. The
 # rename is therefore not cosmetic: findby matches by NAME, and reusing a wedged
-# name would adopt a dying resource exactly as described next. findby matches by NAME, so the chain ADOPTED the dying resources --
+# name would adopt a dying resource exactly as described next.
+#
+# THE VOLUME HAD TO BE RENAMED TOO, and the reason is the more interesting half.
+# Renaming only the policy and the assignment was not enough: the chain adopted the
+# leftover `ga-bpa-vol` by name, and that volume still carries the wedged
+# `ga-bpa-b`. Aruba refused the new assignment with
+#
+#   400 {"fieldName":"BackupPolicyAssignment",
+#        "errorMessage":"There is already a backup policy assigned to the resource"}
+#
+# for 34 minutes of retries. So a wedged assignment does not merely occupy its own
+# NAME -- it occupies its TARGET, permanently, and no further assignment can be made
+# to that volume. The volume reports `state=NotUsed` the whole time, so nothing in
+# its own status reveals the hold. Each attempt at this measurement therefore needs a
+# volume of its own, which is the real per-run cost: 20 GB hourly, stranded forever
+# if the delete does not complete. findby matches by NAME, so the chain ADOPTED the dying resources --
 # the CR reported Ready against something in `Deleting`.
 #
 # That was fixed in two steps, and the first was only half a fix: renaming the policy
@@ -63,13 +78,13 @@ residue:
   - /projects/${PROJECT}/providers/Aruba.Storage/blockStorages
 resources:
   - kind: BlockStorage
-    name: ga-bpa-vol
+    name: ga-bpa-vol-c
     self: /projects/${PROJECT}/providers/Aruba.Storage/blockStorages/${id:self}
     billable: true
     spec:
       configurationRef: {name: blockstorage-config, namespace: default}
       projectId: "${PROJECT}"
-      metadata: {name: ga-bpa-vol, location: {value: "${LOCATION}"}, tags: []}
+      metadata: {name: ga-bpa-vol-c, location: {value: "${LOCATION}"}, tags: []}
       properties:
         sizeGb: 20
         billingPeriod: Hour
@@ -99,5 +114,5 @@ resources:
         backupPolicy:
           uri: "/projects/${PROJECT}/providers/Aruba.Schedule/backupPolicies/${id:ga-bpa-policy-c}"
         resource:
-          uri: "/projects/${PROJECT}/providers/Aruba.Storage/blockStorages/${id:ga-bpa-vol}"
+          uri: "/projects/${PROJECT}/providers/Aruba.Storage/blockStorages/${id:ga-bpa-vol-c}"
     drift: /projects/${PROJECT}/providers/Aruba.Schedule/backupPolicyAssignments/${id:self}
