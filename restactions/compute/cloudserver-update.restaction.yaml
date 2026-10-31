@@ -141,3 +141,46 @@ spec:
         - "Content-Type: application/json"
       payload: |
         ${ { volumesToAttach: .attach, volumesToDetach: .detach } }
+    # 6. Reconcile metadata.tags.
+    #
+    # Added 2026-10-30 after the live run showed drift was UNTESTABLE on this resource:
+    # the item PATCH accepts only metadata.{location,name,tags} and
+    # properties.variant, while the four stages above reconcile state, subnets,
+    # securityGroups and dataVolumes -- every one of them through a POST action
+    # sub-path. The two sets were DISJOINT, so no perturbation existed that this
+    # action would correct, and the probe's generic tag trick injected a tag nothing
+    # reconciled. `DRIFT NOT CORRECTED` was a true observation about a test asking the
+    # wrong question.
+    #
+    # This closes that as a capability rather than as a test accommodation: the CR
+    # already carries metadata.tags and the PATCH already accepts them, so a
+    # controller that claims to manage this resource should correct a drifted tag set.
+    #
+    # PATCH, not PUT -- the OAS declares DELETE, GET, PATCH for this path and no PUT,
+    # which is the one item path in the whole vendored set that does. Sending PUT here
+    # reaches a create-like handler and answers
+    #   400 {"fieldName":"Flavor","errorMessage":"Please specify flavor."}
+    # which I spent three servers reading as a vendor defect before checking the OAS.
+    #
+    # Whole-list replacement, not add/remove: tags is an array of plain strings with no
+    # action endpoint, so the only expressible intent is the desired set. The iterator
+    # fires only when the sets actually differ, so a converged resource sends nothing.
+    - name: reconcileTags
+      endpointRef:
+        name: arubacloud-endpoint
+        namespace: krateo-system
+      dependsOn:
+        name: server
+        iterator: >-
+          (.server.self // {}) as $s
+          | ((.spec.metadata.tags // []) | map(tostring) | sort) as $desired
+          | (($s.metadata.tags // []) | map(tostring) | sort) as $current
+          | if $s.metadata.id != null and $desired != $current
+            then [ { id: $s.metadata.id, tags: $desired, projectId: .spec.projectId } ] else [] end
+      verb: PATCH
+      continueOnError: true
+      path: ${ "/projects/" + .projectId + "/providers/Aruba.Compute/cloudServers/" + .id + "?api-version=1.0" }
+      headers:
+        - "Content-Type: application/json"
+      payload: |
+        ${ { metadata: { tags: .tags } } }
