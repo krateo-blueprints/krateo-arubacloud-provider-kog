@@ -42,8 +42,11 @@ CONFIG_VERSION = "v1alpha1"
 #
 #   ga           full create -> observe -> drift -> delete against the live Aruba API
 #   beta         observe verified live; mutation unproven
-#   experimental generated, statically valid, admitted by the API server
-#   blocked      known non-functional, with the reason recorded
+#   experimental generated and statically valid; not proven live -- INCLUDING the
+#                case where this account cannot reach the provider at all, which is
+#                not the same as something being wrong with the definition
+#   blocked      known non-functional, OR impossible through the API as declared,
+#                with the reason recorded
 #
 # WHERE THE API HAS NO UPDATE VERB, drift is INAPPLICABLE rather than unproven, and
 # the GA bar is create -> observe -> delete, re-runnable from a chain. Nothing can
@@ -62,7 +65,7 @@ CONFIG_VERSION = "v1alpha1"
 # See docs/ga-readiness.md for what each tier claims about production use.
 TIERS = {
     ("profile", "AiKey"): (
-        "experimental",
+        "blocked",
         "**no live evidence is possible on this account, and the reason is not a gap "
         "in testing.** `Aruba.Profile/aiKeys` declares **no POST** — only GET on the "
         "collection, GET/PUT/DELETE on the item, and enable/disable — so there is no "
@@ -1377,9 +1380,11 @@ stringData:
                 f"{counts.get('ga', 0)} |\n")
         f.write("| beta | observe verified live; mutation unproven | "
                 f"{counts.get('beta', 0)} |\n")
-        f.write("| experimental | generated, valid, reaches `Ready`, sample admitted | "
+        f.write("| experimental | generated and valid; not proven live — including "
+                "where THIS ACCOUNT cannot reach the provider at all | "
                 f"{counts.get('experimental', 0)} |\n")
-        f.write("| **blocked** | known non-functional, reason recorded | "
+        f.write("| **blocked** | known non-functional, or impossible through the "
+                "API as declared; reason recorded | "
                 f"{counts.get('blocked', 0)} |\n\n")
         f.write(
             "Where the API has **no update verb**, drift is *inapplicable* rather than "
@@ -1404,14 +1409,18 @@ stringData:
         # that hides that is the kind of thing this table exists to prevent. Written
         # as prose rather than a footnote marker so it cannot be skimmed past.
         f.write(
-            "**One exception to the experimental bar, stated so the count is not "
-            "misread.** `profile/AiKey` is generated and valid but has *never been "
-            "applied to a cluster*, so it has not cleared the \"reaches `Ready`, "
-            "sample admitted\" half of that bar. It is counted as experimental "
-            "because that is the lowest tier it can hold without being `blocked`, "
-            "and it is not blocked: nothing is known to be broken about it. The API "
-            "simply offers no way to bring one into existence — see its row for the "
-            "detail.\n\n"
+            "**`profile/AiKey` moved from experimental to blocked on 2026-10-31, and "
+            "the argument this paragraph used to carry is worth keeping visible.** It "
+            "said AiKey was \"not blocked: nothing is known to be broken about it\" — "
+            "reasoning from the code outward, where the definitions are valid and "
+            "nothing has failed. Reading from the API inward gives the opposite "
+            "answer: `Aruba.Profile/aiKeys` declares no POST, so no sequence of calls "
+            "brings one into existence, and a sweep of all five projects on 2026-10-28 "
+            "found zero to adopt. A resource that can be neither created nor found is "
+            "non-functional in the only sense this tier means — permanently, and by "
+            "the API's own shape rather than by anything this repo does. The earlier "
+            "reading was not wrong about the code; it was answering a question nobody "
+            "asks of this table.\n\n"
         )
         f.write("Only **GA** claims fitness for production use. See "
                 "[ga-readiness](ga-readiness.md).\n\n")
