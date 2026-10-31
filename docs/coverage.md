@@ -50,8 +50,8 @@ Each of these was recorded in this repository as a result, and each is a true st
 
 | Tier | Bar | Count |
 |------|-----|-------|
-| **GA** | full `create → observe → drift → delete` against the live API | 27 |
-| beta | observe verified live; mutation unproven | 2 |
+| **GA** | full `create → observe → drift → delete` against the live API | 28 |
+| beta | observe verified live; mutation unproven | 1 |
 | experimental | generated, valid, reaches `Ready`, sample admitted | 5 |
 | **blocked** | known non-functional, reason recorded | 2 |
 
@@ -86,9 +86,26 @@ What this does and does not put at risk: every provider feature these RestDefini
 | Provider | Kind | Tier | Verbs | Identifier(s) | Evidence |
 |----------|------|------|-------|---------------|----------|
 | baremetal | `Hpc` | experimental | findby,get,create | `metadata.name` | **cannot be exercised on this account**: `GET /projects/{id}/providers/Aruba.Baremetal/hpcs` returns **404** (verified 2026-10-20, api-version 1.0 and 1.1), so the provider is not enabled here. Two reasons nothing was created to find out more: the OAS declares **no DELETE for hpcs at all** — only `post`, `get`, and PUTs for `name` and `automaticrenew` — so a bare-metal cluster created through this RestDefinition could not be removed through it, and bare metal is the one resource class here where an accident is not measured in cents |
-| compute | `CloudServer` | beta | findby,get,create | `metadata.name` | **create, observe and delete PROVEN LIVE (2026-10-30); drift UNPROVEN, so this sits at beta.** It was promoted to GA for a few hours on the premise that 
+| compute | `CloudServer` | **GA** | findby,get,create | `metadata.name` | **FULL LIFECYCLE PROVEN LIVE (2026-10-31) — create, observe, drift and delete, with the drift injection CONFIRMED present before its removal was measured:**
 
-**A drift result from 2026-10-30 is VOID**, caught before it was recorded as evidence. The run reported `DRIFT CORRECTED` for CloudServer while snowplow’s log showed the reconciling stage making **zero** api calls — so nothing corrected anything, because the injected tag was never there to correct. Aruba accepted the PATCH with a 2xx and did not persist `metadata.tags`, and the probe, having no assertion that its own injection landed, polled once, saw `tags == []` and declared success.
+```
+state 6ae58c3f: (first read) -> InCreation at t+0s
+state 6ae58c3f: InCreation -> Active at t+73s
+drift: using PATCH — the OAS declares no PUT for this path
+drift injected (tags=[drifted-by-hand]) and CONFIRMED present upstream
+DRIFT CORRECTED for CloudServer/ga-cs-server
+5/5 deletes verified and attributed · leftovers = 0 · exited 0
+```
+
+**Attributed, not merely observed.** RDC logged `Mutated via RESTAction` with `op: Update`, snowplow resolved `cloudserver-update`, and the tag went from confirmed-present to absent: dispatch → action resolved → condition removed. The delegated DELETE is proven on three separate runs, each with the controller releasing its own finalizer.
+
+**It was briefly GA on a wrong premise, then beta, and is now GA on measurement.** The withdrawn premise was that its update was blocked by a vendor defect; the real cause was this repo sending PUT to the one item path in the vendored set that declares PATCH and no PUT. 
+
+**A drift result from 2026-10-30 is VOID**, caught before it was recorded as evidence. The run reported `DRIFT CORRECTED` for CloudServer while snowplow’s log showed the reconciling stage making **zero** api calls — so nothing corrected anything, because the injected tag was never there to correct.
+
+**An earlier version of this entry said Aruba accepted the PATCH and dropped `metadata.tags`. That is WITHDRAWN.** The tag demonstrably persists — the 2026-10-31 run confirmed it present upstream before measuring its removal. So the cause of the non-landing is **open**, not explained. The only material difference on record is the state trace: the void run observed `Active at t+0s` with no InCreation phase, where the good run saw `InCreation -> Active at t+73s`. An injection into a resource reporting settled while still being created is a plausible mechanism and nothing more. It is left as a question rather than replaced with a second guess, because the first guess was confident and wrong, and a correction deserves the same scrutiny as the claim it replaces.
+
+injection landed, polled once, saw `tags == []` and declared success.
 
 `_drift_explicit` had warned about precisely this in its own docstring — *a probe that injects without asserting cannot tell correction from the API quietly ignoring the write* — while the tag-trick path, which every other resource uses, carried no such assertion. `ga_chain.py` now confirms the tag is present upstream before waiting for it to disappear, and returns *skipped* rather than *passed* when the injection does not land.
 
