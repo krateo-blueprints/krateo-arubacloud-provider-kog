@@ -244,7 +244,14 @@ The case rests on `ga-bpa-b`. `ga-bpa`’s 56 days is **confounded** — that is
 
 The volume reports `state: NotUsed` throughout. Nothing in its own representation shows it is held, so from the volume’s side the refusal is unexplainable — and it is why renaming the policy and assignment was not enough to re-run this chain; the volume needed a fresh name too.
 
-**`BackupPolicy`’s GA is NOT affected.** All three policies are also stuck in `Deleting`, but each is referenced by a wedged assignment: that is dependency order, not a defect in the policy, and its own create/observe/drift/delete hold when nothing wedged points at it. Reported to Aruba 2026-10-31 with the six resource ids; the mechanism is **not** claimed, because `400 Invalid status` is indistinguishable from an ordinary transient state refusal and a confident vendor-defect claim is how the PUT-400 went wrong earlier the same day.
+**`BackupPolicy`’s GA is NOT affected, and this is now MEASURED rather than inferred.** The aborted attempt earlier the same day never created its assignment — the 400 above — which left a policy with nothing referencing it. A controlled pair fell out of my own failed run:
+
+```
+6ae5a0d4c7425cdb05e69c17  no assignment referenced it  DELETE -> 404, gone
+6ae5b30cc7425cdb05e69c66  wedged assignment ga-bpa-c   DELETE -> 200, Deleting
+```
+
+Same kind, same project, same api-version, minutes apart; the only variable is whether a wedged assignment referenced it. So all three policies being stuck is dependency order, not a defect in the policy. Reported to Aruba 2026-10-31 with the six resource ids; the mechanism is **not** claimed, because `400 Invalid status` is indistinguishable from an ordinary transient state refusal and a confident vendor-defect claim is how the PUT-400 went wrong earlier the same day.
 
 A correction to an earlier, stronger claim here. This note used to say delete was *proven not to complete*; the evidence does not carry that weight. The 400s are the ordinary **state refusal** this API gives to any write on a resource mid-transition — the same shape that produced three wrong explanations for `VpnTunnel`'s drift before the right one turned out to be "wait longer" ([async-readiness](async-readiness.md#every-write-is-refused-mid-transition-not-just-dbaass)). And the one run that could have settled it was spoiled by hand: when teardown stalled, the referenced BlockStorage was force-deleted out of dependency order, and an assignment cannot finish deleting once the volume it binds has vanished. That is what made `6a9aea83` permanent — residue of a mistake, not a demonstration of a defect.
 
