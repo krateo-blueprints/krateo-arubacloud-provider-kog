@@ -98,9 +98,20 @@ def main():
     # Ready going true BEFORE the CRDs exist, twice -- Ready at t+148s with CRDs
     # arriving t+148-149s, and Ready at t+177s with CRDs at t+177-179s
     # (oasgen-provider#314). So some wait is needed. But they arrive within ~1-2s of
-    # each other, so waiting per CRD waits for the same event 36 times: at 120s each
-    # that is up to 72 minutes when something is genuinely absent, which is how a
-    # useful check becomes one nobody leaves enabled.
+    # each other, so waiting per CRD waits for the same event 36 times: at 120s
+    # each that is up to 72 minutes when something is genuinely absent, which is
+    # how a useful check becomes one nobody leaves enabled.
+    #
+    # MEASURED 2026-10-31, because the 72 minutes above is a COMPUTED WORST CASE
+    # and was being read as an observation -- including by me, when I quoted it to
+    # the nova session as a reason to batch. In CI this batch wait plus all 36
+    # assertions takes 8 SECONDS. But 8s is not a measurement of establishment
+    # latency: the preceding "every RestDefinition reaches Ready" step takes 2m46s
+    # and establishment happens during it, so this wait finds nothing left to wait
+    # for. The defensible claim is that the batch form costs ~0 when establishment
+    # has already happened and bounds the worst case when it has not. Anyone
+    # quoting "8s instead of 72 minutes" would be comparing a measurement against
+    # a hypothetical.
     all_crds = [f"{k.lower()}configurations.{GROUP}"
                 for ks in by_provider.values() for k in ks]
     w = kubectl(*pre, "wait", "--for=condition=Established",
