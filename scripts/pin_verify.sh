@@ -813,6 +813,59 @@ if bad:
 print(f"    all {len(need)} configurations this chain references are present")
 EOF
 
+# LOAD GATE, for billable chains only. Lives here rather than in a scratch script
+# because it has prevented two false verdicts and would otherwise vanish with the
+# session that wrote it.
+#
+# Why it exists: a loaded host turns a timing-sensitive poll into a timeout, and a
+# timeout in a billable chain reads exactly like a vendor defect. One drift verdict and
+# one delete verdict were both lost to contention before this existed, and the delete
+# one cost a wedged resource that can never be removed.
+#
+# Why 9: this host has 8 logical cores, so load 9 is ~1.1 runnable processes per core --
+# the line past which a poll loop starts competing rather than sleeping. Measured
+# 2026-10-31 with hw.logicalcpu; adjust it with LOAD_MAX if your core count differs,
+# and keep the ratio rather than the number.
+#
+# Three CONSECUTIVE samples, because a momentary dip is not a quiet host.
+#
+# LC_ALL=C is load-bearing: under it_IT `sysctl -n vm.loadavg` prints `13,54`, and awk
+# reading a dot-decimal in that locale truncates at the dot -- so 14.38 compares as 14
+# and the gate opens on a busy machine. Verified on both sides of the threshold.
+LOAD_MAX="${LOAD_MAX:-9.0}"
+DISK_MIN_G="${DISK_MIN_G:-12}"
+GATE_SAMPLES="${GATE_SAMPLES:-3}"
+GATE_MAX_WAIT="${GATE_MAX_WAIT:-60}"      # samples, 90s apart
+case "${CHAIN_ARGS:-}" in
+  *--with-billable*)
+    if [ "${SKIP_LOAD_GATE:-0}" = "1" ]; then
+      say "load gate SKIPPED by SKIP_LOAD_GATE=1 -- a billable chain on an unmeasured host"
+    else
+      say "load gate: need load1 < ${LOAD_MAX} and ${DISK_MIN_G}G free, ${GATE_SAMPLES}x consecutive"
+      _ok=0
+      for _i in $(seq 1 "$GATE_MAX_WAIT"); do
+        _l=$(LC_ALL=C sysctl -n vm.loadavg | LC_ALL=C awk '{print $2+0}')
+        _d=$(df -g / | awk 'NR==2{print $4}')
+        _below=$(LC_ALL=C awk -v l="$_l" -v t="$LOAD_MAX" 'BEGIN{print (l<t)?1:0}')
+        if [ "$_below" = "1" ] && [ "$_d" -ge "$DISK_MIN_G" ]; then
+          _ok=$((_ok+1))
+        else
+          _ok=0
+        fi
+        echo "    gate $(date +%H:%M:%S) load1=${_l} disk=${_d}G consecutive=${_ok}"
+        [ "$_ok" -ge "$GATE_SAMPLES" ] && break
+        sleep 90
+      done
+      if [ "$_ok" -lt "$GATE_SAMPLES" ]; then
+        die "load gate never opened after ${GATE_MAX_WAIT} samples -- refusing to start a
+    billable chain on a contended host. Raise LOAD_MAX if this host is bigger, or
+    SKIP_LOAD_GATE=1 to override deliberately."
+      fi
+      say "load gate open at load1=${_l}, disk ${_d}G"
+    fi
+    ;;
+esac
+
 say "running ${CHAIN} on the released stack"
 # CHAIN_ARGS carries flags through to the runner, e.g. --with-billable. Unquoted on
 # purpose so it word-splits into separate arguments.

@@ -377,6 +377,31 @@ def update_method(url):
     return None
 
 
+def _subset(want, got):
+    """True when every key/value in `want` appears in `got`, recursively.
+
+    The honest question for an OBJECT field is "did the controller restore the state I
+    asked for", not "is the remote object byte-identical to my request". An API that
+    echoes `{uri, id, name}` for a field submitted as `{uri}` HAS restored the desired
+    state, and deep equality would call that a failure forever -- making object
+    assertions unusable on every object field in this catalogue, which is why none
+    existed.
+
+    Catches oasgen#322 by construction: a populated desired object against an empty
+    remote `{}` returns False here, where the comparison that bug describes returned
+    equal. See the assertions in _drift_explicit.
+    """
+    if isinstance(want, dict):
+        if not isinstance(got, dict):
+            return False
+        return all(k in got and _subset(v, got[k]) for k, v in want.items())
+    if isinstance(want, list):
+        if not isinstance(got, list) or len(want) != len(got):
+            return False
+        return all(_subset(w, g) for w, g in zip(want, got))
+    return want == got
+
+
 def _drift_explicit(kind, name, url, body, assertion):
     """Inject drift with an explicit PUT body and converge on one named field.
 
@@ -384,11 +409,31 @@ def _drift_explicit(kind, name, url, body, assertion):
     controller must restore. Both are required: a probe that injects without
     asserting cannot tell correction from the API quietly ignoring the write.
     """
-    if not assertion or "path" not in assertion or "equals" not in assertion:
-        print(f"    drift: {kind}/{name} declares driftBody without a complete "
-              f"driftAssert — skipped", file=sys.stderr)
+    # A screen that cannot detect a known-bad case is a function that returns false.
+    # Both directions, and the oasgen#322 shape explicitly.
+    assert _subset("a", "a") and not _subset("a", "b")
+    assert _subset({"uri": "/x"}, {"uri": "/x", "id": "1"})      # api added keys: ok
+    assert not _subset({"uri": "/x"}, {})                        # oasgen#322 shape
+    assert not _subset({"uri": "/x"}, None)
+    assert _subset({"a": {"b": 1}}, {"a": {"b": 1, "c": 2}})
+    assert not _subset({"a": {"b": 1}}, {"a": {"b": 2}})
+
+    has = [k for k in ("equals", "contains") if k in (assertion or {})]
+    if not assertion or "path" not in assertion or len(has) != 1:
+        print(f"    drift: {kind}/{name} declares driftBody without exactly one of "
+              f"driftAssert.equals / driftAssert.contains \u2014 skipped",
+              file=sys.stderr)
         return None
-    path, want = assertion["path"], assertion["equals"]
+    path, mode = assertion["path"], has[0]
+    want = assertion[mode]
+
+    def restored(observed):
+        """Did the controller put the desired state back?
+
+        `equals` is exact and right for a scalar. `contains` is a recursive subset and
+        is the only workable form for an object the API decorates with its own fields.
+        """
+        return (observed == want) if mode == "equals" else _subset(want, observed)
 
     def read(doc):
         cur = doc
@@ -418,7 +463,7 @@ def _drift_explicit(kind, name, url, body, assertion):
     # looks identical to a controller that corrected it instantly, and the check
     # passes having tested nothing -- the same vacuous pass oasgen#76 produced.
     code, after = api("GET", url)
-    if code == 200 and isinstance(after, dict) and read(after) == want:
+    if code == 200 and isinstance(after, dict) and restored(read(after)):
         print(f"    drift: PUT was accepted but {path} is still {want!r} — the API "
               f"ignored the write, nothing to correct", file=sys.stderr)
         return None
@@ -432,7 +477,7 @@ def _drift_explicit(kind, name, url, body, assertion):
         code, doc = api("GET", url)
         if code == 200 and isinstance(doc, dict):
             cur = read(doc)
-            if cur == want:
+            if restored(cur):
                 print(f"    DRIFT CORRECTED for {kind}/{name}")
                 return True
         time.sleep(20)
