@@ -1,3 +1,17 @@
+# The ScheduledJob entry was REMOVED 2026-10-31. It carried `httpVerb: GET` and an
+# actionUri pointing at a full VPC path; the vendor supports POST only with a
+# RELATIVE actionUri of poweron/poweroff, and a full path is rejected as 'not
+# configured for this resource typology'. tests/ga/derived/payloads.yaml had said so
+# in those words, ending 'Do not run it as written' -- and a re-verification pass ran
+# it anyway, spending 900s to collect a 400 this repo had already predicted. A prose
+# warning is not a gate; `verify_ga_chain_shape` now enforces all three rules.
+#
+# ScheduledJob is exercised by tests/ga/chains/job.yaml via scripts/ga_job_probe.py,
+# which creates a real CloudServer out of band because a step's only supported
+# actions are poweron/poweroff and a RestDefinition cannot create a server
+# (oasgen#108). That is what its GA rests on, and it is BILLABLE -- which is why a
+# cheap-looking duplicate sat here and why removing it is the right fix rather than
+# repairing it into a second billable path.
 name: schedule-metering
 vars:
   PROJECT: 69a55c8d5e6f0e14f14093ff
@@ -25,26 +39,3 @@ resources:
         retentionDays: 1
         time: 02:00:00
   drift: /projects/${PROJECT}/providers/Aruba.Schedule/backupPolicies/${id:self}
-- kind: ScheduledJob
-  name: ga-job
-  spec:
-    configurationRef:
-      name: scheduledjob-config
-      namespace: default
-    projectId: ${PROJECT}
-    metadata:
-      name: ga-job
-      location:
-        value: ${LOCATION}
-      tags: []
-    properties:
-      scheduleJobType: Recurring
-      cron: 0 3 * * *
-      enabled: false
-      executeUntil: '2027-01-01T00:00:00Z'
-      steps:
-      - name: ga-noop-read
-        httpVerb: GET
-        resourceUri: /projects/${PROJECT}/providers/Aruba.Network/vpcs/69a5609fa851081197caa45f
-        actionUri: /projects/${PROJECT}/providers/Aruba.Network/vpcs/69a5609fa851081197caa45f
-  drift: /projects/${PROJECT}/providers/Aruba.Schedule/jobs/${id:self}
