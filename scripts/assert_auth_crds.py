@@ -56,7 +56,12 @@ if _ov:
 
 
 def declared_method(doc):
-    """The single auth method this document declares, per its securitySchemes."""
+    """The single auth method this document declares, per its securitySchemes.
+
+    Returns (method, None) or (None, reason). A None method means NO EXPECTATION COULD
+    BE DERIVED, which the caller must treat as a failure rather than a skip -- see the
+    comment at the call site for why that distinction cost a silent pass.
+    """
     schemes = (doc.get("components") or {}).get("securitySchemes") or {}
     methods = set()
     for sc in schemes.values():
@@ -73,7 +78,39 @@ def kubectl(*args):
     return subprocess.run(["kubectl", *args], capture_output=True, text=True)
 
 
+def _self_test_declared_method():
+    """Exercise the derivation at its limit, including inputs no vendor publishes.
+
+    The completeness assertion exists to catch inputs nobody thought to try, and its
+    motivating input -- a document declaring BOTH apiKey and bearer -- has never
+    occurred in this repo or in openstack-nova-operator-kog. It cannot be tested
+    against a real document, so it is tested against a synthetic one here. That is the
+    difference between "no document violated the rule" and "the rule has been
+    exercised".
+    """
+    def doc(schemes):
+        return {"components": {"securitySchemes": schemes}}
+
+    m, why = declared_method(doc({"k": {"type": "apiKey", "in": "header"}}))
+    assert (m, why) == ("apiKey", None), (m, why)
+    m, why = declared_method(doc({"b": {"type": "http", "scheme": "bearer"}}))
+    assert (m, why) == ("bearer", None), (m, why)
+
+    # THE CASE THAT MOTIVATES THE WHOLE ASSERTION. No vendor ships it; synthesised so
+    # it is not merely unobserved.
+    m, why = declared_method(doc({"k": {"type": "apiKey", "in": "header"},
+                                  "b": {"type": "http", "scheme": "bearer"}}))
+    assert m is None and "apiKey" in why and "bearer" in why, (m, why)
+
+    assert declared_method(doc({}))[0] is None                       # none at all
+    assert declared_method({})[0] is None                            # no components
+    assert declared_method(doc({"o": {"type": "oauth2"}}))[0] is None   # unrecognised
+    # apiKey in a cookie is not the header scheme this repo converts to
+    assert declared_method(doc({"c": {"type": "apiKey", "in": "cookie"}}))[0] is None
+
+
 def main():
+    _self_test_declared_method()
     ctx = os.environ.get("KUBE_CONTEXT")
     pre = ["--context", ctx] if ctx else []
     fail = checked = 0
@@ -130,7 +167,25 @@ def main():
         doc = json.load(open(os.path.join(ROOT, "openapi", fn)))
         want, why = declared_method(doc)
         if not want:
-            print(f"  SKIP {prov} ({fn}): {why}")
+            # THIS WAS A `continue` AND IT WAS A SILENT PASS. A document whose auth
+            # method cannot be derived -- two schemes, or none recognisable -- had its
+            # provider's CRDs skipped, `fail` left alone, and the script exited 0 with
+            # a green CI. Every resource from that provider went unasserted and the
+            # only trace was one SKIP line in a log nobody reads on success.
+            #
+            # Identical in shape to snowplow#1001, which I filed this morning: a write
+            # stage whose path jq fails is skipped with no stage outcome and the call
+            # answers 200. I filed that defect upstream and shipped the same one here.
+            #
+            # The nova session found it by asking whether the two-scheme case had ever
+            # been tested. The answer was worse than "no": it would have been skipped.
+            #
+            # If an expectation cannot be derived, nothing can be asserted, and NOT
+            # ASSERTING MUST BE LOUD. A vendor adding a second scheme is a material
+            # change that deserves a red build, not a log line.
+            print(f"  FAIL {prov} ({fn}): {why} -- cannot derive an expectation, so "
+                  f"{len(kinds)} Configuration CRD(s) go unasserted")
+            fail += len(kinds)
             continue
         for kind in sorted(kinds):
             plural = f"{kind.lower()}configurations"
