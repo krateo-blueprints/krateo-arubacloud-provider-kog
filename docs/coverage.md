@@ -51,15 +51,15 @@ Each of these was recorded in this repository as a result, and each is a true st
 | Tier | Bar | Count |
 |------|-----|-------|
 | **GA** | full `create → observe → drift → delete` against the live API | 28 |
-| beta | observe verified live; mutation unproven | 1 |
-| experimental | generated, valid, reaches `Ready`, sample admitted | 5 |
-| **blocked** | known non-functional, reason recorded | 2 |
+| beta | verified live short of the full lifecycle; WHICH verb is unproven is recorded per row | 1 |
+| experimental | generated and valid; not proven live — including where THIS ACCOUNT cannot reach the provider at all | 4 |
+| **blocked** | known non-functional, or impossible through the API as declared; reason recorded | 3 |
 
 Where the API has **no update verb**, drift is *inapplicable* rather than unproven and the GA bar is `create → observe → delete`, re-runnable from a chain: nothing can diverge that a controller could correct. That rule is stated because the table was inconsistent without it — `KeyPair` was GA on that basis while `Database`, `DatabaseUser`, `Grant` and `DatabaseBackup` sat at beta on the same verb shape. It also raises the bar in one respect: *delete* must be **verified against the API while the resource's parent still exists**, because from Kubernetes a cascade and a real DELETE look identical.
 
 A **third case** was documented here and is **withdrawn**: an API that declares an update verb which does not work. It was written for `compute/CloudServer`, whose drift reported SKIPPED on a 400 — but that 400 came from this repo sending PUT to the one item path in the whole vendored set that declares PATCH and no PUT. The vendor was not at fault and the rule had no instance. `scripts/ga_chain.py` derives the method from the OAS now, so the two original cases stand unamended: drift is *inapplicable* with no update verb, *unproven* otherwise. CloudServer is in the second category until its drift runs with PATCH.
 
-**One exception to the experimental bar, stated so the count is not misread.** `profile/AiKey` is generated and valid but has *never been applied to a cluster*, so it has not cleared the "reaches `Ready`, sample admitted" half of that bar. It is counted as experimental because that is the lowest tier it can hold without being `blocked`, and it is not blocked: nothing is known to be broken about it. The API simply offers no way to bring one into existence — see its row for the detail.
+**`profile/AiKey` moved from experimental to blocked on 2026-10-31, and the argument this paragraph used to carry is worth keeping visible.** It said AiKey was "not blocked: nothing is known to be broken about it" — reasoning from the code outward, where the definitions are valid and nothing has failed. Reading from the API inward gives the opposite answer: `Aruba.Profile/aiKeys` declares no POST, so no sequence of calls brings one into existence, and a sweep of all five projects on 2026-10-28 found zero to adopt. A resource that can be neither created nor found is non-functional in the only sense this tier means — permanently, and by the API's own shape rather than by anything this repo does. The earlier reading was not wrong about the code; it was answering a question nobody asks of this table.
 
 Only **GA** claims fitness for production use. See [ga-readiness](ga-readiness.md).
 
@@ -148,7 +148,7 @@ A stage iterating zero items **succeeds**, so Snowplow answered `200` with `X-Sn
 
 **If you created a CloudServer with this provider before 2026-10-29, check your account.** The controller did not delete it, and said nothing.
 
-**This class of bug becomes detectable upstream.** The ambiguity that hid it — a stage iterating zero items being reported identically to a stage with nothing to do — is now [snowplow#989](https://github.com/krateo-platformops/snowplow/issues/989), scheduled for 1.12.62 or later: a separate additive header `X-Snowplow-Stage-Iterations` listing each looping stage with its item count, leaving `X-Snowplow-Stage-Outcomes` unchanged. A `delete: 0 items` would have made this visible on the first run instead of after a stranded server. When it ships, assert on it in any chain that delegates.
+**This class of bug becomes detectable upstream.** The ambiguity that hid it — a stage iterating zero items being reported identically to a stage with nothing to do — is now [snowplow#989](https://github.com/krateo-platformops/snowplow/issues/989), **not scheduled for any release** — corrected 2026-10-31 on the maintainers’ word after this doc said "scheduled for 1.12.62 or later", which implied a slot that does not exist; 1.12.62 is the export release and carries something else. The proposal is a separate additive header `X-Snowplow-Stage-Iterations` listing each looping stage with its item count, leaving `X-Snowplow-Stage-Outcomes` unchanged. A `delete: 0 items` would have made this visible on the first run instead of after a stranded server. When it ships, assert on it in any chain that delegates.
 
 Fixed, and verified with jq against the real response shape (`$s.id` -> `[]`; `$s.metadata.id` -> the id). **The fix is not yet proven live** — that needs another real server — which is why this stays at **beta**: `findby`, `get` and now `create` are proven; `update` and `delete` are not.
 
@@ -203,7 +203,7 @@ The signature is **identical to `container/Registry`** — accepted, ~30 minutes
 | network | `VpcPeeringRoute` | **GA** | findby,get,create,update,delete | `metadata.name` | full lifecycle live in a 6-resource chain (two VPCs, two **Advanced** subnets whose CIDRs the route references, a peering) under `tests/ga/chains/peering-route.yaml`. Drift is now exercised and **corrected** (2026-10-22, `6ada2e75`) — the last count holding it at beta. It took three runs to get that verdict, and neither earlier failure was the resource's fault: the first had no drift block in the chain at all, and the second injected the drift, then lost the poll to a single `TimeoutError: The read operation timed out` that nothing caught. Delete is verified against the API at its own four-level path `.../vpcs/{id}/vpcPeerings/{id}/vpcPeeringRoutes/{id}` (→ 404) **while both the peering and the VPC were still alive**, which is the only way to tell a real DELETE from a cascade — **billable** — [live-cluster-test](live-cluster-test.md) |
 | network | `VpnRoute` | **GA** | findby,get,create,update,delete | `metadata.name` | full lifecycle live incl. drift correction (`6a9bf909`). `cloudSubnet` must be the CIDR of a **standalone, Active** subnet in the VPC — never the tunnel's own provisioning subnet — a rule found in Aruba's CLI e2e, not in the OAS — **billable** — [live-cluster-test](live-cluster-test.md) |
 | network | `VpnTunnel` | **GA** | findby,get,create,update,delete | `metadata.name` | full lifecycle live incl. drift correction (Site-To-Site / ikev2), under `tests/ga/chains/vpn.yaml`. Its drift injection used to be rejected with a 400 and three successive explanations were offered for it, two of them wrong. The cause was the same state refusal as SecurityRule's: this tunnel is still `InCreation` for longer than the probe's settle wait, so the write has to be retried rather than reinterpreted ([async-readiness](async-readiness.md#every-write-is-refused-mid-transition-not-just-dbaass)). Nothing about the resource or its body needed changing — **billable** — [live-cluster-test](live-cluster-test.md) |
-| profile | `AiKey` | experimental | findby,get,update,delete | `metadata.name` | **no live evidence is possible on this account, and the reason is not a gap in testing.** `Aruba.Profile/aiKeys` declares **no POST** — only GET on the collection, GET/PUT/DELETE on the item, and enable/disable — so there is no API way to create one; and a sweep on 2026-10-28 found **zero AiKeys in all five projects** on the account, so there is nothing to adopt either. Every verb it declares is therefore unexercised, including `findby`, which can only be shown returning an empty collection. That is recorded here explicitly rather than left to be read as untested-by-omission: the next person should ask Aruba for a way to create an AI key over the API, not wonder whether anyone tried.
+| profile | `AiKey` | **blocked** | findby,get,update,delete | `metadata.name` | **no live evidence is possible on this account, and the reason is not a gap in testing.** `Aruba.Profile/aiKeys` declares **no POST** — only GET on the collection, GET/PUT/DELETE on the item, and enable/disable — so there is no API way to create one; and a sweep on 2026-10-28 found **zero AiKeys in all five projects** on the account, so there is nothing to adopt either. Every verb it declares is therefore unexercised, including `findby`, which can only be shown returning an empty collection. That is recorded here explicitly rather than left to be read as untested-by-omission: the next person should ask Aruba for a way to create an AI key over the API, not wonder whether anyone tried.
 
 What *is* verified is generation, against the real 45 KB document: it parses (requires oasgen-provider **>= 0.35.0** for [libopenapi#2](https://github.com/krateo-platformops/libopenapi/pull/2), since a `+` in a schema name made it unparseable — [Arubacloud/api#25](https://github.com/Arubacloud/api/issues/25)) and its update verb carries a body (requires **>= 0.36.0** for [oasgen-provider#236](https://github.com/krateo-platformops/oasgen-provider/issues/236), below which the PUT would have sent `{"metadata": {"name": ...}}` against a full-replacement body and silently dropped `location` and `tags`). So the claim this row supports is *"the spec carries the update body"*, not *"update works"*. `clientSecret` is deliberately **not** mapped into the CR |
 | project | `Folder` | **GA** | findby,get,create,update,delete | `name` | full lifecycle live incl. drift correction on the **released 0.27.1 stack** (2026-10-23, `6adb1322`), under `tests/ga/chains/project-folder.yaml`; delete verified 404 at `/folders/{id}`.
@@ -213,7 +213,49 @@ It sat at beta on a note that was wrong, and the correction is worth keeping. Th
 What actually blocked it was the **probe**, not the resource. The generic drift injector perturbs `metadata.tags`; `FolderUpdateDto` is `additionalProperties: false`, so every body shape it tried was a 400 and the result read as a property of the resource rather than a limitation of the harness. Chains can now declare `driftBody`/`driftAssert` and name the field to perturb — **free** — [live-cluster-test](live-cluster-test.md) |
 | project | `Project` | **GA** | findby,get,create,update,delete | `metadata.name` | full lifecycle live incl. drift correction, re-runnable on demand under `tests/ga/chains/project-folder.yaml`. Takes no `projectId` — it IS the project — [live-cluster-test](live-cluster-test.md) |
 | schedule | `BackupPolicy` | **GA** | findby,get,create,update,delete | `metadata.name` | full lifecycle live incl. drift correction — [live-cluster-test](live-cluster-test.md) |
-| schedule | `BackupPolicyAssignment` | beta | findby,get,create,update,delete | `metadata.name` | create → observe → **drift corrected** proven live (`6a9aea83`). **Delete stalls**: the first DELETE is accepted and the resource enters `Deleting`, and every subsequent DELETE returns 400 `Invalid status`.
+| schedule | `BackupPolicyAssignment` | beta | findby,get,create,update,delete | `metadata.name` | create → observe → **drift corrected** re-proven live 2026-10-31 on the injection-confirming probe, so this no longer rests on the era when a 2xx counted as correction. **Delete DOES NOT COMPLETE, and that is now earned rather than assumed.**
+
+```
+drift BackupPolicyAssignment/ga-bpa-c: ok
+--- deleting BackupPolicyAssignment/ga-bpa-c
+    DELETE NOT CONFIRMED after 45 min: .../6ae5b316c7425cdb05e69c68 still
+    reads 200 — the CR is STILL PRESENT, deletionTimestamp=09:27:31Z,
+    finalizers=[composition.krateo.io/finalizer] — wedged, not orphaned
+```
+
+Three independent observations, and the one that matters is not the biggest number:
+
+| assignment | in `Deleting` | target volume | rules out |
+|---|---|---|---|
+| `ga-bpa` | **56 days** | deleted by hand | "it just takes a while" |
+| `ga-bpa-b` | **8 days** | **still present** | "you removed the volume it binds" |
+| `ga-bpa-c` | 45 min, instrumented | present THROUGHOUT, removed after | nothing uncontrolled |
+
+`ga-bpa-c`’s volume was verified alive for the whole 45-minute window — the measurement is sound — and then **the chain’s own teardown deleted it** in reverse dependency order, because the volume is removed after the assignment delete is attempted regardless of whether it succeeded. So the run reproduced the very confound it was built to avoid, one step later. `ga-bpa-b` is the only row a vendor can still check today, which is why both this entry and the report rest on it.
+
+**A volume bound by a wedged assignment still deletes normally** (`ga-bpa-vol-c` -> 404, verified in the same teardown). So the hold blocks NEW assignments only, not volume lifecycle — narrower than first written here, and it means the billable part of this residue is reclaimable even though the schedule-plane part is not.
+
+The case rests on `ga-bpa-b`. `ga-bpa`’s 56 days is **confounded** — that is the one whose BlockStorage was force-deleted out of dependency order by hand, and a vendor could dismiss it in one line and be right to. The 8-day case, with `ga-bpa-vol` demonstrably intact and reporting `NotUsed`, is what removes that explanation.
+
+**And the 8-day case was on the account before the 45-minute run was commissioned.** The question had already been answered by a natural experiment nobody had read correctly: I checked that `ga-bpa`’s volume was gone, concluded the evidence was confounded, and did not check whether `ga-bpa-b`’s was intact. It was. The billable run is a clean, instrumented, same-day confirmation and it was not *necessary* — look at what the account already holds before provisioning more of it.
+
+**A wedged assignment permanently blocks its target volume**, which is the consequence with the widest blast radius. While one sits in `Deleting`, no new assignment can be made to the volume it references:
+
+```
+400 {"fieldName":"BackupPolicyAssignment",
+     "errorMessage":"There is already a backup policy assigned to the resource"}
+```
+
+The volume reports `state: NotUsed` throughout. Nothing in its own representation shows it is held, so from the volume’s side the refusal is unexplainable — and it is why renaming the policy and assignment was not enough to re-run this chain; the volume needed a fresh name too.
+
+**`BackupPolicy`’s GA is NOT affected, and this is now MEASURED rather than inferred.** The aborted attempt earlier the same day never created its assignment — the 400 above — which left a policy with nothing referencing it. A controlled pair fell out of my own failed run:
+
+```
+6ae5a0d4c7425cdb05e69c17  no assignment referenced it  DELETE -> 404, gone
+6ae5b30cc7425cdb05e69c66  wedged assignment ga-bpa-c   DELETE -> 200, Deleting
+```
+
+Same kind, same project, same api-version, minutes apart; the only variable is whether a wedged assignment referenced it. So all three policies being stuck is dependency order, not a defect in the policy. Reported to Aruba 2026-10-31 with the six resource ids; the mechanism is **not** claimed, because `400 Invalid status` is indistinguishable from an ordinary transient state refusal and a confident vendor-defect claim is how the PUT-400 went wrong earlier the same day.
 
 A correction to an earlier, stronger claim here. This note used to say delete was *proven not to complete*; the evidence does not carry that weight. The 400s are the ordinary **state refusal** this API gives to any write on a resource mid-transition — the same shape that produced three wrong explanations for `VpnTunnel`'s drift before the right one turned out to be "wait longer" ([async-readiness](async-readiness.md#every-write-is-refused-mid-transition-not-just-dbaass)). And the one run that could have settled it was spoiled by hand: when teardown stalled, the referenced BlockStorage was force-deleted out of dependency order, and an assignment cannot finish deleting once the volume it binds has vanished. That is what made `6a9aea83` permanent — residue of a mistake, not a demonstration of a defect.
 

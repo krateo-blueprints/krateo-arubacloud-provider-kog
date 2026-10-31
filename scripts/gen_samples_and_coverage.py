@@ -41,9 +41,16 @@ CONFIG_VERSION = "v1alpha1"
 # adding a row here with the evidence that justifies it.
 #
 #   ga           full create -> observe -> drift -> delete against the live Aruba API
-#   beta         observe verified live; mutation unproven
-#   experimental generated, statically valid, admitted by the API server
-#   blocked      known non-functional, with the reason recorded
+#   beta         verified live short of the full GA lifecycle, with the specific
+#                verb that is unproven named in the row. Written generally because
+#                the old wording -- "observe verified live; mutation unproven" --
+#                was FALSE for its only occupant: BackupPolicyAssignment has its
+#                mutation proven and its DELETE is what does not complete.
+#   experimental generated and statically valid; not proven live -- INCLUDING the
+#                case where this account cannot reach the provider at all, which is
+#                not the same as something being wrong with the definition
+#   blocked      known non-functional, OR impossible through the API as declared,
+#                with the reason recorded
 #
 # WHERE THE API HAS NO UPDATE VERB, drift is INAPPLICABLE rather than unproven, and
 # the GA bar is create -> observe -> delete, re-runnable from a chain. Nothing can
@@ -62,7 +69,7 @@ CONFIG_VERSION = "v1alpha1"
 # See docs/ga-readiness.md for what each tier claims about production use.
 TIERS = {
     ("profile", "AiKey"): (
-        "experimental",
+        "blocked",
         "**no live evidence is possible on this account, and the reason is not a gap "
         "in testing.** `Aruba.Profile/aiKeys` declares **no POST** — only GET on the "
         "collection, GET/PUT/DELETE on the item, and enable/disable — so there is no "
@@ -206,9 +213,66 @@ TIERS = {
     ),
     ("schedule", "BackupPolicyAssignment"): (
         "beta",
-        "create → observe → **drift corrected** proven live (`6a9aea83`). **Delete "
-        "stalls**: the first DELETE is accepted and the resource enters `Deleting`, and "
-        "every subsequent DELETE returns 400 `Invalid status`.\n\n"
+        "create → observe → **drift corrected** re-proven live 2026-10-31 on the "
+        "injection-confirming probe, so this no longer rests on the era when a 2xx "
+        "counted as correction. **Delete DOES NOT COMPLETE, and that is now earned "
+        "rather than assumed.**\n\n"
+        "```\n"
+        "drift BackupPolicyAssignment/ga-bpa-c: ok\n"
+        "--- deleting BackupPolicyAssignment/ga-bpa-c\n"
+        "    DELETE NOT CONFIRMED after 45 min: .../6ae5b316c7425cdb05e69c68 still\n"
+        "    reads 200 — the CR is STILL PRESENT, deletionTimestamp=09:27:31Z,\n"
+        "    finalizers=[composition.krateo.io/finalizer] — wedged, not orphaned\n"
+        "```\n\n"
+        "Three independent observations, and the one that matters is not the biggest "
+        "number:\n\n"
+        "| assignment | in `Deleting` | target volume | rules out |\n"
+        "|---|---|---|---|\n"
+        "| `ga-bpa` | **56 days** | deleted by hand | \"it just takes a while\" |\n"
+        "| `ga-bpa-b` | **8 days** | **still present** | \"you removed the volume it "
+        "binds\" |\n"
+        "| `ga-bpa-c` | 45 min, instrumented | present THROUGHOUT, removed after | nothing uncontrolled |\n\n"
+        "`ga-bpa-c`\u2019s volume was verified alive for the whole 45-minute window \u2014 the measurement is sound \u2014 and then **the chain\u2019s own teardown deleted it** in reverse dependency order, because the volume is removed after the assignment delete is attempted regardless of whether it succeeded. So the run reproduced the very confound it was built to avoid, one step later. `ga-bpa-b` is the only row a vendor can still check today, which is why both this entry and the report rest on it.\n\n"
+        "**A volume bound by a wedged assignment still deletes normally** (`ga-bpa-vol-c` -> 404, verified in the same teardown). So the hold blocks NEW assignments only, not volume lifecycle \u2014 narrower than first written here, and it means the billable part of this residue is reclaimable even though the schedule-plane part is not.\n\n"
+        "The case rests on `ga-bpa-b`. `ga-bpa`\u2019s 56 days is **confounded** — that "
+        "is the one whose BlockStorage was force-deleted out of dependency order by "
+        "hand, and a vendor could dismiss it in one line and be right to. The 8-day "
+        "case, with `ga-bpa-vol` demonstrably intact and reporting `NotUsed`, is what "
+        "removes that explanation.\n\n"
+        "**And the 8-day case was on the account before the 45-minute run was "
+        "commissioned.** The question had already been answered by a natural experiment "
+        "nobody had read correctly: I checked that `ga-bpa`\u2019s volume was gone, "
+        "concluded the evidence was confounded, and did not check whether "
+        "`ga-bpa-b`\u2019s was intact. It was. The billable run is a clean, "
+        "instrumented, same-day confirmation and it was not *necessary* — look at what "
+        "the account already holds before provisioning more of it.\n\n"
+        "**A wedged assignment permanently blocks its target volume**, which is the "
+        "consequence with the widest blast radius. While one sits in `Deleting`, no new "
+        "assignment can be made to the volume it references:\n\n"
+        "```\n"
+        "400 {\"fieldName\":\"BackupPolicyAssignment\",\n"
+        "     \"errorMessage\":\"There is already a backup policy assigned to the "
+        "resource\"}\n"
+        "```\n\n"
+        "The volume reports `state: NotUsed` throughout. Nothing in its own "
+        "representation shows it is held, so from the volume\u2019s side the refusal is "
+        "unexplainable — and it is why renaming the policy and assignment was not enough "
+        "to re-run this chain; the volume needed a fresh name too.\n\n"
+        "**`BackupPolicy`\u2019s GA is NOT affected, and this is now MEASURED rather "
+        "than inferred.** The aborted attempt earlier the same day never created its "
+        "assignment \u2014 the 400 above \u2014 which left a policy with nothing "
+        "referencing it. A controlled pair fell out of my own failed run:\n\n"
+        "```\n"
+        "6ae5a0d4c7425cdb05e69c17  no assignment referenced it  DELETE -> 404, gone\n"
+        "6ae5b30cc7425cdb05e69c66  wedged assignment ga-bpa-c   DELETE -> 200, Deleting\n"
+        "```\n\n"
+        "Same kind, same project, same api-version, minutes apart; the only variable "
+        "is whether a wedged assignment referenced it. So all three policies being "
+        "stuck is dependency order, not a defect in the policy. Reported to Aruba 2026-10-31 with "
+        "the six resource ids; the mechanism is **not** claimed, because "
+        "`400 Invalid status` is indistinguishable from an ordinary transient state "
+        "refusal and a confident vendor-defect claim is how the PUT-400 went wrong "
+        "earlier the same day.\n\n"
         "A correction to an earlier, stronger claim here. This note used to say delete "
         "was *proven not to complete*; the evidence does not carry that weight. The "
         "400s are the ordinary **state refusal** this API gives to any write on a "
@@ -754,7 +818,9 @@ TIERS = {
         "— a stage iterating zero items being reported identically to a stage with "
         "nothing to do — is now "
         "[snowplow#989](https://github.com/krateo-platformops/snowplow/issues/989), "
-        "scheduled for 1.12.62 or later: a separate additive header "
+        "**not scheduled for any release** — corrected 2026-10-31 on the "
+        "maintainers\u2019 word after this doc said \"scheduled for 1.12.62 or later\", which implied a slot that does not exist; 1.12.62 is the export release "
+        "and carries something else. The proposal is a separate additive header "
         "`X-Snowplow-Stage-Iterations` listing each looping stage with its item count, "
         "leaving `X-Snowplow-Stage-Outcomes` unchanged. A `delete: 0 items` would have "
         "made this visible on the first run instead of after a stranded server. When "
@@ -1375,11 +1441,14 @@ stringData:
         f.write("| Tier | Bar | Count |\n|------|-----|-------|\n")
         f.write("| **GA** | full `create → observe → drift → delete` against the live API | "
                 f"{counts.get('ga', 0)} |\n")
-        f.write("| beta | observe verified live; mutation unproven | "
+        f.write("| beta | verified live short of the full lifecycle; WHICH verb is "
+                "unproven is recorded per row | "
                 f"{counts.get('beta', 0)} |\n")
-        f.write("| experimental | generated, valid, reaches `Ready`, sample admitted | "
+        f.write("| experimental | generated and valid; not proven live — including "
+                "where THIS ACCOUNT cannot reach the provider at all | "
                 f"{counts.get('experimental', 0)} |\n")
-        f.write("| **blocked** | known non-functional, reason recorded | "
+        f.write("| **blocked** | known non-functional, or impossible through the "
+                "API as declared; reason recorded | "
                 f"{counts.get('blocked', 0)} |\n\n")
         f.write(
             "Where the API has **no update verb**, drift is *inapplicable* rather than "
@@ -1404,14 +1473,18 @@ stringData:
         # that hides that is the kind of thing this table exists to prevent. Written
         # as prose rather than a footnote marker so it cannot be skimmed past.
         f.write(
-            "**One exception to the experimental bar, stated so the count is not "
-            "misread.** `profile/AiKey` is generated and valid but has *never been "
-            "applied to a cluster*, so it has not cleared the \"reaches `Ready`, "
-            "sample admitted\" half of that bar. It is counted as experimental "
-            "because that is the lowest tier it can hold without being `blocked`, "
-            "and it is not blocked: nothing is known to be broken about it. The API "
-            "simply offers no way to bring one into existence — see its row for the "
-            "detail.\n\n"
+            "**`profile/AiKey` moved from experimental to blocked on 2026-10-31, and "
+            "the argument this paragraph used to carry is worth keeping visible.** It "
+            "said AiKey was \"not blocked: nothing is known to be broken about it\" — "
+            "reasoning from the code outward, where the definitions are valid and "
+            "nothing has failed. Reading from the API inward gives the opposite "
+            "answer: `Aruba.Profile/aiKeys` declares no POST, so no sequence of calls "
+            "brings one into existence, and a sweep of all five projects on 2026-10-28 "
+            "found zero to adopt. A resource that can be neither created nor found is "
+            "non-functional in the only sense this tier means — permanently, and by "
+            "the API's own shape rather than by anything this repo does. The earlier "
+            "reading was not wrong about the code; it was answering a question nobody "
+            "asks of this table.\n\n"
         )
         f.write("Only **GA** claims fitness for production use. See "
                 "[ga-readiness](ga-readiness.md).\n\n")
