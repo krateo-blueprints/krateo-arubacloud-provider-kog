@@ -1,10 +1,12 @@
 # DO NOT RUN THIS CHAIN CASUALLY. Every real run of it leaves a resource that can
 # never be deleted. See "the cost of a verdict" below.
 #
-# Two resources here carry a `-b` suffix because their original names are taken, by
-# corpses: a BackupPolicy `ga-bpa-policy` and a BackupPolicyAssignment `ga-bpa` have
-# been stuck in `Deleting` on this account since 2026-09-04 and cannot be removed
-# through the API. findby matches by NAME, so the chain ADOPTED the dying resources --
+# Two resources here carry a `-c` suffix because the earlier names are taken, by
+# corpses. `ga-bpa-policy` + `ga-bpa` have been stuck in `Deleting` since
+# 2026-09-04; as of 2026-10-31 the `-b` pair is wedged identically -- `ga-bpa-b`
+# created 2026-10-23, still `Deleting`, DELETE -> 400 `Invalid status`. The
+# rename is therefore not cosmetic: findby matches by NAME, and reusing a wedged
+# name would adopt a dying resource exactly as described next. findby matches by NAME, so the chain ADOPTED the dying resources --
 # the CR reported Ready against something in `Deleting`.
 #
 # That was fixed in two steps, and the first was only half a fix: renaming the policy
@@ -73,12 +75,12 @@ resources:
         billingPeriod: Hour
 
   - kind: BackupPolicy
-    name: ga-bpa-policy-b
+    name: ga-bpa-policy-c
     self: /projects/${PROJECT}/providers/Aruba.Schedule/backupPolicies/${id:self}
     spec:
       configurationRef: {name: backuppolicy-config, namespace: default}
       projectId: "${PROJECT}"
-      metadata: {name: ga-bpa-policy-b, tags: []}
+      metadata: {name: ga-bpa-policy-c, tags: []}
       properties:
         resourceType: volume
         schedules:
@@ -88,14 +90,14 @@ resources:
             time: "02:00:00"
 
   - kind: BackupPolicyAssignment
-    name: ga-bpa-b
+    name: ga-bpa-c
     spec:
       configurationRef: {name: backuppolicyassignment-config, namespace: default}
       projectId: "${PROJECT}"
-      metadata: {name: ga-bpa-b, location: {value: "${LOCATION}"}, tags: []}
+      metadata: {name: ga-bpa-c, location: {value: "${LOCATION}"}, tags: []}
       properties:
         backupPolicy:
-          uri: "/projects/${PROJECT}/providers/Aruba.Schedule/backupPolicies/${id:ga-bpa-policy-b}"
+          uri: "/projects/${PROJECT}/providers/Aruba.Schedule/backupPolicies/${id:ga-bpa-policy-c}"
         resource:
           uri: "/projects/${PROJECT}/providers/Aruba.Storage/blockStorages/${id:ga-bpa-vol}"
     drift: /projects/${PROJECT}/providers/Aruba.Schedule/backupPolicyAssignments/${id:self}
