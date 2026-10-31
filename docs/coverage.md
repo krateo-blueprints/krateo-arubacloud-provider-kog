@@ -111,7 +111,22 @@ injection landed, polled once, saw `tags == []` and declared success.
 
 **Which GA rows now have confirmed-injection evidence (2026-10-31).** Six of the twenty-eight: `Vpc`, `Subnet`, `SecurityGroup`, `BlockStorage` and `CloudServer` all logged `CONFIRMED present upstream` in the cloudserver chain, and `Kaas` was re-run on the confirming probe as a by-product of the KaasBackup measurement. **Of the remaining twenty-two, EIGHT have no drift to re-verify and FOURTEEN do.** Audited 2026-10-31 against the OAS rather than assumed: `Database`, `DatabaseUser`, `Grant`, `DatabaseBackup` and `KeyPair` declare no update verb at all, and `Key`, `Kmip` and `Restore` declare a PUT whose body carries no non-identifying field — `KmsKeyEditDto` and `KmipNameDto` are `{name}` only with `name` as the identifier, and `Restore`’s is an inline schema with zero properties. Drift is inapplicable for all eight, so their GA does not rest on the unconfirmed probe at any point. Verified by resolving each `update` verb’s requestBody through its `$ref`, not by trusting these notes — I raised this as a suspected eight unearned GA rows and the audit said otherwise.**
 
-So fourteen rows carry drift evidence predating the assertion: `BackupPolicy`, `ScheduledJob`, `ElasticIp`, `SecurityRule`, `VpcPeering`, `VpcPeeringRoute`, `Folder`, `Project`, `Kms`, `Snapshot`, `Backup`, `VpnTunnel`, `VpnRoute` and `Dbaas`.** The mechanism is now known to work rather than assumed, so the downgrade below is softened, not withdrawn — but softened for six rows, not for all of them, and the honest count is 6 of 28.
+**Re-verification pass, 2026-10-31: NINE of the fourteen are now done.** Each was re-run on the injection-confirming probe, with the injection logged `CONFIRMED present upstream` before its removal was measured, and every chain tore down with `leftovers = 0`:
+
+| chain | rows re-verified | cost |
+|---|---|---|
+| schedule-metering | `BackupPolicy` | free |
+| project-folder | `Folder`, `Project` | free |
+| network-security | `SecurityRule` (+ Vpc, Subnet, SecurityGroup again) | free |
+| peering-route | `VpcPeering`, `VpcPeeringRoute` | 1 billable |
+| network-extra | `ElasticIp` | 1 billable |
+| storage | `Snapshot`, `Backup` (+ BlockStorage again) | 3 billable |
+
+`Restore`’s DELETE was re-verified in the storage chain as a by-product (404 with its parent backup still alive), which is the half of its evidence that is not drift-inapplicable.
+
+**FIVE remain, and each has a named reason rather than a cost estimate:** `VpnTunnel` and `VpnRoute` need `PSK_SECRET`, which the fixture declares empty so no key is ever committed; `Kms` costs 2 billable resources for one row; `Dbaas` costs 5 for one row; and `ScheduledJob` needs a real CloudServer via `scripts/ga_job_probe.py`, because a step’s only supported actions are poweron/poweroff and a RestDefinition cannot create a server ([oasgen#108](https://github.com/krateo-platformops/oasgen-provider/issues/108)).
+
+The original fourteen were: `BackupPolicy`, `ScheduledJob`, `ElasticIp`, `SecurityRule`, `VpcPeering`, `VpcPeeringRoute`, `Folder`, `Project`, `Kms`, `Snapshot`, `Backup`, `VpnTunnel`, `VpnRoute` and `Dbaas`.** The mechanism is now known to work rather than assumed, so the downgrade below is softened, not withdrawn — but softened for six rows, not for all of them, and the honest count is 6 of 28.
 
 An earlier commit message (`cd100b3`) claimed this softening was already recorded here. **It was not.** That edit was in a patch whose assertion fired and wrote nothing; the replacement patch applied only the tier change and the withdrawal, and the growth check I ran confirmed the file grew without probing for this paragraph specifically. So the commit message described a change the commit did not contain — the same class of unverified claim this table exists to prevent, made about the table itself.
 
