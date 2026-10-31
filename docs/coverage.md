@@ -229,7 +229,11 @@ Three independent observations, and the one that matters is not the biggest numb
 |---|---|---|---|
 | `ga-bpa` | **56 days** | deleted by hand | "it just takes a while" |
 | `ga-bpa-b` | **8 days** | **still present** | "you removed the volume it binds" |
-| `ga-bpa-c` | 45 min, instrumented | **still present** | nothing uncontrolled |
+| `ga-bpa-c` | 45 min, instrumented | present THROUGHOUT, removed after | nothing uncontrolled |
+
+`ga-bpa-c`’s volume was verified alive for the whole 45-minute window — the measurement is sound — and then **the chain’s own teardown deleted it** in reverse dependency order, because the volume is removed after the assignment delete is attempted regardless of whether it succeeded. So the run reproduced the very confound it was built to avoid, one step later. `ga-bpa-b` is the only row a vendor can still check today, which is why both this entry and the report rest on it.
+
+**A volume bound by a wedged assignment still deletes normally** (`ga-bpa-vol-c` -> 404, verified in the same teardown). So the hold blocks NEW assignments only, not volume lifecycle — narrower than first written here, and it means the billable part of this residue is reclaimable even though the schedule-plane part is not.
 
 The case rests on `ga-bpa-b`. `ga-bpa`’s 56 days is **confounded** — that is the one whose BlockStorage was force-deleted out of dependency order by hand, and a vendor could dismiss it in one line and be right to. The 8-day case, with `ga-bpa-vol` demonstrably intact and reporting `NotUsed`, is what removes that explanation.
 

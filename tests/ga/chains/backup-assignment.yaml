@@ -57,6 +57,20 @@
 #   TIMEOUT=3600 DELETE_VERIFY_SECONDS=2700 python3 scripts/ga_chain.py \
 #       tests/ga/chains/backup-assignment.yaml --with-billable
 #
+# KNOWN LIMITATION, measured 2026-10-31: THE TEARDOWN ITSELF CONFOUNDS THE NEXT
+# RUN'S EVIDENCE. Deletes run in reverse dependency order, so the volume is removed
+# after the assignment's delete is ATTEMPTED -- whether or not it succeeded. The
+# 45-minute measurement is sound, because the volume is verified alive for the whole
+# window, but afterwards the assignment is left wedged with a 404 target, which is
+# exactly the state this header warns against creating by hand. `ga-bpa-c` is now
+# as confounded as `ga-bpa`, one step later and by the harness rather than by me.
+# `ga-bpa-b` is the only wedged assignment whose volume is still intact, and it is
+# what the Aruba report rests on -- do not delete `ga-bpa-vol`.
+#
+# A volume bound by a wedged assignment DOES delete normally (verified), so the hold
+# blocks new assignments only. The billable residue is reclaimable; the
+# schedule-plane residue is not.
+#
 # and DO NOT intervene when the teardown appears to hang -- the hang IS the
 # measurement. If it still has not completed when the window closes, the verdict is
 # the same as before but now actually earned, and the cost is one more wedged
