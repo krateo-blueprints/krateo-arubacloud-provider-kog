@@ -51,7 +51,7 @@ Each of these was recorded in this repository as a result, and each is a true st
 | Tier | Bar | Count |
 |------|-----|-------|
 | **GA** | full `create → observe → drift → delete` against the live API | 28 |
-| beta | observe verified live; mutation unproven | 1 |
+| beta | verified live short of the full lifecycle; WHICH verb is unproven is recorded per row | 1 |
 | experimental | generated and valid; not proven live — including where THIS ACCOUNT cannot reach the provider at all | 4 |
 | **blocked** | known non-functional, or impossible through the API as declared; reason recorded | 3 |
 
@@ -213,7 +213,38 @@ It sat at beta on a note that was wrong, and the correction is worth keeping. Th
 What actually blocked it was the **probe**, not the resource. The generic drift injector perturbs `metadata.tags`; `FolderUpdateDto` is `additionalProperties: false`, so every body shape it tried was a 400 and the result read as a property of the resource rather than a limitation of the harness. Chains can now declare `driftBody`/`driftAssert` and name the field to perturb — **free** — [live-cluster-test](live-cluster-test.md) |
 | project | `Project` | **GA** | findby,get,create,update,delete | `metadata.name` | full lifecycle live incl. drift correction, re-runnable on demand under `tests/ga/chains/project-folder.yaml`. Takes no `projectId` — it IS the project — [live-cluster-test](live-cluster-test.md) |
 | schedule | `BackupPolicy` | **GA** | findby,get,create,update,delete | `metadata.name` | full lifecycle live incl. drift correction — [live-cluster-test](live-cluster-test.md) |
-| schedule | `BackupPolicyAssignment` | beta | findby,get,create,update,delete | `metadata.name` | create → observe → **drift corrected** proven live (`6a9aea83`). **Delete stalls**: the first DELETE is accepted and the resource enters `Deleting`, and every subsequent DELETE returns 400 `Invalid status`.
+| schedule | `BackupPolicyAssignment` | beta | findby,get,create,update,delete | `metadata.name` | create → observe → **drift corrected** re-proven live 2026-10-31 on the injection-confirming probe, so this no longer rests on the era when a 2xx counted as correction. **Delete DOES NOT COMPLETE, and that is now earned rather than assumed.**
+
+```
+drift BackupPolicyAssignment/ga-bpa-c: ok
+--- deleting BackupPolicyAssignment/ga-bpa-c
+    DELETE NOT CONFIRMED after 45 min: .../6ae5b316c7425cdb05e69c68 still
+    reads 200 — the CR is STILL PRESENT, deletionTimestamp=09:27:31Z,
+    finalizers=[composition.krateo.io/finalizer] — wedged, not orphaned
+```
+
+Three independent observations, and the one that matters is not the biggest number:
+
+| assignment | in `Deleting` | target volume | rules out |
+|---|---|---|---|
+| `ga-bpa` | **56 days** | deleted by hand | "it just takes a while" |
+| `ga-bpa-b` | **8 days** | **still present** | "you removed the volume it binds" |
+| `ga-bpa-c` | 45 min, instrumented | **still present** | nothing uncontrolled |
+
+The case rests on `ga-bpa-b`. `ga-bpa`’s 56 days is **confounded** — that is the one whose BlockStorage was force-deleted out of dependency order by hand, and a vendor could dismiss it in one line and be right to. The 8-day case, with `ga-bpa-vol` demonstrably intact and reporting `NotUsed`, is what removes that explanation.
+
+**And the 8-day case was on the account before the 45-minute run was commissioned.** The question had already been answered by a natural experiment nobody had read correctly: I checked that `ga-bpa`’s volume was gone, concluded the evidence was confounded, and did not check whether `ga-bpa-b`’s was intact. It was. The billable run is a clean, instrumented, same-day confirmation and it was not *necessary* — look at what the account already holds before provisioning more of it.
+
+**A wedged assignment permanently blocks its target volume**, which is the consequence with the widest blast radius. While one sits in `Deleting`, no new assignment can be made to the volume it references:
+
+```
+400 {"fieldName":"BackupPolicyAssignment",
+     "errorMessage":"There is already a backup policy assigned to the resource"}
+```
+
+The volume reports `state: NotUsed` throughout. Nothing in its own representation shows it is held, so from the volume’s side the refusal is unexplainable — and it is why renaming the policy and assignment was not enough to re-run this chain; the volume needed a fresh name too.
+
+**`BackupPolicy`’s GA is NOT affected.** All three policies are also stuck in `Deleting`, but each is referenced by a wedged assignment: that is dependency order, not a defect in the policy, and its own create/observe/drift/delete hold when nothing wedged points at it. Reported to Aruba 2026-10-31 with the six resource ids; the mechanism is **not** claimed, because `400 Invalid status` is indistinguishable from an ordinary transient state refusal and a confident vendor-defect claim is how the PUT-400 went wrong earlier the same day.
 
 A correction to an earlier, stronger claim here. This note used to say delete was *proven not to complete*; the evidence does not carry that weight. The 400s are the ordinary **state refusal** this API gives to any write on a resource mid-transition — the same shape that produced three wrong explanations for `VpnTunnel`'s drift before the right one turned out to be "wait longer" ([async-readiness](async-readiness.md#every-write-is-refused-mid-transition-not-just-dbaass)). And the one run that could have settled it was spoiled by hand: when teardown stalled, the referenced BlockStorage was force-deleted out of dependency order, and an assignment cannot finish deleting once the volume it binds has vanished. That is what made `6a9aea83` permanent — residue of a mistake, not a demonstration of a defect.
 

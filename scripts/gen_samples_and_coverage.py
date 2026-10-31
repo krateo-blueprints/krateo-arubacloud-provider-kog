@@ -41,7 +41,11 @@ CONFIG_VERSION = "v1alpha1"
 # adding a row here with the evidence that justifies it.
 #
 #   ga           full create -> observe -> drift -> delete against the live Aruba API
-#   beta         observe verified live; mutation unproven
+#   beta         verified live short of the full GA lifecycle, with the specific
+#                verb that is unproven named in the row. Written generally because
+#                the old wording -- "observe verified live; mutation unproven" --
+#                was FALSE for its only occupant: BackupPolicyAssignment has its
+#                mutation proven and its DELETE is what does not complete.
 #   experimental generated and statically valid; not proven live -- INCLUDING the
 #                case where this account cannot reach the provider at all, which is
 #                not the same as something being wrong with the definition
@@ -209,9 +213,58 @@ TIERS = {
     ),
     ("schedule", "BackupPolicyAssignment"): (
         "beta",
-        "create → observe → **drift corrected** proven live (`6a9aea83`). **Delete "
-        "stalls**: the first DELETE is accepted and the resource enters `Deleting`, and "
-        "every subsequent DELETE returns 400 `Invalid status`.\n\n"
+        "create → observe → **drift corrected** re-proven live 2026-10-31 on the "
+        "injection-confirming probe, so this no longer rests on the era when a 2xx "
+        "counted as correction. **Delete DOES NOT COMPLETE, and that is now earned "
+        "rather than assumed.**\n\n"
+        "```\n"
+        "drift BackupPolicyAssignment/ga-bpa-c: ok\n"
+        "--- deleting BackupPolicyAssignment/ga-bpa-c\n"
+        "    DELETE NOT CONFIRMED after 45 min: .../6ae5b316c7425cdb05e69c68 still\n"
+        "    reads 200 — the CR is STILL PRESENT, deletionTimestamp=09:27:31Z,\n"
+        "    finalizers=[composition.krateo.io/finalizer] — wedged, not orphaned\n"
+        "```\n\n"
+        "Three independent observations, and the one that matters is not the biggest "
+        "number:\n\n"
+        "| assignment | in `Deleting` | target volume | rules out |\n"
+        "|---|---|---|---|\n"
+        "| `ga-bpa` | **56 days** | deleted by hand | \"it just takes a while\" |\n"
+        "| `ga-bpa-b` | **8 days** | **still present** | \"you removed the volume it "
+        "binds\" |\n"
+        "| `ga-bpa-c` | 45 min, instrumented | **still present** | nothing uncontrolled "
+        "|\n\n"
+        "The case rests on `ga-bpa-b`. `ga-bpa`\u2019s 56 days is **confounded** — that "
+        "is the one whose BlockStorage was force-deleted out of dependency order by "
+        "hand, and a vendor could dismiss it in one line and be right to. The 8-day "
+        "case, with `ga-bpa-vol` demonstrably intact and reporting `NotUsed`, is what "
+        "removes that explanation.\n\n"
+        "**And the 8-day case was on the account before the 45-minute run was "
+        "commissioned.** The question had already been answered by a natural experiment "
+        "nobody had read correctly: I checked that `ga-bpa`\u2019s volume was gone, "
+        "concluded the evidence was confounded, and did not check whether "
+        "`ga-bpa-b`\u2019s was intact. It was. The billable run is a clean, "
+        "instrumented, same-day confirmation and it was not *necessary* — look at what "
+        "the account already holds before provisioning more of it.\n\n"
+        "**A wedged assignment permanently blocks its target volume**, which is the "
+        "consequence with the widest blast radius. While one sits in `Deleting`, no new "
+        "assignment can be made to the volume it references:\n\n"
+        "```\n"
+        "400 {\"fieldName\":\"BackupPolicyAssignment\",\n"
+        "     \"errorMessage\":\"There is already a backup policy assigned to the "
+        "resource\"}\n"
+        "```\n\n"
+        "The volume reports `state: NotUsed` throughout. Nothing in its own "
+        "representation shows it is held, so from the volume\u2019s side the refusal is "
+        "unexplainable — and it is why renaming the policy and assignment was not enough "
+        "to re-run this chain; the volume needed a fresh name too.\n\n"
+        "**`BackupPolicy`\u2019s GA is NOT affected.** All three policies are also stuck "
+        "in `Deleting`, but each is referenced by a wedged assignment: that is "
+        "dependency order, not a defect in the policy, and its own create/observe/drift/"
+        "delete hold when nothing wedged points at it. Reported to Aruba 2026-10-31 with "
+        "the six resource ids; the mechanism is **not** claimed, because "
+        "`400 Invalid status` is indistinguishable from an ordinary transient state "
+        "refusal and a confident vendor-defect claim is how the PUT-400 went wrong "
+        "earlier the same day.\n\n"
         "A correction to an earlier, stronger claim here. This note used to say delete "
         "was *proven not to complete*; the evidence does not carry that weight. The "
         "400s are the ordinary **state refusal** this API gives to any write on a "
@@ -1380,7 +1433,8 @@ stringData:
         f.write("| Tier | Bar | Count |\n|------|-----|-------|\n")
         f.write("| **GA** | full `create → observe → drift → delete` against the live API | "
                 f"{counts.get('ga', 0)} |\n")
-        f.write("| beta | observe verified live; mutation unproven | "
+        f.write("| beta | verified live short of the full lifecycle; WHICH verb is "
+                "unproven is recorded per row | "
                 f"{counts.get('beta', 0)} |\n")
         f.write("| experimental | generated and valid; not proven live — including "
                 "where THIS ACCOUNT cannot reach the provider at all | "
