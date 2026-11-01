@@ -70,8 +70,23 @@ k exec -n "$NS" call-probe -- sh -c "
   curl -sS -o /tmp/login.json -w 'http_status=%{http_code}\n' -X POST \
     -H \"Authorization: Bearer \$T\" \
     'http://${AUTHN_SVC}.${NS}.svc.cluster.local:${AUTHN_PORT}/serviceaccount/login'
-  # which fields came back, and the identity -- not the credentials in them
-  echo \"top-level keys: \$(tr ',{}' '\n\n\n' < /tmp/login.json | grep -o '\"[a-zA-Z]*\":' | tr -d '\":' | sort -u | tr '\n' ' ')\"
+  # which fields came back, and the identity -- not the credentials in them.
+  #
+  # The scan is FLAT on purpose: `tr` splits on braces before grep, so a key is
+  # found at ANY depth. That matters because authn's login body nests username
+  # under `user` while groups is top-level -- confirmed by the authn session on
+  # 2026-11-01 against `git diff 0.31.0 0.31.1`, not from memory:
+  #
+  #   {accessToken, user:{displayName, username, avatarURL}, groups}
+  #
+  # A structured `.username` read at top level would return empty, and this probe
+  # would then report a successful login with NO identity. The label below used to
+  # say "top-level keys" while listing every depth, which would have taught a
+  # reader exactly that mistake.
+  #
+  # Fragility recorded rather than fixed: `grep -m1` takes the FIRST match, so a
+  # second `username` appearing earlier at any depth would silently win.
+  echo \"keys at ANY depth: \$(tr ',{}' '\n\n\n' < /tmp/login.json | grep -o '\"[a-zA-Z]*\":' | tr -d '\":' | sort -u | tr '\n' ' ')\"
   echo \"username      : \$(tr ',{}' '\n\n\n' < /tmp/login.json | grep -m1 '\"username\"' | sed 's/.*:\"//; s/\"\$//')\"
   echo \"groups        : \$(tr '{}' '\n\n' < /tmp/login.json | grep -m1 '\"groups\"' | sed 's/.*\"groups\"://; s/,\".*//')\"
 " 2>&1
