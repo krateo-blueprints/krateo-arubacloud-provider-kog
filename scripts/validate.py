@@ -126,6 +126,7 @@ def main():
     verify_restaction_jq_compiles(errors)
     verify_ga_chain_shape(errors)
     verify_no_return_in_finally(errors)
+    verify_maturity_counts_match(errors)
     charts = validate_charts(errors)
     validate_composition_generated(errors)
 
@@ -369,6 +370,98 @@ def _collides(kind):
     """
     low = kind.lower()
     return ({kind} & BUILTIN_KINDS) | ({low, low + "s", low + "es"} & BUILTIN_LOWER)
+
+
+TIER_NAMES = ("GA", "beta", "experimental", "blocked")
+
+
+def _tier_counts(path):
+    """Tier -> count from a markdown maturity table, whatever the column order.
+
+    coverage.md orders them Tier|Bar|Count; README and index use Tier|Count|Claim.
+    Taking the first cell that is a bare integer works for all three, and skips the
+    prose and the `[#75](...)` link cells without needing to know the layout.
+    """
+    counts = {}
+    for line in open(path, encoding="utf-8"):
+        if not line.lstrip().startswith("|"):
+            continue
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if not cells:
+            continue
+        name = cells[0].strip("* ").strip()
+        if name not in TIER_NAMES:
+            continue
+        ints = [c for c in cells[1:] if re.fullmatch(r"\d+", c)]
+        if ints:
+            counts[name] = int(ints[0])
+    return counts
+
+
+def verify_maturity_counts_match(errors):
+    """The entry docs must carry coverage.md's derived tier counts, not their own.
+
+    docs/coverage.md is generated, so its tier table tracks the data. README.md and
+    docs/index.md restated the same table in hand-maintained prose, and both stopped
+    tracking -- in different directions, so the repo asserted three different
+    maturities at once:
+
+        README.md            GA 1   beta 1  experimental 31  blocked 1   (total 34)
+        docs/index.md        GA 15  beta 7  experimental 7   blocked 5   (total 34)
+        docs/coverage.md     GA 28  beta 1  experimental 4   blocked 3   (total 36)
+
+    Only the third was right. The README understated the work by 27 GA resources on
+    the first table a visitor meets, and the repo is public. Both also claimed "34
+    resources across 10 providers" while 36 across 11 were on disk -- the `profile`
+    provider was missing from the narrative entirely.
+
+    Prose that restates generated data has to be checked against it or it rots, and
+    nothing here regenerates these two files. So: the counts must agree, the tiers
+    must sum to the RestDefinitions actually present, and the resource/provider
+    phrases must match the directory tree.
+    """
+    truth = _tier_counts(os.path.join("docs", "coverage.md"))
+    missing = [x for x in TIER_NAMES if x not in truth]
+    if missing:
+        errors.append(
+            "docs/coverage.md: no tier table row found for " + ", ".join(missing)
+            + " -- the generated table is the ground truth for this check, so it "
+              "cannot be verified until that table parses")
+        return
+
+    resources = len(glob.glob(os.path.join("restdefinitions", "*", "*.yaml")))
+    providers = len([d for d in glob.glob(os.path.join("restdefinitions", "*"))
+                     if os.path.isdir(d)])
+
+    total = sum(truth.values())
+    if total != resources:
+        errors.append(
+            f"docs/coverage.md tiers sum to {total} but {resources} RestDefinitions "
+            f"are on disk -- every resource must be in exactly one tier")
+
+    for doc in ("README.md", os.path.join("docs", "index.md")):
+        got = _tier_counts(doc)
+        if not got:
+            errors.append(f"{doc}: no maturity table found; it must restate "
+                          f"docs/coverage.md's tier counts or omit the table entirely")
+            continue
+        for tier in TIER_NAMES:
+            if tier not in got:
+                errors.append(f"{doc}: maturity table has no `{tier}` row "
+                              f"(docs/coverage.md says {truth[tier]})")
+            elif got[tier] != truth[tier]:
+                errors.append(f"{doc}: maturity table says {tier}={got[tier]}, "
+                              f"docs/coverage.md says {truth[tier]}")
+
+        text = open(doc, encoding="utf-8").read()
+        for m in re.finditer(r"(\d+)\s+resources?\s+across\s+(\d+)\s+providers", text):
+            if (int(m.group(1)), int(m.group(2))) != (resources, providers):
+                errors.append(f"{doc}: claims \"{m.group(0)}\" but the tree has "
+                              f"{resources} resources across {providers} providers")
+        for m in re.finditer(r"(\d+)\s+providers?,\s+(\d+)\s+resources", text):
+            if (int(m.group(1)), int(m.group(2))) != (providers, resources):
+                errors.append(f"{doc}: claims \"{m.group(0)}\" but the tree has "
+                              f"{providers} providers, {resources} resources")
 
 
 def verify_no_builtin_shadowing(errors):

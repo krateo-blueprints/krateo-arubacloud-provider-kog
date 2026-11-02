@@ -12,24 +12,34 @@ Kubernetes Custom Resources — generated directly from the official
 
 The predecessor blueprint managed a single resource (`Subnet`) and needed a Go
 proxy (`subnet-plugin`) just to reshape Aruba's `metadata` object. The
-**krateo-platformops builds** of oasgen-provider and rest-dynamic-controller (both at
-**0.19.0**; every feature this repo uses is present since RDC 0.15.0 — see the
+**krateo-platformops builds** of oasgen-provider and rest-dynamic-controller (both
+pinned at **0.41.0**, which is a hard floor and not a preference — see the
 [verified version matrix](docs/adversarial-review.md))
 remove that need through nested identifiers, `requestFieldMapping`,
 `fieldMapping`, `secretRef`, `async` and Snowplow `*ApiRef` delegation. This repo
-uses those features to cover **34 resources across 10 providers with zero
+uses those features to cover **36 resources across 11 providers with zero
 plugins**, and every load-bearing claim has been
 [adversarially verified against the executor source](docs/adversarial-review.md).
 
 ## Install
 
 ```sh
-# 0. The RestDefinition CRD ships as a SEPARATE chart from the provider
-helm install oasgen-provider-crd oci://ghcr.io/krateo-platformops/charts/oasgen-provider-crds \
+# 0. The provider AND its RestDefinition CRD — two separate charts, same version.
+#    Installing only one of them is the most common setup failure: the provider
+#    without the CRDs fails every apply with "no matches for kind".
+helm install oasgen-provider-crds oci://ghcr.io/krateo-platformops/charts/oasgen-provider-crds \
+  --version 0.41.0 --namespace krateo-system --create-namespace
+helm install oasgen-provider oci://ghcr.io/krateo-platformops/charts/oasgen-provider \
   --version 0.41.0 --namespace krateo-system
 
-# 1. Auth token (short-lived Aruba JWT)
-kubectl apply -f samples/arubacloud-token-secret.yaml
+# 1. Auth token. Aruba's token lasts ~1h, so there are two paths:
+#    (a) PREFERRED — External Secrets mints and refreshes it. This is what the
+#        live-cluster verification uses (scripts/pin_verify.sh installs ESO 2.11.0).
+#        Needs ESO on the cluster, plus the client credential stored once:
+#          scripts/eso-bootstrap.sh
+kubectl apply -f eso/   # ClusterSecretStore + ExternalSecret -> arubacloud-token
+#    (b) or paste a token into a Secret by hand — a first look only, it expires:
+# kubectl apply -f samples/arubacloud-token-secret.yaml
 
 # 2. OAS ConfigMaps (the oasPath sources) — must be in the oasgen-provider namespace
 kubectl apply -n krateo-system -f configmaps/
@@ -131,6 +141,7 @@ Everything under `openapi/`, `configmaps/`, `restdefinitions/`, `samples/` and
 python3 scripts/generate_restdefinitions.py  # -> restdefinitions/
 python3 scripts/gen_configmaps.py            # -> configmaps/
 python3 scripts/gen_samples_and_coverage.py  # -> samples/ + docs/coverage.md
+python3 scripts/gen_provider_docs.py         # -> docs/providers/
 ```
 
 The specs themselves are never rewritten — `scripts/validate.py` fails if any byte
@@ -146,6 +157,7 @@ changes. See [OAS policy](docs/oas-patches.md).
 | `restactions/compute/` | Snowplow RESTActions that drive `CloudServer`'s multi-call lifecycle (delegated via `*ApiRef`) |
 | `compositions/` | A Krateo `CompositionDefinition` + Helm chart provisioning a whole environment |
 | `samples/<provider>/` | A `<Kind>Configuration` + a `<Kind>` CR skeleton per resource, plus the shared auth `Secret` |
+| `eso/` | External Secrets `ClusterSecretStore` + `ExternalSecret` that mint and refresh the Aruba token, so nobody pastes a short-lived JWT by hand |
 | `scripts/` | Reproducible generators (`generate_restdefinitions.py`, `gen_configmaps.py`, `gen_samples_and_coverage.py`, `validate.py`) |
 | `docs/oas-patches.md` | The **no-modification policy** for the vendored specs, how it is enforced, and what it costs |
 | `docs/oasgen-provider-evolution.md` | **Every issue that requires an oasgen-provider evolution** (the analytical deliverable) |
@@ -154,19 +166,20 @@ changes. See [OAS policy](docs/oas-patches.md).
 
 ## Coverage at a glance
 
-10 providers, 34 resources — full CRUD where the API allows it:
+11 providers, 36 resources — full CRUD where the API allows it:
 
 - **network**: Vpc, Subnet, SecurityGroup, SecurityRule, ElasticIp, VpcPeering,
   VpcPeeringRoute, VpnTunnel, VpnRoute, LoadBalancer *(read-only)*
 - **compute**: CloudServer *(create/get/findby/delete — lifecycle actions need delegation)*, KeyPair
 - **container**: Kaas, KaasBackup, Registry
 - **database**: Dbaas, Database, DatabaseUser, Grant, DatabaseBackup
-- **storage**: BlockStorage, Snapshot, Backup, Restore
+- **storage**: BlockStorage, Snapshot, Backup, Restore, Image *(blocked)*
 - **security**: Kms, Key, Kmip
-- **schedule**: BackupPolicy, BackupPolicyAssignment, Job
+- **schedule**: BackupPolicy, BackupPolicyAssignment, ScheduledJob
 - **baremetal**: Hpc *(no delete verb in the API)*
 - **project**: Project, Folder
 - **metering**: AlertRule
+- **profile**: AiKey *(blocked)*
 
 ### Maturity — read this before depending on a resource
 
@@ -176,10 +189,10 @@ invisible to review and surfaced only on a cluster:
 
 | Tier | Count | Claim |
 |------|-------|-------|
-| **GA** | 1 | full `create → observe → drift → delete` proven live — fit for production |
-| beta | 1 | observe verified live; mutation unproven |
-| experimental | 31 | generated and valid, reaches `Ready`, sample admitted by its CRD |
-| **blocked** | 1 | known non-functional — `network/LoadBalancer`, see [#75](https://github.com/krateo-platformops/oasgen-provider/issues/75) |
+| **GA** | 28 | full `create → observe → drift → delete` against the live API — fit for production |
+| beta | 1 | verified live short of the full lifecycle; which verb is unproven is recorded per row |
+| experimental | 4 | generated and valid; not proven live — including where this account cannot reach the provider at all |
+| **blocked** | 3 | known non-functional, or impossible through the API as declared: `network/LoadBalancer` ([#75](https://github.com/krateo-platformops/oasgen-provider/issues/75)), `profile/AiKey`, `storage/Image` |
 
 **The provider as a whole is not yet GA.** Per-resource tiers and the evidence
 behind each are in [`docs/coverage.md`](docs/coverage.md); what remains is tracked
@@ -217,15 +230,21 @@ whole-environment provisioning. See
 
 ## Caveats & assumptions
 
-- **Not cluster-tested.** `api.arubacloud.com` is not reachable from the build
-  environment, so these manifests are validated for shape/consistency against the
-  OAS and the fork's canonical Subnet example, not against a live API. Treat them
-  as a reviewed starting point.
+- **Tiers record execution, not review.** 28 resources have been driven
+  `create → observe → drift → delete` against the live `api.arubacloud.com`; the
+  runs, their resource ids and the defects they exposed are in
+  [live-cluster-test](docs/live-cluster-test.md). The remaining 8 rows are marked
+  beta, experimental or blocked precisely because they have *not* earned that, and
+  every serious defect this project found was invisible to static review.
 - The metadata-wrapped recipe (`identifiers: [metadata.name]` +
   `additionalStatusFields: [metadata.id]` + `requestFieldMapping id →
   status.metadata.id`) is the exact pattern the fork ships as its Subnet example,
   replicated across resources.
-- `findby` assumes the controller extracts items from Aruba's
-  `{total, values[]}` list envelope (evolution report §B3).
+- `findby` relies on the controller unwrapping Aruba's `{total, values[]}` list
+  envelope. This is declared behaviour, not an assumption: every one of the 68 list
+  envelopes in these specs carries exactly one array, which is the unambiguous case
+  `ExtractItemsFromResponse` resolves without configuration, and an envelope with
+  two or more arrays is an error rather than a guess (oasgen#110, shipped — so no
+  `findby.itemsPath` is declared anywhere in this repo).
 - The specs are consumed **unmodified** — no rewriting at all, enforced by a
   sha256 manifest. See [OAS policy](docs/oas-patches.md).

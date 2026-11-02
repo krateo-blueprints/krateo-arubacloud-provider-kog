@@ -47,7 +47,7 @@ Scope analysed: 11 specs, ~108 operations, **34 manageable resources** across th
 | A7 | `apiKey` security schemes unsupported | 🟩 | 8 specs (24 of 34 resources) | **Shipped** in oasgen 0.19.0 + RDC 0.19.0 — `authentication.apiKey` with `header`/`valuePrefix`, and skipped schemes now surfaced ([#49](https://github.com/krateo-platformops/oasgen-provider/issues/49)) |
 | B1 | `metadata`-wrapped name/id (nested identifier) | 🟩 | ~28 resources | Solved (nested identifiers + `requestFieldMapping`) — was the reason for the old subnet proxy |
 | B2 | Different path-param name per verb | 🟩/🟧 | `database/Database`, `schedule/BackupPolicy` | Solved per-verb; a spec-level alias would be cleaner |
-| B3 | `findby` list envelope (`{total, values[]}`) | 🟧 | all list endpoints | Explicit `findby.itemsPath` / response-collection selector |
+| B3 | `findby` list envelope (`{total, values[]}`) | 🟩 | all list endpoints | **Shipped** — `findby.itemsPath`, optional, with ≥2 arrays an error rather than a guess ([#110](https://github.com/krateo-platformops/oasgen-provider/issues/110)) |
 | B4 | Secret-bearing spec fields (password, keys) | 🟧 | `database/DatabaseUser`, `compute/KeyPair`, `container/Registry` | `secretRef` resolver + OAS-declarable `*SecretRef` field |
 | C1 | Lifecycle expressed as POST action sub-endpoints | 🟥 | compute, container, database, project, baremetal | First-class "action verbs" or `createApiRef`/`updateApiRef` delegation |
 | C2 | Async readiness | 🟩 | all create/update | Solved by `async` (requeue); wired on `Hpc`. Poll-path validation + `handleParam` **shipped** in 0.18.0 ([#46](https://github.com/krateo-platformops/oasgen-provider/issues/46)). Residual: open-string state enums |
@@ -244,19 +244,44 @@ be surprised.
 **Evolution:** none strictly required; a spec-level path-parameter alias would be
 cleaner than relying on the author to notice the mismatch.
 
-### B3 — `findby` list envelope (🟧 verified heuristic)
+### B3 — `findby` list envelope (🟩 shipped in #110)
 Every Aruba list endpoint returns `{total, self, prev, next, first, last, values:[…]}`
-— the resources are under `values`, not at the top level. **Verified against RDC
-source** (`restclient.go: ExtractItemsFromResponse`): the controller takes the
-**first array-valued key** it finds in the response object. Aruba's envelope has
-exactly one array, so this works — but it is a heuristic over a randomly-ordered
-Go map, and a response carrying a second array field would make item extraction
-nondeterministic. There is no field to declare the items' location explicitly.
+— the resources are under `values`, not at the top level.
 
-**Evolution:** an explicit `findby.itemsPath` (e.g. `values`) / response-collection
-selector, so the envelope shape is declared rather than inferred. The
-`continuationToken` pagination block already extracts a token from the response;
-extracting the item array is the natural companion.
+**This section asked for a feature that already existed, and said so for longer than
+it was true.** The ask below was filed as open and is now closed: `findby.itemsPath`
+shipped in [#110](https://github.com/krateo-platformops/oasgen-provider/issues/110),
+and it is present in the version this repo pins. Verified at **0.41.0**, not on
+main and not on report:
+`ItemsPath string \`json:"itemsPath,omitempty"\`` at
+`go/rest-dynamic-controller/internal/tools/definitiongetter/getter.go:63`, consumed by
+`ExtractItemsFromResponse(body, itemsPath)` in
+`go/rest-dynamic-controller/internal/tools/client/restclient.go`, whose branches are:
+
+| response shape | result |
+|---|---|
+| bare JSON array | itself |
+| `itemsPath` declared | that property — **authoritative**: resolving to a non-array, or being absent, is an error, not a reason to look elsewhere |
+| exactly one array property | that one, unambiguously |
+| two or more array properties | an error naming them in sorted order; never a guess |
+| no array property | the object itself, as a list of one |
+
+**Why this repo still declares no `itemsPath` anywhere.** All 68 list envelopes in
+these specs carry exactly one array, so the single-array branch resolves `values`
+with nothing declared — including the two variants that are not the common shape
+(`metering.json` `StandardAlertResponse`/`StandardAlertReceivedResponse` add a
+`metadata` key; `auditing.json` `AuditResponseFilter` has no `first`/`last`/`prev`).
+The inference never looks at key *names*, only at how many properties are arrays, so
+all three shapes resolve for the same reason.
+
+**What was withdrawn, and what held.** The claim that there is "no field to declare
+the items' location" is withdrawn — there is. The diagnosis underneath it held and was
+the thing actually fixed: the old code ranged the map and took the first list, and Go
+randomises map iteration order, so an envelope with two arrays searched a different
+one on different reconciles. Losing that toss means `findby` reports not-found, which
+the reconciler acts on by **creating a duplicate** — a coin flip, not a stable wrong
+answer. #110 replaced it with the table above and sorts the names before building the
+error, so the diagnostic is stable too.
 
 ### B4 — secret-bearing spec fields (🟧)
 Some create bodies carry credentials that should come from a Kubernetes Secret,
