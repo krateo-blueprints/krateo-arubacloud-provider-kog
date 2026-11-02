@@ -109,6 +109,34 @@ injection landed, polled once, saw `tags == []` and declared success.
 
 `_drift_explicit` had warned about precisely this in its own docstring — *a probe that injects without asserting cannot tell correction from the API quietly ignoring the write* — while the tag-trick path, which every other resource uses, carried no such assertion. `ga_chain.py` now confirms the tag is present upstream before waiting for it to disappear, and returns *skipped* rather than *passed* when the injection does not land.
 
+**Which GA rows now have confirmed-injection evidence (2026-10-31).** Six of the twenty-eight: `Vpc`, `Subnet`, `SecurityGroup`, `BlockStorage` and `CloudServer` all logged `CONFIRMED present upstream` in the cloudserver chain, and `Kaas` was re-run on the confirming probe as a by-product of the KaasBackup measurement. **Of the remaining twenty-two, EIGHT have no drift to re-verify and FOURTEEN do.** Audited 2026-10-31 against the OAS rather than assumed: `Database`, `DatabaseUser`, `Grant`, `DatabaseBackup` and `KeyPair` declare no update verb at all, and `Key`, `Kmip` and `Restore` declare a PUT whose body carries no non-identifying field — `KmsKeyEditDto` and `KmipNameDto` are `{name}` only with `name` as the identifier, and `Restore`’s is an inline schema with zero properties. Drift is inapplicable for all eight, so their GA does not rest on the unconfirmed probe at any point. Verified by resolving each `update` verb’s requestBody through its `$ref`, not by trusting these notes — I raised this as a suspected eight unearned GA rows and the audit said otherwise.**
+
+**Re-verification pass, 2026-10-31: ELEVEN of the fourteen are now done.** Each was re-run on the injection-confirming probe, with the injection logged `CONFIRMED present upstream` before its removal was measured, and every chain tore down with `leftovers = 0`:
+
+| chain | rows re-verified | cost |
+|---|---|---|
+| schedule-metering | `BackupPolicy` | free |
+| project-folder | `Folder`, `Project` | free |
+| network-security | `SecurityRule` (+ Vpc, Subnet, SecurityGroup again) | free |
+| peering-route | `VpcPeering`, `VpcPeeringRoute` | 1 billable |
+| network-extra | `ElasticIp` | 1 billable |
+| storage | `Snapshot`, `Backup` (+ BlockStorage again) | 3 billable |
+| vpn | `VpnTunnel`, `VpnRoute` | 3 billable |
+
+`Restore`’s DELETE was re-verified in the storage chain as a by-product (404 with its parent backup still alive), which is the half of its evidence that is not drift-inapplicable.
+
+The vpn chain ran with an **ephemeral generated PSK**, not a real key: the fixture declares `PSK_SECRET` empty so none is ever committed, and the value is arbitrary here because the tunnel is created, drifted on `metadata.tags` and deleted without ever connecting to a peer. The log was then checked for a leak rather than assumed clean — four long strings appeared and all four were a kubeconfig path, two image digests and a resource URL.
+
+**THREE remain. They were ATTEMPTED on 2026-11-01 and blocked by host contention, not left untried:** the load gate sampled for 90 minutes against a machine holding eight kind clusters at load 25–45 on 8 cores, refused to start, deleted its own cluster and stopped the sequence rather than cascading. Nothing was created and nothing was spent. Re-run them on a quiet host; the gate, the prechecks and the stop-on-residue rule are all proven.
+
+Their costs and reasons: `Kms` costs 2 billable resources for one row; `Dbaas` costs 5 for one row; and `ScheduledJob` needs a real CloudServer via `scripts/ga_job_probe.py`, because a step’s only supported actions are poweron/poweroff and a RestDefinition cannot create a server ([oasgen#108](https://github.com/krateo-platformops/oasgen-provider/issues/108)).
+
+**The 6 / 8 / 14 split was checked against this table, not just asserted** (2026-10-31): the three sets are pairwise disjoint, their sizes are 6, 8 and 14, and their union is exactly the 28 GA rows with none left uncategorised. It is hand-written prose over a generated table, so it could drift from it silently; this is a one-off verification rather than a gate, because a regex screen over prose would flag correct text as readily as wrong text — the first extraction I wrote for this check did exactly that.
+
+The original fourteen were: `BackupPolicy`, `ScheduledJob`, `ElasticIp`, `SecurityRule`, `VpcPeering`, `VpcPeeringRoute`, `Folder`, `Project`, `Kms`, `Snapshot`, `Backup`, `VpnTunnel`, `VpnRoute` and `Dbaas`.** The mechanism is now known to work rather than assumed, so the downgrade below is softened, not withdrawn — but softened for six rows, not for all of them, and the honest count is 6 of 28.
+
+An earlier commit message (`cd100b3`) claimed this softening was already recorded here. **It was not.** That edit was in a patch whose assertion fired and wrote nothing; the replacement patch applied only the tier change and the withdrawal, and the growth check I ran confirmed the file grew without probing for this paragraph specifically. So the commit message described a change the commit did not contain — the same class of unverified claim this table exists to prevent, made about the table itself.
+
 **Scope, stated carefully rather than over-corrected.** The demonstrated false pass is specific to CloudServer, the only resource here with no native update verb — its correction could only have come from the delegated action that made no calls. The other 28 resources with drift evidence DO have a native update verb, so a real correction mechanism existed and their passes have a plausible cause. Their evidence is nonetheless weaker than previously stated, because it predates the confirmation step: it shows the tag ending up absent, not that it was ever present. Recorded rather than silently relied on.
 
 Open and unanswered: **why** Aruba accepts a PATCH carrying `metadata.tags` and drops it. The PATCH schema declares `metadata` as `MetadataDto` with `tags: array<string>`, so the field is documented as writable.
@@ -173,7 +201,24 @@ Note that #904's fix does **not** automatically cover this RESTAction, which is 
 **Delete needs Snowplow.** This RestDefinition routes delete through a RESTAction (`deleteApiRef`), so on a cluster without a Snowplow client the CR cannot be deleted at all — every attempt logs `no snowplow client is configured` and the CR wedges on its finalizer while the remote server is long gone. That is why this is beta and not GA — **billable** — [live-cluster-test](live-cluster-test.md) |
 | compute | `KeyPair` | **GA** | findby,get,create,delete | `metadata.name` | full lifecycle live, re-runnable on demand under `tests/ga/chains/compute-keypair.yaml`. No update verb, so drift is N/A; the GA claim had previously rested on prose rather than on a chain anything runs — [live-cluster-test](live-cluster-test.md) |
 | container | `Kaas` | **GA** | findby,get,create,update,delete | `metadata.name` | full lifecycle live incl. drift correction (K2A4 / 1.33.2), under `tests/ga/chains/container.yaml`. It spent this whole campaign at beta because the CR never reached `Ready`, and the cause was in Aruba's spec, not in ours: `nodePools[].instance` and `nodePools[].dataCenter` are **strings** in `NodePoolsDto` (what writes send) and **objects** in `NodePoolsResponseDto` (what reads return). RDC compares the CR's keys against the response, so a key present on both sides with a different type is permanent drift — and no `compareScope` avoids it, because `KaasUpdatePropertiesDto` declares only `nodePools`, which is the field that differs. The symptom was not just a stuck condition: the controller PUT a healthy cluster every 180s forever, each accepted write driving it from `Active` into `Updating`, which then refused the next one ([oasgen#213](https://github.com/krateo-platformops/oasgen-provider/issues/213)). Fixed here with a `responseTransform` on the get verb — whole-document gojq applied before the comparison — folding each object back to its `.name`. `nodeCidr` (returned as `nodecidr`) and `securityGroup.name` (returned as `uri`) need no handling: those keys are absent from the response, so the comparison skips them. Four undeclared create constraints also apply: `preset: false` where the location already has a VPC, `nodeCidr` required though the OAS marks it optional, a **new** `securityGroup.name` (the cluster makes its own), and `K2A4` as the smallest orderable flavour — `K1A2` is listed in Aruba's metadata but is not orderable — **billable** ~EUR 0.026/hr worker — [live-cluster-test](live-cluster-test.md) |
-| container | `KaasBackup` | experimental | findby,get,create,update,delete | `metadata.name` | create/observe/delete proven live under `tests/ga/chains/container.yaml` (`Ready, id=6ad7aea9`), which only became reachable once Kaas itself could report Ready. Two values the OAS cannot give you, both measured 2026-10-20: `type` accepts **only `Full`** — the API says so in an error attached to the wrong field, `('RetentionDays', 'Type is not valid. Allowed values are Full')` — and only **one backup may be in creation at a time** (`There is another backup in creation`), so backups cannot be created in parallel. **`billingPeriod` is not validated**: a probe created a backup with `billingPeriod: "NotAPeriod"` and the API persisted that string.
+| container | `KaasBackup` | experimental | findby,get,create,update,delete | `metadata.name` | **The upstream backup does NOT provision on this account, measured 2026-10-31 — and an earlier line here said "create/observe/delete proven live", which conflated the CR reaching Ready with the resource existing.**
+
+```
+Ready, id=6ae5ea75d962f5d9939eafe7
+state 6ae5ea75: (first read) -> InCreation at t+0s
+state 6ae5ea75: InCreation -> Failed at t+1631s
+drift: PUT returned 400 for every body shape tried (declared spec, response
+  echo) — Status: Invalid status — cannot inject (state at refusal: Failed)
+drift KaasBackup/ga-kaasbackup: SKIPPED
+```
+
+The CR did reach Ready and the DELETE is genuinely verified (404, with the parent still alive), so those halves stand. What does not stand is reading `Ready` as evidence the backup exists: 27 minutes later the API said `Failed`. The original note was written from a run that recorded the id and moved on, which is the same error as trusting a 2xx — the CR’s condition reports what the controller did, not what the vendor built.
+
+**Drift is SKIPPED, not failed, and the distinction is the point.** The probe could not inject into a `Failed` resource — every PUT shape returned 400 `Invalid status` — so it reported *skipped* rather than claiming a pass. That guard was added this morning for CloudServer and this is the first time it fired on a resource it was not written for.
+
+**Same shape as `container/Registry`**, which sits `InCreation` for 1818s and then goes to `Failed` with no `failureReason`. Two of the three container resources fail to provision here while `Kaas` itself succeeds, so "container is unavailable on trial" remains contradicted — but the pattern is now two resources wide rather than one, which is worth putting to Aruba alongside the Registry question.
+
+Previously recorded, and still true: this only became reachable once Kaas itself could report Ready. Two values the OAS cannot give you, both measured 2026-10-20: `type` accepts **only `Full`** — the API says so in an error attached to the wrong field, `('RetentionDays', 'Type is not valid. Allowed values are Full')` — and only **one backup may be in creation at a time** (`There is another backup in creation`), so backups cannot be created in parallel. **`billingPeriod` is not validated**: a probe created a backup with `billingPeriod: "NotAPeriod"` and the API persisted that string.
 
 **It does not provision on this account**, and that is now measured rather than inferred. With a 45-minute settle window and the state logged on every transition (2026-10-23, released 0.27.1 stack):
 

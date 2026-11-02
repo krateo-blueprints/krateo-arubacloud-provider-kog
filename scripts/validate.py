@@ -630,6 +630,43 @@ def _chain_defects(doc, fname="<chain>"):
                 defects.append(f"{fname}: {who} driftAssert declares BOTH equals and "
                                f"contains -- ambiguous, and rejected at runtime")
 
+    # ScheduledJob steps carry three rules the OAS CANNOT express: `httpVerb` and
+    # `actionUri` are bare strings with no enum, exactly like Registry's `size`. All
+    # three were measured live and recorded in coverage.md, and then a chain entry
+    # violated two of them anyway:
+    #
+    #   * httpVerb must be POST -- the vendor supports no other verb for a step
+    #   * actionUri must be RELATIVE (`poweroff`), never a full path. A full path is
+    #     rejected as "not configured for this resource typology"
+    #   * the only supported actions are poweron and poweroff
+    #
+    # tests/ga/chains/schedule-metering.yaml carried `httpVerb: GET` and an actionUri
+    # pointing at a full VPC path. tests/ga/derived/payloads.yaml said so in those
+    # words, ending "Do not run it as written" -- and nothing enforced it, so a
+    # re-verification pass ran it and spent 900s collecting a 400 that was predicted in
+    # this repo. A prose warning is not a gate.
+    for r in (doc or {}).get("resources") or []:
+        if r.get("kind") != "ScheduledJob":
+            continue
+        who = f"ScheduledJob/{r.get('name','<no name>')}"
+        steps = (((r.get("spec") or {}).get("properties") or {}).get("steps")) or []
+        for n, st in enumerate(steps):
+            if not isinstance(st, dict):
+                continue
+            verb = st.get("httpVerb")
+            if verb != "POST":
+                defects.append(f"{fname}: {who} step[{n}] httpVerb={verb!r} -- the "
+                               f"vendor supports POST only; the OAS types this as a bare "
+                               f"string so nothing else will tell you")
+            act = st.get("actionUri") or ""
+            if act.startswith("/"):
+                defects.append(f"{fname}: {who} step[{n}] actionUri is a FULL PATH "
+                               f"({act[:48]}...) -- it must be relative; a full path is "
+                               f"rejected as 'not configured for this resource typology'")
+            elif act not in ("poweron", "poweroff"):
+                defects.append(f"{fname}: {who} step[{n}] actionUri={act!r} -- the only "
+                               f"supported step actions are poweron and poweroff")
+
     # `${id:X}` resolves X as a CR NAME or a KIND -- ga_chain.py's own docstring says
     # so, and an earlier version of this gate rejected the kind form and flagged four
     # working references in storage.yaml. `self` is the reserved word for the resource
@@ -671,6 +708,8 @@ def verify_ga_chain_shape(errors):
          "driftAssert": {"path": "name", "equals": "y"}},
         {"kind": "Thing", "name": "d", "driftBody": {"p": {}},
          "driftAssert": {"path": "properties.vpc", "contains": {"uri": "/v"}}},
+        {"kind": "ScheduledJob", "name": "j", "spec": {"properties": {
+            "steps": [{"httpVerb": "POST", "actionUri": "poweroff"}]}}},   # the good shape
     ]}
     assert _chain_defects(good) == [], _chain_defects(good)
     for bad, why in [
@@ -689,6 +728,13 @@ def verify_ga_chain_shape(errors):
         ({"resources": [{"kind": "Vpc", "name": "a"}, {"kind": "Vpc", "name": "b"},
                         {"kind": "S", "name": "c",
                          "spec": {"p": "${id:Vpc}"}}]}, "ambiguous kind ref"),
+        ({"resources": [{"kind": "ScheduledJob", "name": "j", "spec": {"properties": {
+            "steps": [{"httpVerb": "GET", "actionUri": "poweroff"}]}}}]}, "step verb GET"),
+        ({"resources": [{"kind": "ScheduledJob", "name": "j", "spec": {"properties": {
+            "steps": [{"httpVerb": "POST",
+                       "actionUri": "/projects/x/providers/y"}]}}}]}, "actionUri full path"),
+        ({"resources": [{"kind": "ScheduledJob", "name": "j", "spec": {"properties": {
+            "steps": [{"httpVerb": "POST", "actionUri": "reboot"}]}}}]}, "unsupported action"),
         ({"resources": [{"name": "a"}]}, "no kind"),
     ]:
         assert _chain_defects(bad), f"screen misses: {why}"
