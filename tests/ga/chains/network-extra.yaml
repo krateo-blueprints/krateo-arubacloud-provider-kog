@@ -5,7 +5,7 @@
 # and a pre-shared key, and a PSK does not belong in a committed fixture.
 name: network-extra
 vars:
-  PROJECT: 69a55c8d5e6f0e14f14093ff
+  PROJECT: ''
   LOCATION: ITBG-Bergamo
 residue:
   - /projects/${PROJECT}/providers/Aruba.Network/elasticIps

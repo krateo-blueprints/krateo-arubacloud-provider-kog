@@ -19,7 +19,7 @@ NS=krateo-system
 SA="${SA:-sp-caller}"
 RA="${1:?usage: call_probe.sh <restaction-name> <cr-name>}"
 CRNAME="${2:?}"
-PROJECT=69a55c8d5e6f0e14f14093ff
+PROJECT="${ARUBA_PROJECT:?set ARUBA_PROJECT to your Aruba project id -- there is no default: this talks to a real, billable account}"
 
 k() { kubectl --context "$CTX" "$@"; }
 

@@ -6,7 +6,7 @@
 # Dbaas, and it is why Database, DatabaseUser and Grant stayed at beta.
 name: database
 vars:
-  PROJECT: 69a55c8d5e6f0e14f14093ff
+  PROJECT: ''
   LOCATION: ITBG-Bergamo
   VPC_ID: 69a5609fa851081197caa45f
   SUBNET_ID: 69a560ce2312085699426c28

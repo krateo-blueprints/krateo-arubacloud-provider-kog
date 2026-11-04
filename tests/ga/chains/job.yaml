@@ -12,7 +12,7 @@
 # not the power operation.
 name: job
 vars:
-  PROJECT: 69a55c8d5e6f0e14f14093ff
+  PROJECT: ''
   LOCATION: ITBG-Bergamo
   CS_ID: ""
 residue:

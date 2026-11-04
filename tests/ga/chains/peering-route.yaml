@@ -9,7 +9,7 @@
 # that vanished with its VPC was indistinguishable from one the controller deleted.
 name: peering-route
 vars:
-  PROJECT: 69a55c8d5e6f0e14f14093ff
+  PROJECT: ''
   LOCATION: ITBG-Bergamo
   CIDR_A: 10.100.0.0/24
   CIDR_B: 10.200.0.0/24

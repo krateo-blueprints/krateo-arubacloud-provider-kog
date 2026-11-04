@@ -25,7 +25,7 @@
 # deleted by the teardown.
 name: cloudserver-native
 vars:
-  PROJECT: 69a55c8d5e6f0e14f14093ff
+  PROJECT: ''
   LOCATION: ITBG-Bergamo
   DC: ITBG-1
   VPC_ID: 69a5609fa851081197caa45f

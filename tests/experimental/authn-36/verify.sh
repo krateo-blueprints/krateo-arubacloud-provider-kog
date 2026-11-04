@@ -7,6 +7,7 @@
 # "I didn't see a key" is not the same claim as "there is no key". So it greps for the
 # field and expects NO match, rather than reading the body and not noticing.
 set -uo pipefail
+PROJECT="${ARUBA_PROJECT:?set ARUBA_PROJECT to your Aruba project id -- there is no default: this talks to a real, billable account}"
 CLUSTER="${CLUSTER:-sp-rig}"
 CTX="kind-${CLUSTER}"
 export KUBECONFIG="${TMPDIR:-/tmp}/kind-${CLUSTER}.kubeconfig"
@@ -45,7 +46,7 @@ curl -sS -D /tmp/hdr.txt -o /dev/null -G \
   --data-urlencode 'resource=restactions' \
   --data-urlencode "namespace=${NS}" \
   --data-urlencode 'name=${RA}' \
-  --data-urlencode 'extras={"spec":{"projectId":"69a55c8d5e6f0e14f14093ff","metadata":{"name":"ga-cs-server"}}}' \
+  --data-urlencode "extras={\"spec\":{\"projectId\":\"${PROJECT}\",\"metadata\":{\"name\":\"ga-cs-server\"}}}" \
   -H "Authorization: Bearer \$JWT" \
   "http://${SP}.${NS}.svc.cluster.local:${SPP}/call"
 echo "call_status=\$(head -1 /tmp/hdr.txt | tr -d '\r')"

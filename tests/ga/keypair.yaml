@@ -9,7 +9,7 @@ spec:
   configurationRef:
     name: keypair-config
     namespace: default
-  projectId: 69a55c8d5e6f0e14f14093ff
+  projectId: REPLACE_WITH_YOUR_ARUBA_PROJECT_ID
   metadata:
     name: ga-lifecycle-keypair
     location:

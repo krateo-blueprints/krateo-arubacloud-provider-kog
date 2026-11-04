@@ -16,7 +16,7 @@
 # converge and the probe would have nothing to PUT to. Free -- key pairs do not bill.
 name: compute-keypair
 vars:
-  PROJECT: 69a55c8d5e6f0e14f14093ff
+  PROJECT: ''
   LOCATION: ITBG-Bergamo
 residue:
 - /projects/${PROJECT}/providers/Aruba.Compute/keyPairs
