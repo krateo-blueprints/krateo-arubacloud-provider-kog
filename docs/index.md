@@ -9,7 +9,7 @@ timestamp: 2026-09-05T00:00:00Z
 # Aruba Cloud Provider KOG — documentation
 
 Proxy-free Krateo `oasgen-provider` RestDefinitions for **all** manageable Aruba
-Cloud resources (34 resources across 10 providers), generated directly from the
+Cloud resources (36 resources across 11 providers), generated directly from the
 official OpenAPI specifications.
 
 ## Start here
@@ -51,6 +51,7 @@ restdefinitions/   one RestDefinition per resource (no proxies)
 restactions/       Snowplow RESTActions for CloudServer's delegated lifecycle
 compositions/      Krateo CompositionDefinition + Helm chart (whole-environment provisioning)
 samples/           <Kind>Configuration + CR skeleton per resource + auth Secret
+eso/               External Secrets store + ExternalSecret that mint the Aruba token
 scripts/           reproducible generators + validator
 docs/              this documentation set
 ```
@@ -73,10 +74,10 @@ to review and surfaced only on a cluster.
 
 | Tier | Count | Claim |
 |------|-------|-------|
-| **GA** | 15 | full `create → observe → drift → delete` proven live — fit for production |
-| beta | 7 | created and observed live; drift or delete unproven |
-| experimental | 7 | generated and valid, admitted by its CRD; lifecycle unproven |
-| **blocked** | 5 | known non-functional, each with a recorded reason |
+| **GA** | 28 | full `create → observe → drift → delete` against the live API — fit for production |
+| beta | 1 | verified live short of the full lifecycle; which verb is unproven is recorded per row |
+| experimental | 4 | generated and valid; not proven live — including where this account cannot reach the provider at all |
+| **blocked** | 3 | known non-functional, or impossible through the API as declared; reason recorded |
 
 Per-resource tiers with links to the run that earned each one are in
 [coverage](coverage.md); what remains is tracked in [ga-readiness](ga-readiness.md).
