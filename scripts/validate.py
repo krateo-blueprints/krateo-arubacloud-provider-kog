@@ -127,6 +127,7 @@ def main():
     verify_ga_chain_shape(errors)
     verify_no_return_in_finally(errors)
     verify_maturity_counts_match(errors)
+    verify_parity_page_names_every_kind(errors)
     charts = validate_charts(errors)
     validate_composition_generated(errors)
 
@@ -396,6 +397,49 @@ def _tier_counts(path):
         if ints:
             counts[name] = int(ints[0])
     return counts
+
+
+
+def verify_parity_page_names_every_kind(errors):
+    """The Terraform parity page must name every kind on disk, and count them right.
+
+    This page compares us against the official Aruba Terraform provider, so its
+    numbers are the ones a reader quotes back. It rotted exactly the way the entry
+    docs did, and silently: it claimed "Managed resources | 25 | 34" while 36 were on
+    disk, and said "+9 additional resources" when the true figure was 11. It also
+    still named `Job`, a kind renamed to `ScheduledJob`, so a count of rows in its
+    tables came to the right total out of a stale name and two omissions.
+
+    Counting rows is therefore not enough -- the failure produced a plausible total.
+    This asserts the stronger property: every kind present on disk is NAMED on the
+    page, and the headline count equals the number of RestDefinitions. A kind added
+    without a line here fails the build rather than quietly widening a published gap.
+    """
+    path = os.path.join("docs", "terraform-parity.md")
+    if not os.path.exists(path):
+        errors.append(f"{path}: missing -- the parity gate has nothing to check")
+        return
+    page = open(path, encoding="utf-8").read()
+    kinds = {}
+    for f in sorted(glob.glob(os.path.join("restdefinitions", "*", "*.yaml"))):
+        doc = yaml.safe_load(open(f, encoding="utf-8").read())
+        try:
+            kinds[doc["spec"]["resource"]["kind"]] = f
+        except (KeyError, TypeError):
+            continue
+    unnamed = sorted(k for k in kinds if f"`{k}`" not in page)
+    if unnamed:
+        errors.append(
+            f"{path}: these kinds exist on disk but are not named on the parity page: "
+            + ", ".join(unnamed)
+            + " -- add a row, or the page understates the surface it compares")
+    m = re.search(r"\|\s*Managed resources\s*\|\s*\d+\s*\|\s*\*\*(\d+)\*\*\s*\|", page)
+    if not m:
+        errors.append(f"{path}: the 'Managed resources' headline row is gone -- "
+                      "the gate cannot check a count that is not stated")
+    elif int(m.group(1)) != len(kinds):
+        errors.append(f"{path}: headline says {m.group(1)} managed resources, "
+                      f"{len(kinds)} RestDefinitions are on disk")
 
 
 def verify_maturity_counts_match(errors):

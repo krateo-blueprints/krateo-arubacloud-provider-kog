@@ -12,14 +12,15 @@ Comparison against [`Arubacloud/terraform-provider-arubacloud`](https://github.c
 (the official Terraform/OpenTofu provider).
 
 **Verdict:** full resource/API parity — every managed resource the Terraform
-provider exposes is covered here — **plus 9 additional resources**. The Terraform
+provider exposes is covered here — **plus 11 additional resources**, three of which
+are blocked and recorded as such. The Terraform
 provider, being hand-written and released Go, still leads on a few runtime-maturity
 features; those gaps map one-to-one to items already tracked in
 [oasgen-provider-evolution](oasgen-provider-evolution.md).
 
 | | Terraform provider | This repo (KOG) |
 |---|---|---|
-| Managed resources | 25 | **34** |
+| Managed resources | 25 | **36** |
 | Delivery | Released Go binary | Declarative RestDefinitions generated from the OpenAPI specs |
 | Runtime | Terraform/OpenTofu CLI | Kubernetes controllers (oasgen-provider + RDC) |
 
@@ -50,7 +51,7 @@ features; those gaps map one-to-one to items already tracked in
 | `arubacloud_backup` | `Backup` | storage |
 | `arubacloud_restore` | `Restore` | storage |
 | `arubacloud_kms` | `Kms` | security |
-| `arubacloud_schedule_job` | `Job` | schedule |
+| `arubacloud_schedule_job` | `ScheduledJob` | schedule |
 | `arubacloud_project` | `Project` | project |
 
 **25 / 25 covered.**
@@ -67,10 +68,17 @@ features; those gaps map one-to-one to items already tracked in
 | `Hpc` | baremetal | Bare-metal HPC servers |
 | `Folder` | project | Project folders |
 | `AlertRule` | metering | Insight alert rules |
-| `LoadBalancer` | network | Read-only (findby/get) |
+| `LoadBalancer` | network | **blocked** — the API has no create verb; one exists only as a side effect of a Service of type LoadBalancer inside a KaaS cluster |
+| `AiKey` | profile | **blocked** — `Aruba.Profile/aiKeys` declares no POST, so none can be created through the API |
+| `Image` | storage | **blocked** — create returns 201 and delete is refused indefinitely; do not ship |
 
-**+9 resources**, including three providers the Terraform provider does not touch
-at all (baremetal, metering, and the schedule *policy* surface).
+**+11 resources**, including three providers the Terraform provider does not touch
+at all (baremetal, metering and profile).
+
+**Three of the eleven are blocked** (`LoadBalancer`, `AiKey`, `Image`) and cannot be
+counted as usable surface — they are listed because a parity page that omitted them
+would read as though the gap were larger than it is. The honest comparison is **33
+usable resources against 25**, with every blocked row carrying its reason.
 
 ## Where the Terraform provider is more mature
 
@@ -116,7 +124,8 @@ neither is a clear winner, and it is **not** an area where Terraform does more.
 
 ## Where this approach is ahead
 
-- **Broader surface** — +9 resources and 3 providers the Terraform provider omits.
+- **Broader surface** — +11 resources (8 usable, 3 blocked) and 3 providers the
+  Terraform provider omits.
 - **No provider binary to maintain** — purely declarative; new API endpoints flow
   in by re-running the generator against updated OpenAPI specs
   (`scripts/generate_restdefinitions.py`), no Go release cycle.
