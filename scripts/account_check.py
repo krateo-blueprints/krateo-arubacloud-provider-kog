@@ -35,7 +35,10 @@ import yaml
 CONTEXT = os.environ.get("KUBE_CONTEXT", "kind-aruba-110")
 NS = os.environ.get("NS", "default")
 API = os.environ.get("ARUBA_API", "https://api.arubacloud.com")
-PROJECT = os.environ.get("PROJECT", "69a55c8d5e6f0e14f14093ff")
+PROJECT = os.environ.get("PROJECT") or os.environ.get("ARUBA_PROJECT")
+if not PROJECT:
+    raise SystemExit("set PROJECT (or ARUBA_PROJECT) to your Aruba project id -- "
+                     "there is no default: this talks to a real, billable account")
 FIXTURE = re.compile(r"^(ga|tm)-")
 
 

@@ -84,7 +84,7 @@
 # by a 400), which is why the assignable resource here is a BlockStorage.
 name: backup-assignment
 vars:
-  PROJECT: 69a55c8d5e6f0e14f14093ff
+  PROJECT: ''
   LOCATION: ITBG-Bergamo
 residue:
   - /projects/${PROJECT}/providers/Aruba.Schedule/backupPolicies

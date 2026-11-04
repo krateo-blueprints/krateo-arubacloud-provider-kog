@@ -26,7 +26,7 @@
 #   * securityGroups is required even though the OAS marks nothing required.
 name: cloudserver
 vars:
-  PROJECT: 69a55c8d5e6f0e14f14093ff
+  PROJECT: ''
   LOCATION: ITBG-Bergamo
 residue:
 - /projects/${PROJECT}/providers/Aruba.Compute/cloudServers

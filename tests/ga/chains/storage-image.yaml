@@ -28,7 +28,7 @@
 # resource goes straight to InCreation.
 name: storage-image
 vars:
-  PROJECT: 69a55c8d5e6f0e14f14093ff
+  PROJECT: ''
   LOCATION: ITBG-Bergamo
 residue:
 - /projects/${PROJECT}/providers/Aruba.Storage/blockStorages

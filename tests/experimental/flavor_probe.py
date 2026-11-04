@@ -16,10 +16,12 @@ COST MODEL, stated because it is the point of the exercise:
 Everything created is torn down in a finally, in reverse dependency order, and every
 delete is verified against the API rather than assumed.
 """
-import base64, json, subprocess, sys, time, urllib.error, urllib.request
+import base64, json, os, subprocess, sys, time, urllib.error, urllib.request
 
 B = "https://api.arubacloud.com"
-P = "69a55c8d5e6f0e14f14093ff"
+P = os.environ.get("PROJECT") or os.environ.get("ARUBA_PROJECT")
+if not P:
+    raise SystemExit("set PROJECT (or ARUBA_PROJECT) to your Aruba project id -- no default")
 LOC = "ITBG-Bergamo"
 DC = "ITBG-1"
 

@@ -9,7 +9,7 @@
 #   * an unattached ElasticIp/BlockStorage settles at NotUsed, not Active
 name: cloudserver-prereqs
 vars:
-  PROJECT: 69a55c8d5e6f0e14f14093ff
+  PROJECT: ''
   LOCATION: ITBG-Bergamo
 residue:
   - /projects/${PROJECT}/providers/Aruba.Storage/blockStorages

@@ -3,7 +3,7 @@
 # deleted, and Key is GA -- so that evidence has to be the stronger kind.
 name: security-key
 vars:
-  PROJECT: 69a55c8d5e6f0e14f14093ff
+  PROJECT: ''
   LOCATION: ITBG-Bergamo
 residue:
 - /projects/${PROJECT}/providers/Aruba.Security/kms
