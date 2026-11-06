@@ -22,28 +22,41 @@ permissions:
 env:
   # Pin the provider the RestDefinitions are validated against. Bumping this is a
   # deliberate act with a visible diff, not something that drifts under us on a
-  # Tuesday -- and the smoke job re-proves the 34 against the new version.
+  # Tuesday -- and the smoke job re-proves all 36 against the new version.
   #
-  # 0.27.1 is the top of the range that still installs on the node image below.
-  # What it buys over 0.22.2:
-  #   0.23.0  #109  dotted selectors emitted nested, so LoadBalancer/CloudServer
-  #                 findby can match at all (the samples flip in this same commit)
-  #   0.25.0  #146  response envelope unwrapped
-  #   0.26.0  #148  jq-shaped request bodies
-  #   0.26.1  #166  credential headers redacted in logs -- the reason this is not
-  #                 pinned at 0.25.1
-  # 0.28.0 was deliberately not taken for a while: #178 raises the chart floor to
-  # Kubernetes 1.36, which forces the node image up in the same breath. That floor
-  # has since been taken on purpose -- see node_image below.
+  # THE FLOOR, which is a requirement and not a preference:
   #   0.35.0  libopenapi v0.21.9, so profile.json can be PARSED at all (a `+` in a
   #           schema name made it unparseable); without it AiKey does not merely
   #           fail, it never appears, and nothing reports why
   #   0.36.0  #236  an update verb on a resource with a PUT and no POST now derives
   #           its spec from the update body. AiKey is the only such resource here,
   #           and below this its PUT would silently drop `location` and `tags`
-  # Both are REQUIREMENTS, not preferences: `profile` is in the provider list, so a
-  # pin below 0.36.0 ships an AiKey that is wrong or absent. See scripts/providers.py.
-  OASGEN_VERSION: "0.41.0"
+  # `profile` is in the provider list, so a pin below 0.36.0 ships an AiKey that is
+  # wrong or absent. See scripts/providers.py.
+  #
+  # THE PIN, 0.52.0:
+  #   0.52.0  #424  OAS 3.0 `nullable: true` and `minProperties` reach the CRD --
+  #           these documents are 3.0.1 and this closes evolution-doc item A1
+  #           #421  a fieldMapping no longer deletes the spec property it reads
+  #           from; every get/update/delete here uses requestFieldMapping
+  #           #456  an excludedSpecFields entry matching nothing is now reported
+  #
+  # NOT 0.53.0, deliberately: it bumps plumbing v1.14.2 -> v1.27.0, which stamps
+  # `default: {}` on 240 optional object paths across these 36 definitions --
+  # measured. One of them is Vpc.spec.properties, whose `default` child defaults to
+  # TRUE and may be held by only one vpc per region. oasgen 0.53.0 does not set
+  # Options.NoParentDefaults. See docs/oasgen-provider-evolution.md for the probe,
+  # its positive control, and what declining 0.53.0 costs (#475's RBAC fix).
+  #
+  # Earlier history, kept because it is the reason the floor is where it is:
+  #   0.23.0  #109  dotted selectors emitted nested, so LoadBalancer/CloudServer
+  #                 findby can match at all
+  #   0.25.0  #146  response envelope unwrapped
+  #   0.26.0  #148  jq-shaped request bodies
+  #   0.26.1  #166  credential headers redacted in logs
+  #   0.28.0  #178  raises the chart floor to Kubernetes 1.36, which forces the node
+  #                 image up in the same breath -- taken on purpose, see node_image
+  OASGEN_VERSION: "0.52.0"
 
 jobs:
   validate:
