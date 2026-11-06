@@ -49,6 +49,7 @@ Scope analysed: 11 specs, ~108 operations, **34 manageable resources** across th
 | B2 | Different path-param name per verb | 🟩/🟧 | `database/Database`, `schedule/BackupPolicy` | Solved per-verb; a spec-level alias would be cleaner |
 | B3 | `findby` list envelope (`{total, values[]}`) | 🟩 | all list endpoints | **Shipped** — `findby.itemsPath`, optional, with ≥2 arrays an error rather than a guess ([#110](https://github.com/krateo-platformops/oasgen-provider/issues/110)) |
 | B4 | Secret-bearing spec fields (password, keys) | 🟧 | `database/DatabaseUser`, `compute/KeyPair`, `container/Registry` | `secretRef` resolver + OAS-declarable `*SecretRef` field |
+| B5 | `findby` reads only the first page | 🟥 | all 36 (any collection >50 items) | Implement the `offset` strategy already designed in `types.go`. Measured: Aruba's page is 50 and `limit` is honoured downward only, so `limit=2000` still returns 50. No `pagination` block can express this today, and `NewPaginator(nil)` means the `Indeterminate` guard never engages |
 | C1 | Lifecycle expressed as POST action sub-endpoints | 🟥 | compute, container, database, project, baremetal | First-class "action verbs" or `createApiRef`/`updateApiRef` delegation |
 | C2 | Async readiness | 🟩 | all create/update | Solved by `async` (requeue); wired on `Hpc`. Poll-path validation + `handleParam` **shipped** in 0.18.0 ([#46](https://github.com/krateo-platformops/oasgen-provider/issues/46)). Residual: open-string state enums |
 | C6 | Delete-direction `*ApiRef` extras lack the spec | 🟩 | `compute/CloudServer` (any delegated delete) | **Shipped** in RDC 0.18.0 — spec forwarded on every direction ([rdc#41](https://github.com/krateo-platformops/rest-dynamic-controller/issues/41)) |
@@ -315,6 +316,81 @@ password remains a plaintext spec string (left as-is by the generator).
 **Evolution:** a supported way to (a) declare a synthetic `*SecretRef` object
 field in the generated CRD and (b) exclude the plaintext field, so `secretRef`
 can source it. Without both halves, `secretRef` cannot be wired from a pure OAS.
+
+---
+
+### B5 — `findby` reads only the first page, and Aruba caps the page at 50 (🟥)
+
+Every one of our 36 RestDefinitions declares **no** `pagination` block, because
+there is nothing it could declare. That is not an omission; it is the only
+option the two sides leave.
+
+**Measured against the live API** on a 1175-item collection
+(`Aruba.Audit/events`, 2026-11-06):
+
+| request | HTTP | `total` | `len(values)` | `next` set |
+|---|---|---|---|---|
+| *(no params)* | 200 | 1175 | **50** | yes |
+| `limit=1` | 200 | 1175 | 1 | yes |
+| `limit=10` | 200 | 1175 | 10 | yes |
+| `limit=50` | 200 | 1175 | 50 | yes |
+| `limit=100` | 200 | 1175 | **50** | yes |
+| `limit=500` | 200 | 1175 | **50** | yes |
+| `limit=2000` | 200 | 1175 | **50** | yes |
+
+So the default page is 50, `limit` is honoured **downward only**, and a larger
+`limit` is silently ignored. There is no request that returns item 51 — you
+cannot opt out of paging by asking for one big page.
+
+The absences above are measured, not assumed: collections holding fewer than 50
+objects report `total == len(values)`, so the probe demonstrably reports
+agreement when it exists. Every other collection in the test account holds
+**≤ 6** objects, which is exactly why no live run has ever shown this.
+
+**Why no `pagination` block fits.** RDC implements two strategies,
+`continuationToken` and `pageNumber`
+(`go/rest-dynamic-controller/internal/tools/pagination/`). Aruba pages by
+`offset`/`limit`:
+
+* `continuationToken` re-sends a response value verbatim as a token. Aruba's
+  signal is `next`/`first`/`last` as whole URLs, not a token.
+* `pageNumber` advances by **one** (`page_number.go`, `p.page++`), so
+  `pagePath: offset` would request offset 0, then 1, then 2 — overlapping pages,
+  not successive ones.
+* `offset` is commented out in
+  `go/oasgen-provider/apis/restdefinitions/v1alpha1/types.go` as *"(Future) …
+  deliberately unimplemented rather than undesigned: it is pageNumber with
+  offsetPath/limitPath and an advance of limit rather than 1"*. That is exactly
+  what Aruba needs.
+
+**Why the `Indeterminate` guard does not save us.** RDC is careful here: a
+pagination mechanism that is *declared but cannot be read* yields
+`Indeterminate` rather than a verdict, and exhausting `maxPages` is
+`Indeterminate` too — "I was told to stop looking" is deliberately not "it is
+not there". But `NewPaginator(nil)` returns `nil, nil` — *"No pagination
+configured"*. The guard protects a declared mechanism, and we declare none. So a
+truncated list reaches the matcher as if it were the whole collection, with no
+signal that anything was cut.
+
+**Consequence.** For a collection exceeding 50 items, `findby` cannot match an
+object that sits past the first page. It reports not-found, and an unmatched
+listing is then treated as absence — see
+[oasgen-provider#485](https://github.com/krateo-platformops/oasgen-provider/issues/485),
+which establishes that the normal Observe path tests `IsNotFoundError` and does
+not distinguish a synthesised 404 from a vendor one. Not-found drives a
+**create**. Nothing in Aruba's API corresponds to GitHub's 422 "already exists",
+so there is no vendor-side backstop.
+
+**Honest limits on this entry.** The API behaviour in the table is observed. The
+RDC and oasgen code paths are read, not observed. **Nobody has watched a
+reconciler create a duplicate** — the step from "observe reports absent" to "a
+second resource exists at the vendor" is inferred. Treat the severity as
+code-derived until someone sees it. Reproducing it needs 51+ objects in one
+collection, which no current chain creates.
+
+**Evolution:** implement the `offset` strategy already designed in that type
+comment. For Aruba it also wants the page size to come from the declaration
+rather than a request parameter, since the server ignores a `limit` above 50.
 
 ---
 
