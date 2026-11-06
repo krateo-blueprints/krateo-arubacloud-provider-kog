@@ -16,8 +16,10 @@ vars:
   PROJECT: ''
   LOCATION: ITBG-Bergamo
   DC: ITBG-1
-  VPC_ID: 69a5609fa851081197caa45f
-  SUBNET_ID: 69a560ce2312085699426c28
+  # These three name EXISTING resources in whoever's account runs the chain, so they are
+  # declared empty and must come from the environment -- see ga_chain.py's var merge.
+  VPC_ID: ''
+  SUBNET_ID: ''
   SG_NAME: automatic-sg-01
 residue:
 - /projects/${PROJECT}/providers/Aruba.Container/kaas
