@@ -13,4 +13,6 @@ spec:
     name: example-project
     tags: []
   properties:
-    # fill from openapi/project.json
+    description: REPLACE
+    default: false
+    folderId: REPLACE

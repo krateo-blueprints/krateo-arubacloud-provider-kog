@@ -15,4 +15,7 @@ spec:
     location: {}
     tags: []
   properties:
-    # fill from openapi/network.json
+    # openapi/network.json: default defaults to true when omitted
+    # every property is spelled out so none is defaulted
+    default: false
+    preset: false

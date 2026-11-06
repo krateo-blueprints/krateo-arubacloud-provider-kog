@@ -15,4 +15,22 @@ spec:
     location: {}
     tags: []
   properties:
-    # fill from openapi/database.json
+    engine:
+      id: REPLACE
+    dataCenter: REPLACE
+    flavor:
+      name: REPLACE
+    storage:
+      sizeGb: 0
+    billingPlan:
+      billingPeriod: REPLACE
+    networking:
+      vpcUri: REPLACE
+      subnetUri: REPLACE
+      securityGroupUri: REPLACE
+      elasticIpUri: REPLACE
+    autoscaling:
+      enabled: false
+      availableSpace: 0
+      stepSize: 0
+      ruleId: REPLACE

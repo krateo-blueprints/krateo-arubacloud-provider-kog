@@ -17,4 +17,7 @@ spec:
     location: {}
     tags: []
   properties:
-    # fill from openapi/network.json
+    localNetworkAddress: REPLACE
+    remoteNetworkAddress: REPLACE
+    billingPlan:
+      billingPeriod: REPLACE

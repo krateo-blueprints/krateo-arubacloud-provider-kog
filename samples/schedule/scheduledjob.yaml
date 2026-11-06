@@ -15,4 +15,9 @@ spec:
     location: {}
     tags: []
   properties:
-    # fill from openapi/schedule.json
+    enabled: false
+    scheduleJobType: OneShot
+    scheduleAt: REPLACE
+    executeUntil: REPLACE
+    cron: REPLACE
+    steps: []

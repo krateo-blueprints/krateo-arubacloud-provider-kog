@@ -15,4 +15,36 @@ spec:
     location: {}
     tags: []
   properties:
-    # fill from openapi/metering.json
+    linkedResources: []
+    alertInfo:
+      ruleInfo:
+        name: REPLACE
+        tags: []
+      note: REPLACE
+      serviceCategory: REPLACE
+      serviceTypology: REPLACE
+      clusterDetail:
+        aggregation: REPLACE
+        id: REPLACE
+        name: REPLACE
+        nodePool: REPLACE
+      serviceNumber: 0
+      resource:
+        id: []
+        name: []
+      vdc: REPLACE
+      vm: []
+      metric:
+        name: REPLACE
+        type: REPLACE
+      rule: REPLACE
+      theshold: REPLACE
+      um: REPLACE
+      duration: REPLACE
+      state: REPLACE
+      notify:
+        email: false
+        sms: false
+        panel: false
+        autoscalingDbaas: false
+        autoscalingDbaasValue: 0

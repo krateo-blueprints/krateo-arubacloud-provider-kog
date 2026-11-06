@@ -15,4 +15,6 @@ spec:
     location: {}
     tags: []
   properties:
-    # fill from openapi/storage.json
+    billingPeriod: REPLACE
+    volume:
+      uri: REPLACE

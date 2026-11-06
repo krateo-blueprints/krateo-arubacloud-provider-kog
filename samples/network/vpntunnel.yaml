@@ -15,4 +15,34 @@ spec:
     location: {}
     tags: []
   properties:
-    # fill from openapi/network.json
+    vpnType: REPLACE
+    vpnClientProtocol: REPLACE
+    ipConfigurations:
+      vpc:
+        uri: REPLACE
+      subnet:
+        cidr: REPLACE
+        name: REPLACE
+      publicIp:
+        uri: REPLACE
+    vpnClientSettings:
+      ike:
+        lifetime: 0
+        encryption: REPLACE
+        hash: REPLACE
+        dhGroup: REPLACE
+        dpdAction: REPLACE
+        dpdInterval: 0
+        dpdTimeout: 0
+      esp:
+        lifetime: 0
+        encryption: REPLACE
+        hash: REPLACE
+        pfs: REPLACE
+      psk:
+        cloudSite: REPLACE
+        onPremSite: REPLACE
+        secret: REPLACE
+      peerClientPublicIp: REPLACE
+    billingPlan:
+      billingPeriod: REPLACE

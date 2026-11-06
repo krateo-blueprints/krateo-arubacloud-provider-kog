@@ -16,4 +16,14 @@ spec:
     location: {}
     tags: []
   properties:
-    # fill from openapi/network.json
+    type: Basic
+    default: false
+    network:
+      address: REPLACE
+    dhcp:
+      enabled: false
+      range:
+        start: REPLACE
+        count: 0
+      routes: []
+      dns: []

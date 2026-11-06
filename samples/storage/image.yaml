@@ -15,4 +15,29 @@ spec:
     location: {}
     tags: []
   properties:
-    # fill from openapi/storage.json
+    description: REPLACE
+    bootable: false
+    isDefault: false
+    icon: REPLACE
+    iconType: REPLACE
+    iconName: REPLACE
+    iconSize: 0
+    os:
+      type: REPLACE
+      username: REPLACE
+      version: REPLACE
+    allowsCustomScript: false
+    sha: REPLACE
+    source:
+      type: Volume
+      value: REPLACE
+    cpu:
+      min: 0
+      max: 0
+    ram:
+      min: 0
+      max: 0
+    hd:
+      min: 0
+      max: 0
+    users: []

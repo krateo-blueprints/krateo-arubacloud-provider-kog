@@ -16,4 +16,5 @@ spec:
     location: {}
     tags: []
   properties:
-    # fill from openapi/storage.json
+    destinationVolume:
+      uri: REPLACE

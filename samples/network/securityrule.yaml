@@ -17,4 +17,9 @@ spec:
     location: {}
     tags: []
   properties:
-    # fill from openapi/network.json
+    direction: Ingress
+    protocol: REPLACE
+    port: REPLACE
+    target:
+      kind: Ip
+      value: REPLACE
