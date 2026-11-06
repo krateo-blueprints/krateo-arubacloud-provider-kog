@@ -71,7 +71,7 @@ response:
 
 ```
 conditions:  Synced=True ReconcileSuccess   Ready=True Available
-status.metadata = {"id": "69a560ce2312085699426c28", "name": "automatic-subnet-01"}
+status.metadata = {"id": "<SUBNET_ID>", "name": "automatic-subnet-01"}
 log: "External resource is up to date"
 ```
 
