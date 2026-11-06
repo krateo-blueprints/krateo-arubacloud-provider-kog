@@ -288,7 +288,7 @@ needsWork:
       \ never sent to the network API. Do NOT pass a SecurityGroup URI here and do NOT add a SecurityGroup\
       \ to the chain for this."
     - preset:true auto-creates vpc+subnet but is 'available for all the kaas unless a vpc has been already
-      created in the same project and location'. Project 69a55c8d5e6f0e14f14093ff already holds VPC 69a5609fa851081197caa45f
+      created in the same project and location'. Project <PROJECT_ID> already holds VPC <VPC_ID>
       (see tests/ga/chains/schedule-metering.yaml), so preset is unavailable and vpc/subnet MUST be supplied
       explicitly.
     - "nodeCidr.address must fall inside 10.0.0.0/8, 172.16.0.0/12 or 192.168.0.0/16 \u2014 stated in\
@@ -622,8 +622,8 @@ needsWork:
     \ states for each of vpcUri, subnetUri and securityGroupUri: 'Required when user has at least one\
     \ VPC (with at least one subnet and a security group).' I confirmed against the live API that the\
     \ account HAS such a VPC, so all three are hard requirements, not optional. They point at pre-existing\
-    \ account infrastructure that the chain does not create: VPC `cloudburst-default` (69a5609fa851081197caa45f),\
-    \ subnet `automatic-subnet-01` (69a560ce2312085699426c28), security group `automatic-sg-01` (69a560ce2312085699426c2a).\
+    \ account infrastructure that the chain does not create: VPC `cloudburst-default` (<VPC_ID>),\
+    \ subnet `automatic-subnet-01` (<SUBNET_ID>), security group `automatic-sg-01` (<SG_ID>).\
     \ The correct declaration is an explicit EXTERNAL precondition (assert the three exist before create),\
     \ not an empty list. Critically, the fixture must NOT list /projects/${PROJECT}/providers/Aruba.Network/vpcs\
     \ under `residue:` \u2014 teardown would then try to reap the account's shared VPC, which docs/live-cluster-test.md\
@@ -668,9 +668,9 @@ needsWork:
     \ project currently holds 0 DBaaS instances, so there is no name collision and no pre-existing orphan."
   correctedSpec: "- kind: Dbaas\n  name: ga-dbaas\n  billable: true\n  # PRECONDITIONS \u2014 assert before\
     \ create; the chain does NOT create these.\n  # They are pre-existing account infrastructure and MUST\
-    \ NOT be torn down.\n  #   VPC           cloudburst-default    69a5609fa851081197caa45f\n  #   Subnet\
-    \        automatic-subnet-01   69a560ce2312085699426c28\n  #   SecurityGroup automatic-sg-01     \
-    \  69a560ce2312085699426c2a\n  # PREREQUISITE \u2014 apply samples/database/dbaas-configuration.yaml\
+    \ NOT be torn down.\n  #   VPC           cloudburst-default    <VPC_ID>\n  #   Subnet\
+    \        automatic-subnet-01   <SUBNET_ID>\n  #   SecurityGroup automatic-sg-01     \
+    \  <SG_ID>\n  # PREREQUISITE \u2014 apply samples/database/dbaas-configuration.yaml\
     \ first;\n  # dbaasconfigurations count is currently 0 in kind-aruba-ga.\n  # RUN AS \u2014 TIMEOUT=1800\
     \ DRIFT_TIMEOUT=600 scripts/ga_chain.py <chain>\n  spec:\n    configurationRef:\n      name: dbaas-config\n\
     \      namespace: default\n    projectId: ${PROJECT}\n    metadata:\n      name: ga-dbaas\n      location:\n\
@@ -678,8 +678,8 @@ needsWork:
     \ == []`\n    properties:\n      dataCenter: ITBG-1\n      engine:\n        id: mysql-8.0\n      flavor:\n\
     \        name: DBO1A2\n      storage:\n        sizeGb: 20      # UNVERIFIED minimum \u2014 confirm\
     \ before the run\n      billingPlan:\n        billingPeriod: Hour\n      networking:\n        vpcUri:\
-    \ /projects/${PROJECT}/providers/Aruba.Network/vpcs/69a5609fa851081197caa45f\n        subnetUri: /projects/${PROJECT}/providers/Aruba.Network/vpcs/69a5609fa851081197caa45f/subnets/69a560ce2312085699426c28\n\
-    \        securityGroupUri: /projects/${PROJECT}/providers/Aruba.Network/vpcs/69a5609fa851081197caa45f/securityGroups/69a560ce2312085699426c2a\n\
+    \ /projects/${PROJECT}/providers/Aruba.Network/vpcs/<VPC_ID>\n        subnetUri: /projects/${PROJECT}/providers/Aruba.Network/vpcs/<VPC_ID>/subnets/<SUBNET_ID>\n\
+    \        securityGroupUri: /projects/${PROJECT}/providers/Aruba.Network/vpcs/<VPC_ID>/securityGroups/<SG_ID>\n\
     \  drift: /projects/${PROJECT}/providers/Aruba.Database/dbaas/${id:self}\n\n# Chain-level: residue\
     \ MUST list only the dbaas endpoint. Listing the\n# Aruba.Network vpcs endpoint would make teardown\
     \ reap the shared VPC.\n# residue:\n# - /projects/${PROJECT}/providers/Aruba.Database/dbaas\n"
@@ -695,14 +695,14 @@ needsWork:
     spec: "configurationRef:\n  name: dbaas-config\n  namespace: default\nprojectId: ${PROJECT}\nmetadata:\n\
       \  name: ga-dbaas\n  location:\n    value: ${LOCATION}\n  tags: []\nproperties:\n  dataCenter: ITBG-1\n\
       \  engine:\n    id: mysql-8.0\n  flavor:\n    name: DBO1A2\n  storage:\n    sizeGb: 20\n  billingPlan:\n\
-      \    billingPeriod: Hour\n  networking:\n    vpcUri: /projects/${PROJECT}/providers/Aruba.Network/vpcs/69a5609fa851081197caa45f\n\
-      \    subnetUri: /projects/${PROJECT}/providers/Aruba.Network/vpcs/69a5609fa851081197caa45f/subnets/69a560ce2312085699426c28\n\
-      \    securityGroupUri: /projects/${PROJECT}/providers/Aruba.Network/vpcs/69a5609fa851081197caa45f/securityGroups/69a560ce2312085699426c2a"
+      \    billingPeriod: Hour\n  networking:\n    vpcUri: /projects/${PROJECT}/providers/Aruba.Network/vpcs/<VPC_ID>\n\
+      \    subnetUri: /projects/${PROJECT}/providers/Aruba.Network/vpcs/<VPC_ID>/subnets/<SUBNET_ID>\n\
+      \    securityGroupUri: /projects/${PROJECT}/providers/Aruba.Network/vpcs/<VPC_ID>/securityGroups/<SG_ID>"
     undeclaredConstraints:
     - properties.networking.{vpcUri,subnetUri,securityGroupUri} are effectively REQUIRED for this project.
       The OAS says 'Required when user has at least one VPC (with at least one subnet and a security group)'
       and marks them nullable/optional; the Terraform provider marks all three Required. I verified live
-      (read-only GET) that project 69a55c8d5e6f0e14f14093ff has exactly one Active VPC with one Active
+      (read-only GET) that project <PROJECT_ID> has exactly one Active VPC with one Active
       subnet and one Active security group, so the condition IS triggered. Omitting them will 400.
     - 'properties.engine.id is a bare nullable string in the OAS but the API enforces a fixed set: mysql-8.0,
       mssql-2022-web, mssql-2022-standard, mssql-2022-enterprise (arubacloud.github.io/api/docs/metadata
@@ -744,9 +744,9 @@ needsWork:
       present in the official catalog and in the SDK constant list). It is sourced, not guessed, but it
       is not live-proven; DBO2A4 is the live-proven fallback if create 400s on the flavor. A rejected
       flavor costs a failed run, not money, since nothing is provisioned. NETWORK URIs: hardcoded to the
-      project''s pre-existing default network, whose ids I confirmed live today - vpc 69a5609fa851081197caa45f
-      (cloudburst-default, Active), subnet 69a560ce2312085699426c28 (automatic-subnet-01, Basic, default,
-      Active), securityGroup 69a560ce2312085699426c2a (automatic-sg-01, default, Active). This mirrors
+      project''s pre-existing default network, whose ids I confirmed live today - vpc <VPC_ID>
+      (cloudburst-default, Active), subnet <SUBNET_ID> (automatic-subnet-01, Basic, default,
+      Active), securityGroup <SG_ID> (automatic-sg-01, default, Active). This mirrors
       the existing tests/ga/chains/schedule-metering.yaml, which already hardcodes the same VPC id. The
       alternative is dependsOn [Vpc, Subnet, SecurityGroup] with ${id:Vpc}/${id:Subnet}/${id:SecurityGroup},
       but that adds three creates and three failure modes to an already expensive chain. ElasticIp is
@@ -1161,7 +1161,7 @@ needsWork:
     billable=true is correct (CRD carries properties.billingPlan.billingPeriod; docs/ga-plan.md lists
     ElasticIp among the 12 billing-field carriers). dependsOn=[] is correct: ElasticIpDto contains only
     metadata + properties.billingPlan and the POST path takes only projectId, so nothing must pre-exist.
-    Live read-only GET /projects/69a55c8d5e6f0e14f14093ff/providers/Aruba.Network/elasticIps returned
+    Live read-only GET /projects/<PROJECT_ID>/providers/Aruba.Network/elasticIps returned
     200 with total:0 -- endpoint and api-version=1.0 work, no ga-elasticip name collision, clean residue
     baseline. Controller image is rest-dynamic-controller:0.22.2, so the oasgen-provider#76 vacuous-empty-tags
     bug is fixed and `tags: []` is a genuine drift assertion.'
@@ -1341,8 +1341,8 @@ needsWork:
   - "CHECK 2 FAILS (fatal) \u2014 `properties.cloudSubnet: 10.0.0.0/24` is INVENTED. It appears nowhere\
     \ in openapi/network-provider.json (VpnRoutePropertiesDto.cloudSubnet is a bare string with no enum,\
     \ example, or default) and it does not exist in the target account. Live read-only probe of project\
-    \ 69a55c8d5e6f0e14f14093ff shows exactly one VPC (`cloudburst-default`, id 69a5609fa851081197caa45f)\
-    \ containing exactly one subnet (`automatic-subnet-01`, id 69a560ce2312085699426c28) whose CIDR is\
+    \ <PROJECT_ID> shows exactly one VPC (`cloudburst-default`, id <VPC_ID>)\
+    \ containing exactly one subnet (`automatic-subnet-01`, id <SUBNET_ID>) whose CIDR is\
     \ **192.168.1.0/24** (gateway 192.168.1.1). There is no 10.0.0.0/24 anywhere."
   - "CHECK 2 \u2014 the OAS proves cloudSubnet is dereferenced server-side, so an unmatched CIDR cannot\
     \ silently succeed. The request shape is `VpnRoutePropertiesDto.cloudSubnet: string`, but the response\
@@ -1376,7 +1376,7 @@ needsWork:
     \ requires a Subnet to exist inside the tunnel's VPC, and VpnTunnel itself needs `ipConfigurations`\
     \ = {vpc, subnet, publicIp}, where publicIp is an ElasticIp \u2014 itself billable per docs/ga-plan.md\
     \ line 90. The real chain is Vpc \u2192 Subnet \u2192 ElasticIp \u2192 VpnTunnel \u2192 VpnRoute."
-  - "Live precondition unmet: `GET /projects/69a55c8d5e6f0e14f14093ff/providers/Aruba.Network/vpnTunnels`\
+  - "Live precondition unmet: `GET /projects/<PROJECT_ID>/providers/Aruba.Network/vpnTunnels`\
     \ returns `{\"total\": 0, \"values\": []}`. No tunnel exists, so `${id:VpnTunnel}` cannot bind to\
     \ existing state \u2014 the chain must create one (billable) first, and `--with-billable` is mandatory\
     \ for this spec to run at all."
@@ -1406,8 +1406,8 @@ needsWork:
     \nmetadata:\n  name: ga-vpnroute\n  location:\n    value: \"${LOCATION}\"          # ITBG-Bergamo\
     \ \u2014 LocationDto description; confirmed live on the VPC\n  tags: []                        # drift\
     \ field: perturbed to [\"drifted-by-hand\"], must reconcile to []\nproperties:\n  # Sourced, not invented:\
-    \ the only subnet in the only VPC of project\n  # 69a55c8d5e6f0e14f14093ff is automatic-subnet-01\
-    \ @ 192.168.1.0/24\n  # (vpc cloudburst-default, id 69a5609fa851081197caa45f).\n  # The API dereferences\
+    \ the only subnet in the only VPC of project\n  # <PROJECT_ID> is automatic-subnet-01\
+    \ @ 192.168.1.0/24\n  # (vpc cloudburst-default, id <VPC_ID>).\n  # The API dereferences\
     \ this CIDR to a subnet uri (VpnSubnetResponseDto{cidr,uri}),\n  # so it must match a real subnet\
     \ in the tunnel's VPC.\n  cloudSubnet: 192.168.1.0/24\n  # UNSOURCED BY NECESSITY: describes the customer's\
     \ remote network, which does not\n  # exist. Chosen in a different RFC1918 block from the cloud side\
@@ -1679,7 +1679,7 @@ needsWork:
       \ that is the defect, not the id path. driftUrl and driftField are empty: there is no update verb\
       \ to converge with, and the only non-configurationRef spec field is the identifier itself, which\
       \ is never safe to perturb. To exercise this at all you need an existing load balancer in project\
-      \ 69a55c8d5e6f0e14f14093ff; docs/coverage.md records that none exists in the test account, so a\
+      \ <PROJECT_ID>; docs/coverage.md records that none exists in the test account, so a\
       \ positive findby match has never been proven. loadbalancerconfiguration/loadbalancer-config IS\
       \ already applied in kind-aruba-ga."
 - provider: schedule
@@ -1757,7 +1757,7 @@ needsWork:
     \ docs/ga-plan.md) \u2014 is satisfied."
   - "PRECONDITION FOR THE CORRECTED SPEC \u2014 it references ${id:Vpc}, so the chain must create a free\
     \ GA Vpc BEFORE the Job in the same fixture file (or substitute a literal id of an existing VPC, e.g.\
-    \ the 69a5609fa851081197caa45f already hardcoded in schedule-metering.yaml, after confirming it still\
+    \ the <VPC_ID> already hardcoded in schedule-metering.yaml, after confirming it still\
     \ exists). If neither is done the runner fails closed with a KeyError before applying anything, which\
     \ is the safe outcome. Even corrected, this stays low confidence: the actionUri convention has never\
     \ been accepted by the live API, so run it as a FREE probe first (billable: false) and treat a 400\
@@ -1843,7 +1843,7 @@ needsWork:
       \ Recurring+cron+executeUntil, hence more minimal; the Recurring variant already in tests/ga/chains/schedule-metering.yaml\
       \ is otherwise equivalent.\n\nTHE EXISTING CHAIN ENTRY IS WRONG. tests/ga/chains/schedule-metering.yaml\
       \ lines 45-49 use httpVerb: GET and set actionUri to a VPC URI. Both contradict the vendor docs\
-      \ (POST only; poweron/poweroff only) and neither value is sourced anywhere. Its resourceUri 69a5609fa851081197caa45f\
+      \ (POST only; poweron/poweroff only) and neither value is sourced anywhere. Its resourceUri <VPC_ID>\
       \ is the still-live ga-observe-vpc (confirmed via read-only kubectl get vpcs ga-observe-vpc -o jsonpath={.status.metadata.id}).\
       \ coverage.md already records that Job's lifecycle is unproven, so that entry has never been executed.\
       \ Do not run it as written.\n\nDrift: metadata.tags is in the CRD and Job has a PUT, so the generic\
@@ -1917,7 +1917,7 @@ needsWork:
     controller uses; the live RestDefinition matches restdefinitions/schedule/backuppolicyassignment.yaml
     verbatim; controllers run rest-dynamic-controller:0.22.2 so the 0.22.1 delete-hang regression (#98)
     is fixed per docs/ga-readiness.md:77 and the empty-array drift bug (#76, which tags: [] depends on)
-    is fixed per 0.22.1; read-only GETs confirm project 69a55c8d5e6f0e14f14093ff is currently empty (0
+    is fixed per 0.22.1; read-only GETs confirm project <PROJECT_ID> is currently empty (0
     blockStorages, 0 backupPolicies, 0 backupPolicyAssignments).'
   correctedSpec: "'ve# PREREQUISITE (must run before the chain, otherwise the CR never reconciles):\n\
     #   kubectl --context kind-aruba-ga apply -f samples/schedule/backuppolicyassignment-configuration.yaml\n\
@@ -2137,7 +2137,7 @@ needsWork:
     this with NestedFieldNoCopy(item,''metadata'',''name'') against each findby item. AlertRulesDto has
     no `metadata` key (the name lives at `request.name`), so the match ALWAYS fails. Every reconcile therefore
     concludes ''does not exist'' and issues another POST. Over ga_chain''s 420s TIMEOUT this piles up
-    an unbounded number of real alert rules in project 69a55c8d5e6f0e14f14093ff, none of which can be
+    an unbounded number of real alert rules in project <PROJECT_ID>, none of which can be
     addressed for delete.'
   - "ROOT CAUSE is a generator bug, so this is NOT fixable by editing the payload. scripts/generate_restdefinitions.py:336-347\
     \ `id_target()` tests `if r['meta']: return 'status.metadata.id'` BEFORE consulting `r['respId']`.\
@@ -2302,7 +2302,7 @@ needsWork:
       \ false. Grep of the full CRD JSON for /billing[A-Za-z]*/ returns nothing (no billingPlan, no billingPeriod),\
       \ and Insight alert rules are a monitoring feature bundled with the account, not a provisioned asset.\
       \ An orphaned alert rule costs nothing \u2014 but it is still invisible residue, see the constraints\
-      \ list.\n\nRECOMMENDED SEQUENCE before spending a live run: do a read-only GET on /projects/69a55c8d5e6f0e14f14093ff/providers/Aruba.Insight/alertRules?api-version=1.0\
+      \ list.\n\nRECOMMENDED SEQUENCE before spending a live run: do a read-only GET on /projects/<PROJECT_ID>/providers/Aruba.Insight/alertRules?api-version=1.0\
       \ and inspect one item. If items come back with metadata.id/metadata.name, the OAS list schema is\
       \ stale, the shipped RestDefinition is right, and confidence jumps to medium (only the 'is a metric\
       \ mandatory' question remains). If items come back as AlertRulesDto (id + request.name), do NOT\
