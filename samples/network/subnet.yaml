@@ -16,7 +16,7 @@ spec:
     location: {}
     tags: []
   properties:
-    type: Basic
+    type: Advanced
     default: false
     network:
       address: REPLACE
