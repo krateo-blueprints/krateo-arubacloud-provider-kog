@@ -38,7 +38,7 @@ Scope analysed: 11 specs, ~108 operations, **34 manageable resources** across th
 
 | # | Issue | Status | Resources affected | Evolution needed |
 |---|-------|--------|--------------------|------------------|
-| A1 | `nullable: true` ignored | 🟧 | all (~4119 keys) | Accept OAS 3.0 `nullable`; auto-convert to 3.1 null-union. **Not** a blocker — the strip it forced was a no-op and has been removed |
+| A1 | `nullable: true` ignored | 🟩 | all (~4119 keys) | **Shipped** in oasgen 0.52.0 ([#424](https://github.com/krateo-platformops/oasgen-provider/pull/424)) — `nullable` and `minProperties` reach the CRD; measured present at 0.52.0 and absent at 0.41.0. The strip this once forced was a no-op and has been removed |
 | A2 | `additionalProperties: {schema}` unsupported | 🟩 | container, metering, compute, storage, audit (42) | **Shipped** in oasgen 0.18.0 — typed maps reach the CRD ([#45](https://github.com/krateo-platformops/oasgen-provider/issues/45)) |
 | A3 | `readOnly` / `writeOnly` ignored | 🟧 | metering, network, container, compute, storage (25) | Honour `readOnly` → status-only; `writeOnly` → create-only. Keywords now preserved in the specs |
 | A4 | `number` / `format: double` coerced to integer | 🟧 | all billing/`price` fields (18) | Native `number` (float) type in CRD generation |
@@ -68,12 +68,28 @@ patched any more** — this repo ships Aruba's documents byte-for-byte unmodifie
 practice or a live limitation tracked upstream. §A7 is the one that currently
 costs functionality.
 
-### A1 — `nullable: true` (🟧 ignored, ~4119 occurrences — but NOT a blocker)
+### A1 — `nullable: true` (🟩 SHIPPED in oasgen 0.52.0 — [#424](https://github.com/krateo-platformops/oasgen-provider/pull/424))
 The Aruba specs are OAS **3.0.1**, which expresses "may be null" with
-`nullable: true`. oasgen-provider does not read the keyword at all — there is no
-`Nullable` field on its domain schema and zero references in
-`internal/tools/oas2jsonschema/` — so it is silently dropped during conversion
-and the generated CRD declares the field non-nullable.
+`nullable: true`. Through 0.41.0 oasgen-provider did not read the keyword at all —
+no `Nullable` field on its domain schema and zero references in
+`internal/tools/oas2jsonschema/` — so it was silently dropped during conversion and
+the generated CRD declared the field non-nullable.
+
+**0.52.0 carries it through**, and this is the reason the pin moved. Measured on this
+repo's own `openapi/network-provider.json`, rendering the committed `Vpc`
+RestDefinition at each tag:
+
+| | `spec.properties` in the generated CRD |
+|---|---|
+| 0.41.0 | `type: object` — no `nullable` |
+| 0.52.0 | `type: object`, **`nullable: true`** |
+
+`Schema.Nullable` now exists in `internal/tools/oas2jsonschema/types.go`, documented as
+carrying "OAS 3.0's `nullable: true` and Swagger 2.0's `x-nullable` into the generated
+CRD"; `grep -rl Nullable internal/tools/oas2jsonschema/` matches 0 files at 0.41.0.
+`minProperties` arrives in the same PR. What this buys in practice: a `null` the API
+returns, or that a user sends explicitly for an optional object, now survives the
+apiserver instead of being pruned to "unspecified" and then defaulted.
 
 **Correction (this repo used to overstate it).** An earlier revision graded this
 🟥 "blocks" and had a patch script strip all ~4119 nodes. That was wrong on both
@@ -251,8 +267,9 @@ Every Aruba list endpoint returns `{total, self, prev, next, first, last, values
 **This section asked for a feature that already existed, and said so for longer than
 it was true.** The ask below was filed as open and is now closed: `findby.itemsPath`
 shipped in [#110](https://github.com/krateo-platformops/oasgen-provider/issues/110),
-and it is present in the version this repo pins. Verified at **0.41.0**, not on
-main and not on report:
+and it is present in the version this repo pins. Verified by reading the released
+source at **0.41.0** — the pin when that check was made — and re-read at the current
+pin **0.52.0**, where `getter.go:63` is unchanged. Not on main and not on report:
 `ItemsPath string \`json:"itemsPath,omitempty"\`` at
 `go/rest-dynamic-controller/internal/tools/definitiongetter/getter.go:63`, consumed by
 `ExtractItemsFromResponse(body, itemsPath)` in
@@ -477,6 +494,141 @@ fork's Snowplow `*ApiRef` delegation rather than a bespoke web service.
 
 
 ---
+
+## Appendix — the 0.41.0 → 0.52.0 pin move, and the evidence behind it
+
+**The move was made. 0.53.0 exists and was declined, for a measured reason.**
+
+Everything below comes from one probe run against this repo's own vendored documents
+and its 36 committed RestDefinitions, at three tags, with no overrides. The probe and
+its positive control are reproduced at the end so the numbers can be re-taken.
+
+### Why move off 0.41.0
+
+[#424](https://github.com/krateo-platformops/oasgen-provider/pull/424) carries OAS 3.0
+`nullable: true` and `minProperties` into the generated CRD — see section **A1** above, which this
+release closes. Three more fixes land in the same span and bear directly on this repo:
+
+* [#421](https://github.com/krateo-platformops/oasgen-provider/pull/421) — a
+  `fieldMapping` no longer deletes the spec property it reads from. Every `get`,
+  `update` and `delete` in `restdefinitions/` uses `requestFieldMapping`, so this is
+  the whole fleet.
+* [#456](https://github.com/krateo-platformops/oasgen-provider/pull/456) — an
+  `excludedSpecFields` entry that matches nothing is now reported instead of ignored.
+* [#428](https://github.com/krateo-platformops/oasgen-provider/pull/428),
+  [#431](https://github.com/krateo-platformops/oasgen-provider/pull/431),
+  [#437](https://github.com/krateo-platformops/oasgen-provider/pull/437).
+
+### Why NOT 0.53.0
+
+0.53.0 bumps `krateo-platformops/plumbing` **v1.14.2 → v1.27.0**. 0.41.0 and 0.52.0 are
+both on v1.14.2, so this is the first pin that would change `crdgen` behaviour.
+
+v1.27.0's `crdgen/nesteddefault.go` stamps `default: {}` on any property that is not
+required by its parent, is `type: object`, has no default of its own, and has a
+reachable defaulted descendant. oasgen 0.53.0 does not opt out: `NoParentDefaults`
+appears nowhere in the tag, and the `crdgen.Options` literal at
+`internal/tools/render/render.go:180` omits it, so the zero value applies and stamping
+is on. 0.53.0 does wire the stamped paths into a warning — mitigation, not prevention.
+
+Our shape is `allOf: [$ref VpcPropertiesDto]` + `nullable: true` + `description`, not an
+inline `type: object`, so whether it is even eligible was an open question. It is:
+
+| rendered `Vpc` | plumbing | `spec.properties` own `default` |
+|---|---|---|
+| 0.41.0 | v1.14.2 | absent |
+| **0.52.0** | **v1.14.2** | **absent** |
+| 0.53.0 | v1.27.0 | **`{}`** |
+
+The `false` rows are measurements, not blind zeroes: the same probe carries a positive
+control on upstream's own `render/testdata/parentdefault/stamped.yaml` fixture, which
+stamps at 0.53.0 and does not at 0.52.0 — the instrument demonstrably can report a
+stamp, and reports none at the pin.
+
+Fleet-wide, the same three tags across all 36 definitions:
+
+| generation warnings | 0.41.0 | **0.52.0** | 0.53.0 |
+|---|---|---|---|
+| stamped-parent `default: {}` | 0 | **0** | **240** |
+| `excludedSpecFields: id` matches nothing (#456) | 0 | 36 | 36 |
+| identifier absent from findby items | 0 | 16 | 16 |
+| other (pre-existing) | 2 | 2 | 2 |
+| **render failures** | **0** | **0** | **0** |
+
+240 stamped paths is the cost of 0.53.0 stated plainly: 240 places where the apiserver
+would store defaulted values into every object that omits the parent. It matters at
+exactly one of them. `VpcPropertiesDto.default` carries `"default": true` and its own
+description says "Only one default vpc for region is admissible" — so on 0.53.0 a `Vpc`
+that omits `spec.properties` claims that region-unique role silently. Across all 13
+vendored documents there are exactly **three** real `default` keywords, and the other
+two are `false`; the remaining 237 stamped paths are inert today and are a standing
+invitation for a future vendored document to make one of them live.
+
+What 0.53.0 is forgoing by not being the pin, so the trade is on the record:
+[#475](https://github.com/krateo-platformops/oasgen-provider/pull/475), a BREAKING fix
+that makes the auth-secret RBAC actually scope credential access — security-relevant
+here — plus [#460](https://github.com/krateo-platformops/oasgen-provider/pull/460)
+(re-render a CRD when its generator was upgraded),
+[#472](https://github.com/krateo-platformops/oasgen-provider/pull/472) and
+[#474](https://github.com/krateo-platformops/oasgen-provider/pull/474). The sequence
+that gets both: land the guards in this repo first (`required` on the chart's resource
+property objects, and samples that spell every property out — both done), then 0.53.0's
+stamping is harmless here and its RBAC fix is worth taking.
+
+### A warning the bump adds that is WRONG, and should not be acted on
+
+16 of the 36 definitions acquire this at 0.52.0:
+
+```
+spec.resource.identifiers: identifier "metadata.name" is absent from the items the
+findby response carries ... findby can never match any item regardless of policy: it
+will report not-found and the reconciler acts on not-found by creating
+```
+
+It predicts a duplicate external resource per reconcile. It is a false positive, and the
+cause is `allOf`. `VpcResponseDto.metadata` is `allOf: [$ref ...]`, and that definition
+carries all 17 fields including `name`; the checker's `lookupTypeByPath`
+(`internal/tools/oas2jsonschema/spec_builder.go`) walks `Schema.Properties` only, and
+the domain `Schema` keeps `AllOf` as a separate field rather than merging it. Measured
+directly against our document at 0.52.0:
+
+```
+item.Properties      = [metadata status properties]
+metadata.Properties  = []                      <-- what lookupTypeByPath searches
+metadata.AllOf len   = 1                       <-- what it does not search
+metadata.AllOf[0]    = [id uri name location project tags category ...]
+lookupTypeByPath(metadata.name) = false
+```
+
+The affected kinds: AlertRule, Backup, BlockStorage, ElasticIp, Image, LoadBalancer,
+Restore, SecurityGroup, SecurityRule, Snapshot, Subnet, Vpc, VpcPeering,
+VpcPeeringRoute, VpnRoute, VpnTunnel. All 16 have verified create/observe/drift/delete
+in [coverage](coverage.md), which is what a "findby can never match" prediction has to
+be reconciled against. **Do not remove an identifier on the strength of this warning.**
+
+The 36 `excludedSpecFields: id` warnings, by contrast, are CORRECT: `id` is genuinely
+absent from those create bodies, which is the same inertness recorded against the
+cleanup-ordering constraint. They are still not a reason to delete the entries without
+checking the floor that made them necessary.
+
+### Not yet verified in a cluster
+
+`scripts/pin_verify.sh` has NOT been run at 0.52.0. Everything above is CRD generation —
+it says the 36 definitions render, and what they render — and nothing about a live
+reconcile at this tag. The free `network-security` chain on a kind cluster is what would
+close that, and it needs the credential source cluster up.
+
+### Reproducing the numbers
+
+The probes live outside this repo because they are Go tests against a clone of
+oasgen-provider, run per tag:
+
+* render the committed `Vpc`/`SecurityGroup` definitions against
+  `openapi/network-provider.json` and report whether `spec.properties` carries its own
+  `default`, with a positive control on upstream's `parentdefault/stamped.yaml`;
+* render all 36 definitions from `restdefinitions/` and tally `GenerationWarnings` by
+  code — untyped warnings, which is what crdgen's stamping notices are, must be counted
+  under their own bucket or the 240 disappears.
 
 ## Appendix — the 0.27.1 → 0.34.0 pin move, and the evidence behind it
 
