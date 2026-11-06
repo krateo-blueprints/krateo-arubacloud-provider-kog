@@ -1027,6 +1027,92 @@ def flatten_allof(spec, sch):
     return out
 
 
+# Per-kind corrections to the MECHANICAL sample, keyed by (kind, dotted path).
+#
+# `placeholder` picks enum[0] because it has no way to know what the other fields of
+# the same object say. That is right 35 times out of 36 and wrong for Subnet, where
+# the choice of enum value governs whether the sibling fields mean anything at all.
+# Aruba's own description of SubnetPropertiesDto.type:
+#
+#   With Basic type, every configuration settings of the subnet will be automatically
+#   handled by the CMP.
+#   With Advanced type, configuration settings must be evaluated by the user.
+#
+# The sample spells out `network.address` and a whole `dhcp` block, which under Basic
+# the CMP decides for itself. enum[0] is "Basic", so the generated sample asked for
+# user-evaluated settings and then said not to evaluate them.
+#
+# This is an override table and not a rule in `placeholder` on purpose: the rule would
+# be "an explicit sibling value implies this enum choice", and there is exactly one
+# instance of it in 36 definitions. One instance is a fact, not a pattern.
+SAMPLE_OVERRIDES = {
+    ("Subnet", "properties.type"): "Advanced",
+}
+
+
+def _schema_at(spec, props, parts):
+    """Resolve a dotted path through a create body's property schemas, or None."""
+    sch = None
+    current = props
+    for part in parts:
+        if not isinstance(current, dict) or part not in current:
+            return None
+        sch = flatten_allof(spec, deref(spec, current[part]))
+        current, _ = merged_props(spec, sch)
+    return sch
+
+
+def apply_sample_overrides(kind, spec_body, spec, props):
+    """Apply SAMPLE_OVERRIDES, failing if one no longer fits the document.
+
+    A stale override that is silently skipped is worse than no override: the sample
+    reverts to the mechanical value and nothing says so. So a path that has gone away,
+    or a value the OAS no longer admits, is an error here rather than a surprise in
+    the smoke job.
+    """
+    for (okind, dotted), value in sorted(SAMPLE_OVERRIDES.items()):
+        if okind != kind:
+            continue
+        parts = dotted.split(".")
+
+        # 1. the path must still exist in the generated sample
+        node = spec_body
+        for i, part in enumerate(parts[:-1]):
+            if not isinstance(node, dict) or part not in node:
+                where = ".".join(parts[:i]) or "spec"
+                raise SystemExit(
+                    f"SAMPLE_OVERRIDES[({okind!r}, {dotted!r})]: the sample has no "
+                    f"{part!r} under {where}. The override cannot be applied and "
+                    f"must not be ignored."
+                )
+            node = node[part]
+        leaf = parts[-1]
+        if not isinstance(node, dict) or leaf not in node:
+            raise SystemExit(
+                f"SAMPLE_OVERRIDES[({okind!r}, {dotted!r})]: {leaf!r} is absent from "
+                f"the generated sample, so the override would add a field rather than "
+                f"correct one."
+            )
+
+        # 2. and the OAS must still admit the value. Without this the override could
+        #    outlive the enum value it names and ship a sample the apiserver rejects,
+        #    which only the smoke job would then catch.
+        sch = _schema_at(spec, props, parts)
+        if sch is None:
+            raise SystemExit(
+                f"SAMPLE_OVERRIDES[({okind!r}, {dotted!r})]: no schema at that path in "
+                f"the create body, so the value cannot be checked against the document."
+            )
+        enum = sch.get("enum")
+        if enum is not None and value not in enum:
+            raise SystemExit(
+                f"SAMPLE_OVERRIDES[({okind!r}, {dotted!r})] = {value!r} is not one of "
+                f"{enum!r} in the OAS. The document changed; update the override."
+            )
+
+        node[leaf] = value
+
+
 def placeholder(spec, sch):
     # flatten_allof, not deref: Aruba attaches a description to a shared definition by
     # wrapping it in allOf, for scalars as much as objects, and a reader that stops at
@@ -1246,6 +1332,9 @@ def make_cr(spec, prov, doc, apiver):
                 spec_body["properties"] = explicit_props(spec, schd, prov)
             else:
                 spec_body[name] = placeholder(spec, sch)
+        # After the mechanical body, never before: an override corrects a value the
+        # generator produced, so it has to be able to see that the value is there.
+        apply_sample_overrides(kind, spec_body, spec, props)
     else:  # read-only
         for v in res["verbsDescription"]:
             for pp in path_params(v["path"]):
