@@ -123,6 +123,7 @@ def main():
     verify_documented_pin(errors)
     verify_no_builtin_shadowing(errors)
     verify_restaction_filter_envelope(errors)
+    verify_restaction_path_cannot_reach_root(errors)
     verify_restaction_jq_compiles(errors)
     verify_ga_chain_shape(errors)
     verify_no_return_in_finally(errors)
@@ -541,6 +542,98 @@ def verify_no_builtin_shadowing(errors):
                     f"oasgen refuses it on a fresh cluster (#200) and only warns where the "
                     f"CRD already exists, so this is invisible until a clean install. Rename "
                     f"the kind in scripts/generate_restdefinitions.py's plural->kind map.")
+
+
+def verify_restaction_path_cannot_reach_root(errors):
+    """A stage `path` must begin with a LITERAL segment, so no interpolation can
+    render it to the bare endpoint root.
+
+    `https://api.arubacloud.com`, `/` and `/docs` all 301 **cross-origin** to
+    `https://arubacloud.github.io/api/`. Every real API path returns 401 with no
+    redirect, so nothing we call today redirects at all.
+
+    That mattered because snowplow's bearer round-tripper re-added the endpoint
+    credential on each redirect hop, defeating net/http's own stripping of
+    `Authorization` across hostnames: a stage that reached the bare endpoint URL would
+    have delivered a real Aruba JWT to GitHub Pages infrastructure. snowplow#1106,
+    fixed wider than asked in #1120 (released 1.12.65, 2026-11-04) -- every endpoint
+    dial now refuses a cross-origin redirect whatever its headers, because snowplow
+    cannot tell which headers carry a credential.
+
+    So the leak is closed at the egress, which is the right place, and this gate is no
+    longer what stands between us and a leaked token. It is still worth having: with
+    #1120 a path that reaches the redirecting root now fails with a 502 naming the
+    redirect, and a 502 surfacing inside a reconcile loop is a poor way to discover a
+    path template that renders empty.
+
+    The rule is deliberately about the EXPRESSION, not the rendered value, because the
+    rendered value depends on CR contents this script cannot see. If the expression
+    starts with a literal `"/projects/"`, then no value of `.spec.projectId` can
+    produce `/` -- an empty one yields `/projects//providers/...`, which fails
+    honestly. If it starts with an interpolation, nothing bounds it.
+
+    This repo had 7 such templates when the hazard was found and has 11 now. The
+    growth is the argument for a gate rather than a habit.
+    """
+    # Leading literal inside a ${ ... } expression: ${ "/projects/" + ... }
+    leading_literal = re.compile(r'^\s*\$\{\s*"([^"]*)"')
+    checked = []
+
+    def check_path(f, expr, where):
+        checked.append(where)
+        if "${" in expr:
+            m = leading_literal.match(expr)
+            if not m:
+                errors.append(
+                    f"{f}: {where} does not begin with a string literal: "
+                    f"{expr[:60]!r}. An interpolation first means the rendered path "
+                    f"is unbounded and can reach the endpoint root, which 301s "
+                    f"cross-origin (snowplow#1106)."
+                )
+                return
+            lit = m.group(1)
+        else:
+            lit = expr
+        # The literal must pin at least one non-empty segment below the root.
+        if not lit.startswith("/") or not [x for x in lit.split("/") if x]:
+            errors.append(
+                f"{f}: {where} begins with {lit!r}, which does not pin a non-empty "
+                f"path segment. It can render to the endpoint root."
+            )
+
+    def walk(f, node, where):
+        if isinstance(node, dict):
+            for k, v in node.items():
+                if k == "path" and isinstance(v, str):
+                    check_path(f, v, f"{where}.path")
+                else:
+                    walk(f, v, f"{where}.{k}")
+        elif isinstance(node, list):
+            for i, v in enumerate(node):
+                walk(f, v, f"{where}[{i}]")
+
+    for f in sorted(glob.glob("restactions/**/*.yaml", recursive=True)):
+        try:
+            with open(f) as fh:
+                docs = list(yaml.safe_load_all(fh))
+        except Exception as e:                                  # noqa: BLE001
+            errors.append(f"{f}: unparseable: {e}")
+            continue
+        for d in docs:
+            if isinstance(d, dict):
+                walk(f, d, os.path.basename(f))
+
+    # A gate that passes silently cannot be told apart from one that found no paths to
+    # look at -- which is what a renamed key or a changed layout would produce.
+    if not checked:
+        errors.append(
+            "verify_restaction_path_cannot_reach_root examined ZERO path templates. "
+            "restactions/ holds 11 of them, so this means the walk stopped finding "
+            "them, not that they are all safe."
+        )
+    else:
+        print(f"Checked {len(checked)} RESTAction path template(s) for a literal "
+              f"leading segment.")
 
 
 def verify_restaction_filter_envelope(errors):
