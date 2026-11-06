@@ -1008,8 +1008,30 @@ def merged_props(spec, sch):
     return props, req
 
 
-def placeholder(spec, sch):
+def flatten_allof(spec, sch):
+    """Deref, and collapse an `allOf` wrapper onto one schema.
+
+    `deref` resolves a bare $ref but not `allOf: [{$ref: ...}]`, which is how Aruba
+    attaches a description to a shared definition -- for scalars as well as objects. A
+    reader that stops at the wrapper sees neither `type` nor `enum` nor `default`.
+    """
     sch = deref(spec, sch)
+    if not isinstance(sch, dict) or "allOf" not in sch:
+        return sch
+    out = {k: v for k, v in sch.items() if k != "allOf"}
+    for member in sch["allOf"]:
+        m = flatten_allof(spec, member)
+        if isinstance(m, dict):
+            for k, v in m.items():
+                out.setdefault(k, v)
+    return out
+
+
+def placeholder(spec, sch):
+    # flatten_allof, not deref: Aruba attaches a description to a shared definition by
+    # wrapping it in allOf, for scalars as much as objects, and a reader that stops at
+    # the wrapper sees neither `type` nor `enum`.
+    sch = flatten_allof(spec, sch)
     t = sch.get("type")
     if isinstance(t, list):
         t = next((x for x in t if x != "null"), "string")
@@ -1025,7 +1047,76 @@ def placeholder(spec, sch):
         return []
     if t == "object":
         return {}
+    if t is None:
+        # A schema with NO type at all -- Aruba ships two, both literally
+        # `{"nullable": true}`: KaasPropertiesDto.autoscalerProfile and
+        # AlertInfo.theshold. A structural CRD requires a type on every node, so these
+        # reach the apiserver as objects, and a string here is rejected outright:
+        #
+        #   spec.properties.alertInfo.theshold in body must be of type object: "string"
+        #
+        # Caught by the smoke job's `kubectl apply --dry-run=server` over every sample,
+        # which is the only check that compares a sample against the CRD it must satisfy.
+        return {}
     return "REPLACE"
+
+
+def explicit_props(spec, sch, prov, _depth=0, _seen=frozenset()):
+    """Expand a create body's `properties` object into a FULLY EXPLICIT sample body.
+
+    This used to emit a single stub -- {"__doc__": f"fill from openapi/{prov}.json"} --
+    which dump_yaml turns into a bare `properties:` with a comment underneath. Two
+    things are wrong with that, and the second is the one that matters:
+
+      * applied as shipped, `properties:` is YAML null, not an object. Harmless as it
+        happens (the field is nullable in Aruba's documents), but it means 27 of the 36
+        samples ship a field that carries no information.
+      * it is an instruction to fill the object in BY HAND, and a hand fill is partial.
+        Kubernetes defaults every property the object leaves unspecified, so a user who
+        writes `properties: {preset: false}` on a Vpc also, silently, sends
+        `default: true` -- and only one default vpc per region is admissible. The user
+        asked for one thing and claimed a region-unique role.
+
+    Spelling every property out removes the partial fill as a reachable state. Where a
+    property's OAS default differs from the value emitted here, a note says so, because
+    a reader is entitled to know what omitting it would have done.
+
+    Nested objects are expanded recursively rather than left as `{}`, for exactly the
+    same reason: `{}` is an object that specifies nothing, so its children default too.
+    """
+    # A schema that reaches itself -- directly or through a chain -- would recurse
+    # forever here. deref guards a single $ref chain, but each recursion starts a fresh
+    # one, so the guard has to live at this level. No document in openapi/ is recursive
+    # today; this is so the next vendored version cannot hang the generator instead of
+    # saying what is wrong.
+    ref = sch.get("$ref") if isinstance(sch, dict) else None
+    if ref and ref in _seen:
+        return {"__doc__": f"recursive schema {ref.rsplit('/', 1)[-1]} -- fill by hand"}
+    _seen = _seen | ({ref} if ref else frozenset())
+
+    props, _ = merged_props(spec, sch)
+    body, notes = {}, []
+    for name, ps in props.items():
+        # Recurse only where there is actually a sub-object to expand. `allOf` alone
+        # does not mean object: Aruba wraps scalars in it too -- SubnetPropertiesDto.type
+        # is allOf:[$ref SubnetType], and SubnetType is a string enum. Treating the
+        # wrapper as an object emitted `type:` with a stub under it, i.e. null, where the
+        # field wants "Basic". merged_props answers the question directly.
+        nested, _nreq = merged_props(spec, ps)
+        if nested:
+            body[name] = explicit_props(spec, ps, prov, _depth + 1, _seen)
+        else:
+            body[name] = placeholder(spec, ps)
+        psd = flatten_allof(spec, ps)
+        if "default" in psd and psd["default"] != body.get(name):
+            notes.append(f"{name} defaults to {json.dumps(psd['default'])} when omitted")
+    if not body:
+        return {"__doc__": f"fill from openapi/{prov}.json"}
+    if notes and _depth == 0:
+        head = {f"__doc{i}__": f"openapi/{prov}.json: {n}" for i, n in enumerate(notes, 1)}
+        head[f"__doc{len(notes) + 1}__"] = "every property is spelled out so none is defaulted"
+        body = {**head, **body}
+    return body
 
 
 def load_rds():
@@ -1152,7 +1243,7 @@ def make_cr(spec, prov, doc, apiver):
                     m[mn] = placeholder(spec, ms) if mn != "name" else f"example-{kind.lower()}"
                 spec_body["metadata"] = m
             elif name == "properties":
-                spec_body["properties"] = {"__doc__": f"fill from openapi/{prov}.json"}
+                spec_body["properties"] = explicit_props(spec, schd, prov)
             else:
                 spec_body[name] = placeholder(spec, sch)
     else:  # read-only
@@ -1232,10 +1323,29 @@ def secret_docs_for(doc):
     return out
 
 
+_DOC_KEY = re.compile(r"^(\s*)__doc\d*__: (.*)$", re.M)
+
+
 def dump_yaml(obj, path):
-    # render the __doc__ stub as a YAML comment-ish placeholder
-    text = yaml.safe_dump(obj, sort_keys=False, default_flow_style=False, width=100)
-    text = text.replace("__doc__: ", "# ")
+    # __doc__ / __doc1__ / __doc2__ ... keys become YAML comments. They are keys rather
+    # than comments up to this point because the body is built as a plain dict; one
+    # numbered key per line keeps each note on its own line, since yaml would fold a
+    # single long scalar across lines and half a comment is a syntax error.
+    text = yaml.safe_dump(obj, sort_keys=False, default_flow_style=False, width=200)
+
+    def _comment(m):
+        body = m.group(2)
+        # yaml quotes a scalar when it must; a comment should read as prose either way
+        if len(body) >= 2 and body[0] == body[-1] and body[0] in "'\"":
+            body = body[1:-1].replace(body[0] * 2, body[0])
+        return f"{m.group(1)}# {body}"
+
+    text = _DOC_KEY.sub(_comment, text)
+    # A note long enough to fold would leave a stray continuation line, which is not a
+    # comment and not valid here. Catch it now rather than in a user's cluster.
+    for i, line in enumerate(text.splitlines(), 1):
+        if line.strip().startswith("__doc"):
+            raise AssertionError(f"{path}:{i}: a __doc key survived: {line.strip()!r}")
     with open(path, "w") as f:
         f.write(text)
 

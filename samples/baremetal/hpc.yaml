@@ -14,4 +14,35 @@ spec:
     name: example-hpc
     tags: []
   properties:
-    # fill from openapi/baremetal.json
+    linkedResources: []
+    node:
+      sku: REPLACE
+      os: REPLACE
+      replicas: 0
+      storage:
+        size: 0
+        replicas: 0
+      ram:
+        size: 0
+    network:
+      publicSize: 0
+      bandwidth: REPLACE
+      multiCloudLink: false
+      mobileVpnEnabled: false
+      loadBalancer:
+        sku: REPLACE
+        replicas: 0
+    firewall:
+      sku: REPLACE
+    management:
+      notes: REPLACE
+      backup:
+        enabled: false
+        details:
+          licenses: 0
+          storages: 0
+      disasterRecovery:
+        enabled: false
+        details:
+          managers: 0
+      premiumAssistance: false

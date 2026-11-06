@@ -15,4 +15,10 @@ spec:
     location: {}
     tags: []
   properties:
-    # fill from openapi/database.json
+    dataCenter: REPLACE
+    dbaas:
+      uri: REPLACE
+    database:
+      name: REPLACE
+    billingPlan:
+      billingPeriod: REPLACE

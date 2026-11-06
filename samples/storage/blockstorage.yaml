@@ -15,4 +15,13 @@ spec:
     location: {}
     tags: []
   properties:
-    # fill from openapi/storage.json
+    sizeGb: 0
+    billingPeriod: REPLACE
+    dataCenter: REPLACE
+    type: REPLACE
+    snapshot:
+      uri: REPLACE
+    backup:
+      uri: REPLACE
+    bootable: false
+    image: REPLACE

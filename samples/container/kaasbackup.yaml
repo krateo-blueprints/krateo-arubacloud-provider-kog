@@ -16,4 +16,6 @@ spec:
     location: {}
     tags: []
   properties:
-    # fill from openapi/container.json
+    billingPeriod: REPLACE
+    type: REPLACE
+    retentionDays: 0

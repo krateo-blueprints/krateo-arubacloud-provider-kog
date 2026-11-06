@@ -15,4 +15,4 @@ spec:
     location: {}
     tags: []
   properties:
-    # fill from openapi/compute.json
+    value: REPLACE

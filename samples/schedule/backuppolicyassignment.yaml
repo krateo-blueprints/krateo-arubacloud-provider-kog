@@ -15,4 +15,7 @@ spec:
     location: {}
     tags: []
   properties:
-    # fill from openapi/schedule.json
+    resource:
+      uri: REPLACE
+    backupPolicy:
+      uri: REPLACE

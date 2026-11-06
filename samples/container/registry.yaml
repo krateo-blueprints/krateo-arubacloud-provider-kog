@@ -15,4 +15,17 @@ spec:
     location: {}
     tags: []
   properties:
-    # fill from openapi/container.json
+    preset: false
+    publicIp:
+      uri: REPLACE
+    subnet:
+      uri: REPLACE
+    securityGroup:
+      uri: REPLACE
+    blockStorage:
+      uri: REPLACE
+    billingPlan:
+      billingPeriod: REPLACE
+    adminUser:
+      username: REPLACE
+    size: REPLACE

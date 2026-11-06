@@ -15,4 +15,29 @@ spec:
     location: {}
     tags: []
   properties:
-    # fill from openapi/container.json
+    preset: false
+    vpc:
+      uri: REPLACE
+    subnet:
+      uri: REPLACE
+    nodeCidr:
+      address: REPLACE
+      name: REPLACE
+    podCidr: REPLACE
+    securityGroup:
+      name: REPLACE
+    kubernetesVersion:
+      value: REPLACE
+    nodePools: []
+    ha: false
+    storage:
+      maxCumulativeVolumeSize: 0
+    billingPlan:
+      billingPeriod: REPLACE
+    identity:
+      clientId: REPLACE
+      clientSecret: REPLACE
+    autoscalerProfile: {}
+    apiServerAccessProfile:
+      authorizedIpRanges: []
+      enablePrivateCluster: false
