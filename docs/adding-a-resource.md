@@ -93,6 +93,29 @@ python3 scripts/gen_provider_docs.py
 python3 scripts/validate.py
 ```
 
+4. Optionally, check the new sample against the CRD that will actually admit it:
+
+```sh
+scripts/check_samples.py --from-cluster            # a cluster that has the CRDs
+scripts/check_samples.py --from-cluster --context kind-aruba-pin
+```
+
+`validate.py` needs no cluster, which is why it cannot know what the generated CRD
+contains. That comparison otherwise exists only in the kind smoke job's
+`kubectl apply --dry-run=server`, so a sample that no longer fits its CRD is a push
+and a four-minute wait away. `check_samples.py` asks the same question locally
+against CRDs read from a cluster (or from a directory of rendered ones).
+
+It is not a replacement for the dry-run: the apiserver is the authority, and the
+smoke job remains the gate. Two things it reports that are easy to misread:
+
+* **a sample whose CRD is absent is a failure, not a skip.** Pointed at a cluster
+  that carries an older or partial set of definitions, it names every sample it
+  could not check and exits non-zero. A checker that skips silently reports clean.
+* `scripts/check_samples.py --prove` runs the comparison against hand-written
+  schemas, including the two shapes that really broke, and needs no cluster. Run it
+  if a clean result ever looks too good.
+
 ## Immutability
 
 `resourceGroup`, `resource.kind`, `identifiers`, `additionalStatusFields`,
