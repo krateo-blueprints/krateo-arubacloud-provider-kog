@@ -1028,7 +1028,10 @@ def flatten_allof(spec, sch):
 
 
 def placeholder(spec, sch):
-    sch = deref(spec, sch)
+    # flatten_allof, not deref: Aruba attaches a description to a shared definition by
+    # wrapping it in allOf, for scalars as much as objects, and a reader that stops at
+    # the wrapper sees neither `type` nor `enum`.
+    sch = flatten_allof(spec, sch)
     t = sch.get("type")
     if isinstance(t, list):
         t = next((x for x in t if x != "null"), "string")
@@ -1043,6 +1046,17 @@ def placeholder(spec, sch):
     if t == "array":
         return []
     if t == "object":
+        return {}
+    if t is None:
+        # A schema with NO type at all -- Aruba ships two, both literally
+        # `{"nullable": true}`: KaasPropertiesDto.autoscalerProfile and
+        # AlertInfo.theshold. A structural CRD requires a type on every node, so these
+        # reach the apiserver as objects, and a string here is rejected outright:
+        #
+        #   spec.properties.alertInfo.theshold in body must be of type object: "string"
+        #
+        # Caught by the smoke job's `kubectl apply --dry-run=server` over every sample,
+        # which is the only check that compares a sample against the CRD it must satisfy.
         return {}
     return "REPLACE"
 
@@ -1092,7 +1106,7 @@ def explicit_props(spec, sch, prov, _depth=0, _seen=frozenset()):
         if nested:
             body[name] = explicit_props(spec, ps, prov, _depth + 1, _seen)
         else:
-            body[name] = placeholder(spec, flatten_allof(spec, ps))
+            body[name] = placeholder(spec, ps)
         psd = flatten_allof(spec, ps)
         if "default" in psd and psd["default"] != body.get(name):
             notes.append(f"{name} defaults to {json.dumps(psd['default'])} when omitted")

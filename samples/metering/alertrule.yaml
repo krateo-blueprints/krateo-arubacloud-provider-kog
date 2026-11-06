@@ -38,7 +38,7 @@ spec:
         name: REPLACE
         type: REPLACE
       rule: REPLACE
-      theshold: REPLACE
+      theshold: {}
       um: REPLACE
       duration: REPLACE
       state: REPLACE

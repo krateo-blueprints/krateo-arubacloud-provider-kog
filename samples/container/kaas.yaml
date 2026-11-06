@@ -37,7 +37,7 @@ spec:
     identity:
       clientId: REPLACE
       clientSecret: REPLACE
-    autoscalerProfile: REPLACE
+    autoscalerProfile: {}
     apiServerAccessProfile:
       authorizedIpRanges: []
       enablePrivateCluster: false
