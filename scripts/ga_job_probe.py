@@ -26,18 +26,19 @@ import time
 import urllib.error
 import urllib.request
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from required_env import required  # account-specific ids; see scripts/required_env.py
+
+
 CONTEXT = os.environ.get("KUBE_CONTEXT", "kind-aruba-110")
 NS = os.environ.get("NS", "default")
 API = os.environ.get("ARUBA_API", "https://api.arubacloud.com")
-PROJECT = os.environ.get("PROJECT") or os.environ.get("ARUBA_PROJECT")
-if not PROJECT:
-    raise SystemExit("set PROJECT (or ARUBA_PROJECT) to your Aruba project id -- "
-                     "there is no default: this talks to a real, billable account")
+PROJECT = required("PROJECT")
 LOCATION = os.environ.get("LOCATION", "ITBG-Bergamo")
 DC = os.environ.get("DC", "ITBG-1")
-VPC_ID = os.environ.get("VPC_ID", "69a5609fa851081197caa45f")
-SUBNET_ID = os.environ.get("SUBNET_ID", "69a560ce2312085699426c28")
-SG_ID = os.environ.get("SG_ID", "69a560ce2312085699426c2a")
+VPC_ID = required("VPC_ID")
+SUBNET_ID = required("SUBNET_ID")
+SG_ID = required("SG_ID")
 FLAVOR = os.environ.get("FLAVOR", "CSO1A2")
 IMAGE = os.environ.get("IMAGE", "LU22-001")
 NAME = os.environ.get("NAME", "ga-job-target")
