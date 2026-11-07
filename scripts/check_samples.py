@@ -22,8 +22,12 @@ Usage:
     scripts/check_samples.py --from-cluster
     scripts/check_samples.py --from-cluster --context kind-aruba-pin
 
-    # against CRDs you rendered yourself, one JSON or YAML document per file
+    # against CRDs you rendered yourself, or a `kubectl get crd -o json` dump
     scripts/check_samples.py path/to/crds/
+
+    # against a source you KNOW is partial (e.g. pin_verify installs only the 4
+    # definitions its chain needs), check what is there and report the rest
+    scripts/check_samples.py path/to/crds/ --partial
 
     # prove the comparison can disagree, without any cluster or CRD at all
     scripts/check_samples.py --prove
@@ -155,7 +159,18 @@ def crds_from_dir(path):
             except yaml.YAMLError as e:
                 raise SystemExit(f"{f}: not parseable as YAML or JSON: {e}")
         for d in docs:
-            if isinstance(d, dict) and d.get("kind") == "CustomResourceDefinition":
+            if not isinstance(d, dict):
+                continue
+            # `kubectl get crd -o json` returns a LIST, not a stream of CRDs. Rejecting
+            # it was right -- the alternative is an empty index that checks nothing and
+            # reports clean -- but refusing a file the documented workflow produces is
+            # a gap, not a safeguard. Measured: the captured file was
+            # `{"kind": "List", "items": [34 CRDs]}`.
+            if d.get("kind") in ("List", "CustomResourceDefinitionList"):
+                out.extend(i for i in (d.get("items") or [])
+                           if isinstance(i, dict)
+                           and i.get("kind") == "CustomResourceDefinition")
+            elif d.get("kind") == "CustomResourceDefinition":
                 out.append(d)
     if not out:
         raise SystemExit(f"{path} holds no CustomResourceDefinition documents. "
@@ -221,6 +236,12 @@ def prove():
 def main(argv):
     if "--prove" in argv:
         return prove()
+    # A deliberately partial CRD source is a real workflow, not an error -- but it must
+    # be DECLARED, never inferred. The default stays strict: an unmatched sample in our
+    # own group fails, because the common cause is a stale or wrong source and a silent
+    # skip there reports clean. `--partial` makes the intent explicit and still prints
+    # everything it could not check.
+    partial = "--partial" in argv
 
     if "--from-cluster" in argv:
         context = None
@@ -275,8 +296,14 @@ def main(argv):
         print(f"\n{len(ours)} sample(s) in {OWN_GROUP} have NO matching CRD:")
         for rel, api, kind, _ in ours:
             print(f"  {rel}: {kind} {api}")
-        print("  Either the CRD source is incomplete, or the sample's apiVersion is "
-              "wrong.\n  Both are failures; neither is a skip.")
+        if partial:
+            print("  --partial given, so this is reported rather than failed. Every "
+                  "name above\n  was NOT checked -- that is the cost of a partial "
+                  "source, stated rather than hidden.")
+        else:
+            print("  Either the CRD source is incomplete, or the sample's apiVersion "
+                  "is wrong.\n  Both are failures; neither is a skip. Pass --partial "
+                  "if the source is\n  deliberately incomplete.")
 
     if problems:
         print(f"\n{len(problems)} PROBLEM(S):")
@@ -286,7 +313,9 @@ def main(argv):
     if checked == 0:
         print("\nNOTHING WAS CHECKED. A clean result here would mean nothing.")
         return 1
-    if problems or ours:
+    if problems:
+        return 1
+    if ours and not partial:
         return 1
     print("\nno type, unknown-field or missing-required mismatches")
     return 0
