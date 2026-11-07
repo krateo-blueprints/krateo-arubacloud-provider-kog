@@ -1,0 +1,20 @@
+# Keep the pinned GitHub Actions current.
+#
+# This exists because release-tag.yaml calls a reusable workflow in another
+# repository pinned BY COMMIT SHA, and that workflow receives an org-wide write
+# token (CHARTS_PUBLISH_TOKEN). A SHA pin is what stops a moving tag from handing
+# that token to code nobody reviewed -- and the cost of a SHA pin is that nothing
+# updates it, so a fix never arrives. Dependabot is the other half of that trade:
+# the pin stays immutable and the bump arrives as a reviewable PR.
+#
+# Without this, pinning by SHA is strictly worse than pinning by tag: the security
+# benefit is real and the staleness is permanent.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(actions)"

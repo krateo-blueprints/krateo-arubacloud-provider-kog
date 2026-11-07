@@ -21,6 +21,11 @@ appVersion: "1.0.0"
 # HYPHENATED org -- krateoplatformops/.github 404s, the same install-source confusion
 # scripts/validate.py already screens for in the install docs.
 icon: https://raw.githubusercontent.com/krateo-platformops/.github/main/brand/logo.svg
+# The publisher REFUSES a chart whose `sources` does not list its publishing
+# repository -- that is how it enforces one owner per chart name, so a second repo
+# cannot quietly take over `aruba-network-environment`.
+sources:
+  - https://github.com/krateo-blueprints/krateo-arubacloud-provider-kog
 keywords:
   # The Marketplace renders these as tags, so they must describe what the chart
   # PROVISIONS. `cloudserver` was here and is removed: the description above spends a

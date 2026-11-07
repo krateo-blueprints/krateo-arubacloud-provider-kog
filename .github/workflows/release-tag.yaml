@@ -73,7 +73,10 @@ jobs:
           set -euo pipefail
           # The standard says the channel follows from the CONTENT, not from preference:
           # `blueprints` for a chart with values.schema.json AND a CompositionDefinition,
-          # `operators` for everything else. The publisher refuses a mismatch.
+          # `pages` for one annotated `krateo.io/kind: page-set`, and `operators` for
+          # everything else. The publisher refuses a mismatch -- but it refuses AFTER the
+          # caller has already pushed to GHCR, which is the half-published state rule 1
+          # exists to prevent, so the caller checks first.
           #
           # This repo passes a single `channel: blueprints` to the reusable workflow, which
           # is correct only while every chart here is a blueprint. Asserted rather than
@@ -88,9 +91,16 @@ jobs:
               echo "::error::${name}: no CompositionDefinition in the chart dir or its parent"; bad=1
             fi
           done < <(find . -type f -name Chart.yaml -not -path '*/charts/*' -print0)
+          # A page-set is a different channel, not a defective blueprint, so say so.
+          while IFS= read -r -d '' cf; do
+            grep -q "krateo.io/kind:[[:space:]]*page-set" "$cf" && {
+              echo "::error::$(dirname "$cf") is annotated page-set, which belongs in the"
+              echo "::error::\`pages\` channel, not \`blueprints\`."; bad=1; }
+          done < <(find . -type f -name Chart.yaml -not -path '*/charts/*' -print0)
           [ "$bad" = "0" ] || {
-            echo "::error::Not every chart qualifies as a blueprint, so `channel: blueprints`"
-            echo "::error::would be wrong for at least one. Split the release by channel first."
+            echo "::error::Not every chart here belongs in \`blueprints\`. This caller passes"
+            echo "::error::ONE channel for all its charts, so split the release by channel"
+            echo "::error::first. Failing before the GHCR push, not at the publisher."
             exit 1; }
           echo "every chart qualifies for the blueprints channel"
 
@@ -172,7 +182,14 @@ jobs:
 
   # Second half of the standard's rule 1: the same bytes also reach the helm index here,
   # because the Marketplace installs from the index and never re-resolves against GHCR.
-  # Pinned to the major tag @1 so a publisher fix reaches every repository at once.
+  #
+  # MUST BE PINNED BY FULL COMMIT SHA BEFORE THIS MERGES, with a `# 1.0.0` comment.
+  # This workflow receives CHARTS_PUBLISH_TOKEN, an org-wide write token, so a moving
+  # major tag would hand that token to whatever `1` points at next. `@1` is a
+  # placeholder only because tag `1` does not exist yet (checked: 404), so there is no
+  # SHA to pin to. .github/dependabot.yml is already in place to bump the pin, which is
+  # the other half of the trade -- a SHA pin with nothing to update it is permanently
+  # stale.
   publish-to-index:
     needs: package-and-push
     uses: krateo-blueprints/charts/.github/workflows/publish-chart.yaml@1
