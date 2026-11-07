@@ -682,6 +682,59 @@ that gets both: land the guards in this repo first (`required` on the chart's re
 property objects, and samples that spell every property out — both done), then 0.53.0's
 stamping is harmless here and its RBAC fix is worth taking.
 
+### Live verification of the pin (2026-11-07)
+
+CI proves install, CRD generation and 36/36 RestDefinitions reaching Ready at 0.52.0
+on a clean runner. It cannot reach Aruba — no credentials — so a live reconcile was
+the one claim the pin rested on by inference. `scripts/pin_verify.sh` was run against
+the real API on **released 0.52.0 images with no overrides** (`oasgen-provider:0.52.0`,
+`rest-dynamic-controller:0.52.0`, verified in the log):
+
+```
+RESULT: 4 resources created and observed
+  drift Vpc/ga-ns-vpc:          ok
+  drift Subnet/ga-ns-subnet:    ok
+  drift SecurityGroup/ga-ns-sg: SKIPPED
+  drift SecurityRule/ga-ns-sr:  ok
+```
+
+Create and observe: demonstrated for all four. Drift correction: demonstrated for
+three. **Residue: clean** — the ground-truth check found zero leftovers, so nothing
+was left running at Aruba.
+
+Two caveats, named rather than buried, because the run's own exit code was 1:
+
+**1. SecurityGroup drift could not be INJECTED.** The chain reported `PUT returned 400
+for every body shape tried (declared spec, response echo) — Status: invalid status`
+with the resource `Active`. This is not the controller failing to correct drift; the
+harness could not create a divergence to correct. The OAS says it should be possible —
+`SecurityGroupUpdateDto` is `{metadata:{name,location,tags}, properties:{default}}`, so
+`tags` is non-identifying, the same field that worked on Vpc and Subnet in this very
+run. So this is a live-versus-OAS divergence and **`docs/coverage.md`'s claim that
+SecurityGroup has "full lifecycle live incl. drift correction, re-runnable on demand
+under `tests/ga/chains/network-security.yaml`" overstates what that chain demonstrates
+today.** That row is pending a targeted PUT probe rather than being rewritten from one
+run; note also that `coverage.md` attributes SecurityGroup's original confirmation to
+the *cloudserver* chain, not to the chain it cites as the reproduction.
+
+**2. Two deletes completed OUTSIDE the confirmation window.** `SecurityRule` and
+`Subnet` still read 200 during their own delete and were 404 at the residue check
+minutes later. The chain refuses to attribute a deletion it did not witness, which is
+why it exits 1 — the right strictness, and a different thing from a failed delete. Both
+resources are gone.
+
+**Weather, not findings.** The run logged 23 transport timeouts and one 401 (recovered
+by re-reading the ESO Secret), and `SecurityRule` took 340s to reach Active. None of
+these is attributable: the per-resource state lines print only on CHANGE, so the log
+shows the failures and hides the successes, and no denominator existed. That gap is now
+closed — `ga_chain.py` prints a transport census, so the next run can say whether 23 is
+5.8% or 63.6%. Until then the timeouts are an observation and nothing has been reported
+to Aruba on their strength.
+
+**The samples were checked against these CRDs too**, captured from the cluster before
+teardown rather than rendered locally: 8 CRDs for the 4 installed kinds, and
+`scripts/check_samples.py` found no type, unknown-field or missing-required mismatch.
+
 ### A warning the bump adds that is WRONG, and should not be acted on
 
 16 of the 36 definitions acquire this at 0.52.0:
