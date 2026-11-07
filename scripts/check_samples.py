@@ -113,8 +113,26 @@ def check(node, schema, path, out):
             check(v, schema["items"], f"{path}[{i}]", out)
 
     for req in schema.get("required") or []:
-        if isinstance(node, dict) and req not in node:
-            out.append(f"{path}: required property {req!r} missing from the sample")
+        if not isinstance(node, dict) or req in node:
+            continue
+        # A property that is both `required` AND carries a `default` is satisfied by
+        # its absence: Kubernetes applies structural defaults BEFORE it validates
+        # required, so the apiserver fills the field and then finds it present.
+        #
+        # This was a false positive against another repo's samples -- reported
+        # `test-orgwebhook.yaml:spec: required property 'name' missing` for a CRD whose
+        # `spec.name` is {type: string, default: web}. Their server-side dry-run
+        # admitted the unmodified sample and echoed `name: web`. Measured, not argued.
+        #
+        # Worth noticing that this is the SAME mechanism as our own Vpc hazard: a
+        # defaulted field the sample omits gets filled silently. There it is a problem
+        # because `VpcPropertiesDto.default` is `true`; here it is simply how required
+        # and default compose. The checker has to model the apiserver, not the schema
+        # read literally.
+        prop = (schema.get("properties") or {}).get(req)
+        if isinstance(prop, dict) and "default" in prop:
+            continue
+        out.append(f"{path}: required property {req!r} missing from the sample")
 
 
 def index_crds(crds):
@@ -207,6 +225,10 @@ def prove():
         ("true where the CRD says integer",
          {"type": "object", "properties": {"sizeGb": {"type": "integer"}}},
          {"sizeGb": True}),
+        ("a required property with NO default, omitted",
+         {"type": "object", "required": ["org"],
+          "properties": {"org": {"type": "string"}}},
+         {}),
     ]
     ok = True
     for label, schema, sample in cases:
@@ -217,6 +239,18 @@ def prove():
         else:
             print(f"  MISSED: {label}")
             ok = False
+
+    # The required-AND-defaulted case must stay QUIET. It is the one the checker got
+    # wrong against another repo, and a fix with no test is how it comes back.
+    out = []
+    check({}, {"type": "object", "required": ["name"],
+               "properties": {"name": {"type": "string", "default": "web"}}},
+          "spec", out)
+    if out:
+        print(f"  FALSE POSITIVE on required-and-defaulted: {out}")
+        ok = False
+    else:
+        print("  quiet on a required property that carries a default")
 
     # And the converse: a sample that fits must NOT be complained about, or every
     # run is noise and the "caught" lines above prove nothing.
