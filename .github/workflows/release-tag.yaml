@@ -216,10 +216,16 @@ jobs:
   # This workflow receives CHARTS_PUBLISH_TOKEN, an org-wide write token, so a moving
   # major tag would hand that token to whatever `1` points at next.
   #
-  # Pinned to the commit tag 1.0.0 points at, verified rather than taken on trust:
+  # Pinned to the commit tag 1.0.1 points at, verified rather than taken on trust:
   #
-  #   git ls-remote https://github.com/krateo-blueprints/charts 'refs/tags/1.0.0^{}'
-  #   a2d63ba50e138b17f678528d6d6be3afef48715a  refs/tags/1.0.0^{}
+  #   git ls-remote https://github.com/krateo-blueprints/charts 'refs/tags/1.0.1^{}'
+  #   36ea357cb0fe4b49628cc984d9939babf0049d03  refs/tags/1.0.1^{}
+  #
+  # NOT 1.0.0. That release interpolated the token into a git clone URL, so a value
+  # carrying whitespace failed at its "Clone gh-pages" step AFTER the caller's GHCR push.
+  # github-provider-kog 0.7.6 (run 42411357647) was left half-published that way on
+  # 2026-11-07. 1.0.1 keeps the token out of URLs and refuses a whitespace-bearing value
+  # itself. The caller-side check above is still the only one that runs BEFORE the push.
   #
   # The `^{}` matters. 1.0.0 is an ANNOTATED tag, so `refs/tags/1.0.0` resolves to the tag
   # OBJECT (54acb674...), not to a commit, and Actions will not run a workflow pinned to
@@ -230,7 +236,7 @@ jobs:
   # the trade -- a SHA pin with nothing to update it is permanently stale.
   publish-to-index:
     needs: package-and-push
-    uses: krateo-blueprints/charts/.github/workflows/publish-chart.yaml@a2d63ba50e138b17f678528d6d6be3afef48715a # 1.0.0
+    uses: krateo-blueprints/charts/.github/workflows/publish-chart.yaml@36ea357cb0fe4b49628cc984d9939babf0049d03 # 1.0.1
     with:
       source_repo: ${{ github.repository }}
       git_tag: ${{ github.ref_name }}
