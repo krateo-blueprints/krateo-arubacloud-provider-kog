@@ -49,7 +49,7 @@ Scope analysed: 11 specs, ~108 operations, **34 manageable resources** across th
 | B2 | Different path-param name per verb | 🟩/🟧 | `database/Database`, `schedule/BackupPolicy` | Solved per-verb; a spec-level alias would be cleaner |
 | B3 | `findby` list envelope (`{total, values[]}`) | 🟩 | all list endpoints | **Shipped** — `findby.itemsPath`, optional, with ≥2 arrays an error rather than a guess ([#110](https://github.com/krateo-platformops/oasgen-provider/issues/110)) |
 | B4 | Secret-bearing spec fields (password, keys) | 🟧 | `database/DatabaseUser`, `compute/KeyPair`, `container/Registry` | `secretRef` resolver + OAS-declarable `*SecretRef` field |
-| B5 | `findby` reads only the first page | 🟥 | all 36 (any collection >50 items) | Implement the `offset` strategy already designed in `types.go`. Measured: Aruba's page is 50 and `limit` is honoured downward only, so `limit=2000` still returns 50. No `pagination` block can express this today, and `NewPaginator(nil)` means the `Indeterminate` guard never engages |
+| B5 | `findby` reads only the first page | 🟥 | all 36 (any collection >50 items) | Implement the `offset` strategy already designed in `types.go`. Measured: Aruba's page is 50 and `limit` is honoured downward only, so `limit=2000` still returns 50. No `pagination` block can express this today, and the findby entry point returns early to `CallFindBySingle` before any paginator exists, so the 404 is unconditional after one page |
 | C1 | Lifecycle expressed as POST action sub-endpoints | 🟥 | compute, container, database, project, baremetal | First-class "action verbs" or `createApiRef`/`updateApiRef` delegation |
 | C2 | Async readiness | 🟩 | all create/update | Solved by `async` (requeue); wired on `Hpc`. Poll-path validation + `handleParam` **shipped** in 0.18.0 ([#46](https://github.com/krateo-platformops/oasgen-provider/issues/46)). Residual: open-string state enums |
 | C6 | Delete-direction `*ApiRef` extras lack the spec | 🟩 | `compute/CloudServer` (any delegated delete) | **Shipped** in RDC 0.18.0 — spec forwarded on every direction ([rdc#41](https://github.com/krateo-platformops/rest-dynamic-controller/issues/41)) |
@@ -367,10 +367,41 @@ agreement when it exists. Every other collection in the test account holds
 pagination mechanism that is *declared but cannot be read* yields
 `Indeterminate` rather than a verdict, and exhausting `maxPages` is
 `Indeterminate` too — "I was told to stop looking" is deliberately not "it is
-not there". But `NewPaginator(nil)` returns `nil, nil` — *"No pagination
-configured"*. The guard protects a declared mechanism, and we declare none. So a
-truncated list reaches the matcher as if it were the whole collection, with no
-signal that anything was cut.
+not there". That guard protects a **declared** mechanism, and we declare none.
+
+The path we actually take never reaches it. In
+`go/rest-dynamic-controller/internal/tools/client/restclient.go` the findby entry
+point returns early before any paginator exists:
+
+```go
+if findByAction == nil || findByAction.Pagination == nil {
+    return u.CallFindBySingle(ctx, cli, path, opts, itemsPath, findByAction)
+}
+```
+
+`CallFindBySingle` issues **one** request, walks the items, and ends with:
+
+```go
+// If no match is found after checking all items, return a Not Found error.
+return Response{}, &StatusError{StatusCode: http.StatusNotFound,
+    Inner: fmt.Errorf("item not found"), Synthesised: true}
+```
+
+So with nothing declared the 404 is **unconditional after one page**, and nothing
+in the call knows a page was truncated — there is no `PageResult` and therefore no
+verdict to be `Indeterminate` about.
+
+> **Correction.** This entry first cited `NewPaginator(nil)` returning
+> `nil, nil` as the mechanism. That is dead code on this path: the early return
+> above means `NewPaginator` is never called, and `restclient.go:458` is its only
+> non-test caller, reached only with a non-nil config. The conclusion was right
+> and the evidence was wrong, which is worse than it sounds — anyone checking the
+> claim would have found an unreachable branch and had reason to doubt the rest.
+> Caught by the github-provider-kog session trying to break the claim rather than
+> confirm it. The published upstream issue carries the same correction.
+
+Also distinct, and easy to conflate: `MaxFindByPages = 1000` is a hard ceiling on
+a *paginated* walk and returns an **error**, not a 404. It is not `maxPages`.
 
 **Consequence.** For a collection exceeding 50 items, `findby` cannot match an
 object that sits past the first page. It reports not-found, and an unmatched
