@@ -123,6 +123,7 @@ def main():
     verify_documented_pin(errors)
     verify_no_builtin_shadowing(errors)
     verify_restaction_filter_envelope(errors)
+    verify_no_env_assignment_after_command(errors)
     verify_restaction_path_cannot_reach_root(errors)
     verify_restaction_jq_compiles(errors)
     verify_ga_chain_shape(errors)
@@ -542,6 +543,72 @@ def verify_no_builtin_shadowing(errors):
                     f"oasgen refuses it on a fresh cluster (#200) and only warns where the "
                     f"CRD already exists, so this is invisible until a clean install. Rename "
                     f"the kind in scripts/generate_restdefinitions.py's plural->kind map.")
+
+
+def verify_no_env_assignment_after_command(errors):
+    """A shell env assignment must come BEFORE the command, not after it.
+
+    `python3 -c "..." VAR=x` does not set VAR in the environment -- it passes `VAR=x`
+    as a positional ARGUMENT. `os.environ["VAR"]` then raises KeyError, the script
+    prints nothing, and a caller that reads its stdout sees an empty result.
+
+    That is the shape that matters: it does not look like a crash to the caller, it
+    looks like an answer. I made this mistake three times in one session. Twice the
+    empty output was consumed as a measurement -- once reported as "0 CRDs present"
+    from a cluster that had eight, and once as "0 vpcs at Aruba" from an account that
+    had one. Both were caught by a separate assertion rather than by the failure
+    itself, and the third time it was caught only because the guard I had just added
+    for an unrelated confound happened to refuse.
+
+    The fix in every case is `export VAR=x` first, or a prefix before the command.
+    This gate exists because the error is syntactic, cheap to detect, and silent.
+
+    Deliberately narrow: it flags an assignment following an interpreter invocation on
+    the same logical command. It does not try to parse shell.
+    """
+    # python3 ... -c "..." (possibly multi-line) then whitespace then VAR=
+    # The assignment must be on the SAME line as the closing quote (or joined to it by
+    # a backslash continuation). Allowing a bare newline flagged the CORRECT form: a
+    # prefix assignment opening the NEXT command looks identical to a trailing one if
+    # the newline is permitted. Caught by testing the negative case, not the positive.
+    pat = re.compile(
+        r"""(?:python3?|sh|bash)\b[^\n]*?-c[ \t]*(["'])"""  # interpreter + -c + quote
+        r"""(?:(?!\1).|\n)*?"""                             # the script body, lazily
+        r"""\1[ \t]*(?:\\\n[ \t]*)?"""                      # quote, same line or \-join
+        r"""([A-Za-z_][A-Za-z0-9_]*)=""",                    # then VAR=
+        re.M)
+    # A screen that cannot detect a known-bad case is a function that returns false --
+    # and one that fires on the correct case is worse, because it trains people to
+    # ignore it. Both directions, both asserted.
+    bad = 'python3 -I -c "\nimport os\nprint(1)\n" A=1'
+    assert pat.search(bad), "the detector misses its own known-bad example"
+    bad_cont = 'python3 -I -c "\nimport os\n" \\\n  A=1'
+    assert pat.search(bad_cont), "the detector misses the backslash-continued form"
+    good_prefix = 'A=1 python3 -I -c "\nimport os\nprint(1)\n"'
+    assert not pat.search(good_prefix), "the detector flags a prefix assignment"
+    good_next = 'python3 -I -c "\nimport os\n"\nB=2 python3 -I -c "\nimport os\n"'
+    assert not pat.search(good_next), "the detector flags the NEXT command's prefix"
+
+    checked = 0
+    for f in sorted(glob.glob("scripts/**/*.sh", recursive=True)
+                    + glob.glob("tests/**/*.sh", recursive=True)):
+        with open(f) as fh:
+            body = fh.read()
+        checked += 1
+        for m in pat.finditer(body):
+            line = body[:m.start()].count("\n") + 1
+            errors.append(
+                f"{f}:{line}: `{m.group(2)}=` comes AFTER the interpreter's -c script, "
+                f"so it is an ARGUMENT, not an environment variable. os.environ"
+                f"[{m.group(2)!r}] will raise KeyError and the command will print "
+                f"nothing -- which reads as an empty answer, not as a failure. "
+                f"Use `export {m.group(2)}=...` before the command."
+            )
+    if not checked:
+        errors.append("verify_no_env_assignment_after_command examined ZERO shell "
+                      "scripts, so it cannot have found anything.")
+    else:
+        print(f"Checked {checked} shell script(s) for an env assignment after `-c`.")
 
 
 def verify_restaction_path_cannot_reach_root(errors):
