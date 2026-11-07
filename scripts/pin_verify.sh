@@ -19,11 +19,18 @@
 #   KEEP=0 scripts/pin_verify.sh     # delete the cluster afterwards
 set -uo pipefail
 
-PIN="${OASGEN_VERSION:-0.52.0}"              # 0.52.0 is the PIN; 0.36.0 is the FLOOR.
-                                             # The pin is 0.52.0 and NOT 0.53.0: 0.53.0
-                                             # bumps plumbing v1.14.2 -> v1.27.0, which
-                                             # stamps `default: {}` on 240 optional
-                                             # object paths across these 36 definitions.
+PIN="${OASGEN_VERSION:-0.54.1}"              # 0.54.1 is the PIN; 0.36.0 is the FLOOR.
+                                             # It SKIPS 0.53.0 and 0.54.0, both measured:
+                                             # 0.53.0 stamps `default: {}` on 240 optional
+                                             # object paths (238 of them on the
+                                             # Configuration CRD, exactly ONE
+                                             # consequential); 0.54.0 fixes that and then
+                                             # cannot reconcile at all -- its RBAC
+                                             # collector missed apiKey.tokenRef, which is
+                                             # 25 of our 36 kinds (oasgen#500). 0.54.1
+                                             # derives the paths from the auth shapes, and
+                                             # a live run gave 4/4 created+observed and
+                                             # 4/4 drift corrected with clean residue.
                                              # See docs/oasgen-provider-evolution.md.
                                              # The floor:
                                              # `profile` is in the provider list, and
