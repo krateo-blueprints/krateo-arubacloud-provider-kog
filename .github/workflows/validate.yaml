@@ -75,7 +75,7 @@ jobs:
         run: pip install --quiet pyyaml
 
       - name: Install Helm
-        uses: azure/setup-helm@v4
+        uses: azure/setup-helm@v5
 
       - name: scripts/validate.py
         # Enforces: the vendored OAS is byte-for-byte unmodified (sha256 vs
@@ -136,7 +136,7 @@ jobs:
           node_image: kindest/node:v1.36.4
 
       - name: Install Helm
-        uses: azure/setup-helm@v4
+        uses: azure/setup-helm@v5
 
       - name: Install oasgen-provider
         run: |
