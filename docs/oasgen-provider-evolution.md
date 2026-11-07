@@ -741,6 +741,68 @@ to Aruba on their strength.
 teardown rather than rendered locally: 8 CRDs for the 4 installed kinds, and
 `scripts/check_samples.py` found no type, unknown-field or missing-required mismatch.
 
+## Appendix — correction: the `offset` footgun is real, its consequence is NOT proven
+
+PR #41 removed `offset`, `limit`, `filter`, `sort` and `projection` from
+`configurationFields` and excluded them from the spec. **That change is still right.**
+This corrects the consequence its description claimed.
+
+### What is measured and stands
+
+```
+GET .../vpcs             -> 200  total=1  len(values)=1
+GET .../vpcs?offset=1    -> 200  total=1  len(values)=0
+GET .../vpcs?offset=5    -> 200  total=1  len(values)=0
+```
+
+A Configuration-settable `offset` can make the findby response carry **zero items while
+`total` says otherwise**, with the contradiction sitting unread in the same envelope.
+That is a real footgun on a field no user has a legitimate reason to set, and removing it
+needs no further justification.
+
+### What was claimed and is NOT proven
+
+PR #41 said this produces "a duplicate external resource per reconcile". **That has not
+been observed, and the one attempt to observe it was invalid.**
+
+The experiment set `offset=1` against a collection that by then held **two** vpcs — the
+account's standing one plus the test resource — so `offset=1` skipped one and returned
+the other, possibly the target. The `offset=1 -> 0 items` measurement above was taken on
+a **one**-item collection and did not transfer. The run reported no duplicate in eight
+minutes, with the CR at `Ready=True`, `Synced=True`, `Observed=True(ResponseObtained)`.
+
+Worse than the bad offset: the script printed a list of candidate explanations for the
+null result and **that list did not include the confound it had just fallen into.** A
+hedge that enumerates the wrong candidates is not much better than no hedge.
+
+### The candidate that would narrow the claim substantially
+
+`Observed=True(ResponseObtained)` says observe ran and concluded the resource exists. One
+explanation is that once a CR carries an id in status, `IsResourceKnown` returns true and
+observe uses **get**, never reaching findby — exactly the branch in RDC's `exists.go`:
+
+```go
+action := apiaction.Get
+if !isKnown {
+    // Not addressable by identifier yet ... findby is the only way to answer
+    action = apiaction.FindBy
+}
+```
+
+If that is what happened, a blinded findby is irrelevant to an **established** resource,
+and the hazard needs a resource that exists while its CR carries no recorded id — a fresh
+CR adopting an existing resource, or a CR whose status was lost. That is far narrower
+than "every reconcile", and it is the same case the `github-provider-kog` session raised
+against oasgen#485's design.
+
+### Status
+
+The removal stays. The consequence is recorded as **unproven**, the re-run uses an offset
+derived from the collection size so it cannot be undermined by the test adding an item,
+and nothing upstream was filed on the duplicate-create claim.
+
+---
+
 ## Appendix — 0.54.0 is UNUSABLE here, and 0.53.0 remains skipped (2026-11-07)
 
 **Do not pin 0.54.0.** The render side is fixed and the reconcile side is broken.
