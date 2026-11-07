@@ -29,6 +29,11 @@ Usage:
     # definitions its chain needs), check what is there and report the rest
     scripts/check_samples.py path/to/crds/ --partial
 
+    # against ANOTHER repo's samples and API group -- the comparison is not
+    # Aruba-specific, only the defaults are
+    scripts/check_samples.py path/to/crds/ --samples ../other/chart/samples \
+        --group github.krateo.io
+
     # prove the comparison can disagree, without any cluster or CRD at all
     scripts/check_samples.py --prove
 
@@ -48,7 +53,7 @@ ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 # The group the provider generates into. A sample in THIS group with no CRD is a
 # failure (the CRD should exist and does not); a sample in any other group -- the
 # `v1` Secrets the samples ship as prerequisites -- is simply not ours to check.
-OWN_GROUP = "arubacloud.ogen.krateo.io"
+OWN_GROUP = "arubacloud.ogen.krateo.io"   # default; --group overrides
 
 JSON_TYPE = {
     "object": dict,
@@ -108,8 +113,26 @@ def check(node, schema, path, out):
             check(v, schema["items"], f"{path}[{i}]", out)
 
     for req in schema.get("required") or []:
-        if isinstance(node, dict) and req not in node:
-            out.append(f"{path}: required property {req!r} missing from the sample")
+        if not isinstance(node, dict) or req in node:
+            continue
+        # A property that is both `required` AND carries a `default` is satisfied by
+        # its absence: Kubernetes applies structural defaults BEFORE it validates
+        # required, so the apiserver fills the field and then finds it present.
+        #
+        # This was a false positive against another repo's samples -- reported
+        # `test-orgwebhook.yaml:spec: required property 'name' missing` for a CRD whose
+        # `spec.name` is {type: string, default: web}. Their server-side dry-run
+        # admitted the unmodified sample and echoed `name: web`. Measured, not argued.
+        #
+        # Worth noticing that this is the SAME mechanism as our own Vpc hazard: a
+        # defaulted field the sample omits gets filled silently. There it is a problem
+        # because `VpcPropertiesDto.default` is `true`; here it is simply how required
+        # and default compose. The checker has to model the apiserver, not the schema
+        # read literally.
+        prop = (schema.get("properties") or {}).get(req)
+        if isinstance(prop, dict) and "default" in prop:
+            continue
+        out.append(f"{path}: required property {req!r} missing from the sample")
 
 
 def index_crds(crds):
@@ -202,6 +225,10 @@ def prove():
         ("true where the CRD says integer",
          {"type": "object", "properties": {"sizeGb": {"type": "integer"}}},
          {"sizeGb": True}),
+        ("a required property with NO default, omitted",
+         {"type": "object", "required": ["org"],
+          "properties": {"org": {"type": "string"}}},
+         {}),
     ]
     ok = True
     for label, schema, sample in cases:
@@ -212,6 +239,18 @@ def prove():
         else:
             print(f"  MISSED: {label}")
             ok = False
+
+    # The required-AND-defaulted case must stay QUIET. It is the one the checker got
+    # wrong against another repo, and a fix with no test is how it comes back.
+    out = []
+    check({}, {"type": "object", "required": ["name"],
+               "properties": {"name": {"type": "string", "default": "web"}}},
+          "spec", out)
+    if out:
+        print(f"  FALSE POSITIVE on required-and-defaulted: {out}")
+        ok = False
+    else:
+        print("  quiet on a required property that carries a default")
 
     # And the converse: a sample that fits must NOT be complained about, or every
     # run is noise and the "caught" lines above prove nothing.
@@ -243,6 +282,23 @@ def main(argv):
     # everything it could not check.
     partial = "--partial" in argv
 
+    def opt(name, default):
+        if name not in argv:
+            return default
+        i = argv.index(name)
+        if i + 1 >= len(argv):
+            raise SystemExit(f"{name} needs a value")
+        return argv[i + 1]
+
+    # Nothing in the comparison is Aruba-specific -- it reads CRDs and samples and
+    # compares leaves. Only the two defaults were, so they are now arguments. This
+    # makes the checker usable as an outside reading of someone else's repo, which is
+    # worth more than a self-audit: every error of mine caught this week was caught by
+    # someone running something against my work rather than by me running it against
+    # my own.
+    samples_dir = opt("--samples", os.path.join(ROOT, "samples"))
+    own_group = opt("--group", OWN_GROUP)
+
     if "--from-cluster" in argv:
         context = None
         if "--context" in argv:
@@ -253,7 +309,22 @@ def main(argv):
         crds = crds_from_cluster(context)
         source = f"cluster {context or '(current context)'}"
     else:
-        positional = [a for a in argv if not a.startswith("-")]
+        # Skip flags AND the values that belong to them. Taking every non-dash
+        # argument as positional made `--samples <dir>` contribute <dir>, so the
+        # CRD-directory count came to 3 and the script printed usage instead of
+        # running. Caught by running it against another repo, not by reading it.
+        takes_value = {"--samples", "--group", "--context"}
+        positional, skip = [], False
+        for a in argv:
+            if skip:
+                skip = False
+                continue
+            if a in takes_value:
+                skip = True
+                continue
+            if a.startswith("-"):
+                continue
+            positional.append(a)
         if len(positional) != 1:
             raise SystemExit(__doc__)
         crds = crds_from_dir(positional[0])
@@ -262,9 +333,9 @@ def main(argv):
     index = index_crds(crds)
     problems, unchecked, checked = [], [], 0
 
-    for f in sorted(glob.glob(os.path.join(ROOT, "samples", "**", "*.yaml"),
+    for f in sorted(glob.glob(os.path.join(samples_dir, "**", "*.yaml"),
                               recursive=True)):
-        rel = os.path.relpath(f, ROOT)
+        rel = os.path.relpath(f, samples_dir)
         with open(f) as fh:
             docs = list(yaml.safe_load_all(fh))
         for doc in docs:
@@ -277,7 +348,7 @@ def main(argv):
                 # Never skip silently. A mis-pointed CRD source checks nothing and,
                 # without this, exits 0 -- a green that means only that it looked
                 # in the wrong place.
-                unchecked.append((rel, api, doc["kind"], group == OWN_GROUP))
+                unchecked.append((rel, api, doc["kind"], group == own_group))
                 continue
             out = []
             check(doc.get("spec"), index[key], f"{rel}:spec", out)
@@ -293,7 +364,7 @@ def main(argv):
         print(f"\nnot ours to check ({len(theirs)}): "
               + ", ".join(sorted({f'{u[2]} ({u[1]})' for u in theirs})))
     if ours:
-        print(f"\n{len(ours)} sample(s) in {OWN_GROUP} have NO matching CRD:")
+        print(f"\n{len(ours)} sample(s) in {own_group} have NO matching CRD:")
         for rel, api, kind, _ in ours:
             print(f"  {rel}: {kind} {api}")
         if partial:
