@@ -29,9 +29,9 @@ timestamp: 2026-09-28T00:00:00Z
 | get | GET | `/projects/{projectId}/providers/Aruba.Baremetal/hpcs/{id}` |
 | create | POST | `/projects/{projectId}/providers/Aruba.Baremetal/hpcs` |
 
-status fields: `metadata.id, status.failureReason, status.error` · excluded from spec: `id`
+status fields: `metadata.id, status.failureReason, status.error` · excluded from spec: `filter, id, limit, offset, projection, sort`
 
-Configuration query params: `api-version, calculatePrices, filter, limit, offset, projection, sort`
+Configuration query params: `api-version, calculatePrices`
 
 Sample: [`samples/baremetal/hpc.yaml`](../../samples/baremetal/hpc.yaml) · [`hpc-configuration.yaml`](../../samples/baremetal/hpc-configuration.yaml)
 

@@ -28,9 +28,9 @@ timestamp: 2026-09-28T00:00:00Z
 | update | PUT | `/projects/{projectId}/providers/Aruba.Profile/aiKeys/{id}` |
 | delete | DELETE | `/projects/{projectId}/providers/Aruba.Profile/aiKeys/{id}` |
 
-status fields: `metadata.id, status.failureReason, status.error` · excluded from spec: `id`
+status fields: `metadata.id, status.failureReason, status.error` · excluded from spec: `filter, id, limit, offset, projection, sort`
 
-Configuration query params: `api-version, filter, limit, offset, projection, sort`
+Configuration query params: `api-version`
 
 Sample: [`samples/profile/aikey.yaml`](../../samples/profile/aikey.yaml) · [`aikey-configuration.yaml`](../../samples/profile/aikey-configuration.yaml)
 

@@ -31,9 +31,9 @@ timestamp: 2026-09-28T00:00:00Z
 | update | PUT | `/projects/{projectId}/providers/Aruba.Schedule/backupPolicies/{backupPolicyId}` |
 | delete | DELETE | `/projects/{projectId}/providers/Aruba.Schedule/backupPolicies/{backupPolicyId}` |
 
-status fields: `metadata.id, status.failureReason, status.error` · excluded from spec: `backupPolicyId, id`
+status fields: `metadata.id, status.failureReason, status.error` · excluded from spec: `backupPolicyId, filter, id, limit, offset, projection, sort`
 
-Configuration query params: `api-version, filter, includeDeleted, limit, offset, projection, sort`
+Configuration query params: `api-version, includeDeleted`
 
 Sample: [`samples/schedule/backuppolicy.yaml`](../../samples/schedule/backuppolicy.yaml) · [`backuppolicy-configuration.yaml`](../../samples/schedule/backuppolicy-configuration.yaml)
 
@@ -47,9 +47,9 @@ Sample: [`samples/schedule/backuppolicy.yaml`](../../samples/schedule/backuppoli
 | update | PUT | `/projects/{projectId}/providers/Aruba.Schedule/backupPolicyAssignments/{id}` |
 | delete | DELETE | `/projects/{projectId}/providers/Aruba.Schedule/backupPolicyAssignments/{id}` |
 
-status fields: `metadata.id, status.failureReason, status.error` · excluded from spec: `id`
+status fields: `metadata.id, status.failureReason, status.error` · excluded from spec: `filter, id, limit, offset, projection, sort`
 
-Configuration query params: `api-version, filter, limit, offset, projection, sort`
+Configuration query params: `api-version`
 
 Sample: [`samples/schedule/backuppolicyassignment.yaml`](../../samples/schedule/backuppolicyassignment.yaml) · [`backuppolicyassignment-configuration.yaml`](../../samples/schedule/backuppolicyassignment-configuration.yaml)
 
@@ -65,9 +65,9 @@ Sample: [`samples/schedule/backuppolicyassignment.yaml`](../../samples/schedule/
 | update | PUT | `/projects/{projectId}/providers/Aruba.Schedule/jobs/{jobId}` |
 | delete | DELETE | `/projects/{projectId}/providers/Aruba.Schedule/jobs/{jobId}` |
 
-status fields: `metadata.id, status.failureReason, status.error` · excluded from spec: `jobId`
+status fields: `metadata.id, status.failureReason, status.error` · excluded from spec: `filter, jobId, limit, offset, projection, sort`
 
-Configuration query params: `api-version, filter, ignoreDeletedStatus, limit, offset, projection, sort`
+Configuration query params: `api-version, ignoreDeletedStatus`
 
 Sample: [`samples/schedule/scheduledjob.yaml`](../../samples/schedule/scheduledjob.yaml) · [`scheduledjob-configuration.yaml`](../../samples/schedule/scheduledjob-configuration.yaml)
 

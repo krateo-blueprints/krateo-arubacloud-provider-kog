@@ -34,9 +34,9 @@ timestamp: 2026-09-28T00:00:00Z
 | create | POST | `/projects/{projectId}/providers/Aruba.Database/dbaas/{dbaasId}/databases` |
 | delete | DELETE | `/projects/{projectId}/providers/Aruba.Database/dbaas/{dbaasId}/databases/{name}` |
 
-excluded from spec: `databaseName`
+excluded from spec: `databaseName, filter, limit, offset, projection, sort`
 
-Configuration query params: `api-version, filter, limit, offset, projection, sort`
+Configuration query params: `api-version`
 
 Sample: [`samples/database/database.yaml`](../../samples/database/database.yaml) · [`database-configuration.yaml`](../../samples/database/database-configuration.yaml)
 
@@ -51,9 +51,9 @@ Sample: [`samples/database/database.yaml`](../../samples/database/database.yaml)
 | create | POST | `/projects/{projectId}/providers/Aruba.Database/backups` |
 | delete | DELETE | `/projects/{projectId}/providers/Aruba.Database/backups/{id}` |
 
-status fields: `metadata.id, status.failureReason, status.error` · excluded from spec: `id`
+status fields: `metadata.id, status.failureReason, status.error` · excluded from spec: `filter, id, limit, offset, projection, sort`
 
-Configuration query params: `api-version, filter, ignoreDeletedStatus, limit, offset, projection, sort`
+Configuration query params: `api-version, ignoreDeletedStatus`
 
 Sample: [`samples/database/databasebackup.yaml`](../../samples/database/databasebackup.yaml) · [`databasebackup-configuration.yaml`](../../samples/database/databasebackup-configuration.yaml)
 
@@ -68,9 +68,9 @@ Sample: [`samples/database/databasebackup.yaml`](../../samples/database/database
 | create | POST | `/projects/{projectId}/providers/Aruba.Database/dbaas/{dbaasId}/users` |
 | delete | DELETE | `/projects/{projectId}/providers/Aruba.Database/dbaas/{dbaasId}/users/{username}` |
 
-excluded from spec: `password`
+excluded from spec: `filter, limit, offset, password, projection, sort`
 
-Configuration query params: `api-version, filter, limit, offset, projection, sort`
+Configuration query params: `api-version`
 
 Sample: [`samples/database/databaseuser.yaml`](../../samples/database/databaseuser.yaml) · [`databaseuser-configuration.yaml`](../../samples/database/databaseuser-configuration.yaml)
 
@@ -86,9 +86,9 @@ Sample: [`samples/database/databaseuser.yaml`](../../samples/database/databaseus
 | update | PUT | `/projects/{projectId}/providers/Aruba.Database/dbaas/{id}` |
 | delete | DELETE | `/projects/{projectId}/providers/Aruba.Database/dbaas/{id}` |
 
-status fields: `metadata.id, status.failureReason, status.error` · excluded from spec: `id`
+status fields: `metadata.id, status.failureReason, status.error` · excluded from spec: `filter, id, limit, offset, projection, sort`
 
-Configuration query params: `api-version, filter, ignoreDeletedStatus, limit, offset, projection, sort`
+Configuration query params: `api-version, ignoreDeletedStatus`
 
 Sample: [`samples/database/dbaas.yaml`](../../samples/database/dbaas.yaml) · [`dbaas-configuration.yaml`](../../samples/database/dbaas-configuration.yaml)
 
@@ -103,9 +103,9 @@ Sample: [`samples/database/dbaas.yaml`](../../samples/database/dbaas.yaml) · [`
 | create | POST | `/projects/{projectId}/providers/Aruba.Database/dbaas/{dbaasId}/databases/{databaseName}/grants` |
 | delete | DELETE | `/projects/{projectId}/providers/Aruba.Database/dbaas/{dbaasId}/databases/{databaseName}/grants/{username}` |
 
-excluded from spec: `username`
+excluded from spec: `filter, limit, offset, projection, sort, username`
 
-Configuration query params: `api-version, filter, limit, offset, projection, sort`
+Configuration query params: `api-version`
 
 Sample: [`samples/database/grant.yaml`](../../samples/database/grant.yaml) · [`grant-configuration.yaml`](../../samples/database/grant-configuration.yaml)
 

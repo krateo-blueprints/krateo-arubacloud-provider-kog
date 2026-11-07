@@ -29,9 +29,9 @@ timestamp: 2026-09-28T00:00:00Z
 | update | PUT | `/projects/{projectId}/providers/Aruba.Insight/alertRules/{alertRulesId}` |
 | delete | DELETE | `/projects/{projectId}/providers/Aruba.Insight/alertRules/{alertRulesId}` |
 
-status fields: `id` · excluded from spec: `alertRulesId`
+status fields: `id` · excluded from spec: `alertRulesId, filter, limit, offset, projection, sort`
 
-Configuration query params: `api-version, filter, limit, offset, projection, serviceName, serviceTypology, sort`
+Configuration query params: `api-version, serviceName, serviceTypology`
 
 Sample: [`samples/metering/alertrule.yaml`](../../samples/metering/alertrule.yaml) · [`alertrule-configuration.yaml`](../../samples/metering/alertrule-configuration.yaml)
 

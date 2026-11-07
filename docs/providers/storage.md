@@ -33,9 +33,9 @@ timestamp: 2026-09-28T00:00:00Z
 | update | PUT | `/projects/{projectId}/providers/Aruba.Storage/backups/{id}` |
 | delete | DELETE | `/projects/{projectId}/providers/Aruba.Storage/backups/{id}` |
 
-status fields: `metadata.id, status.failureReason, status.error` · excluded from spec: `id`
+status fields: `metadata.id, status.failureReason, status.error` · excluded from spec: `filter, id, limit, offset, projection, sort`
 
-Configuration query params: `api-version, filter, includeDeleted, limit, offset, projection, sort`
+Configuration query params: `api-version, includeDeleted`
 
 Sample: [`samples/storage/backup.yaml`](../../samples/storage/backup.yaml) · [`backup-configuration.yaml`](../../samples/storage/backup-configuration.yaml)
 
@@ -49,9 +49,9 @@ Sample: [`samples/storage/backup.yaml`](../../samples/storage/backup.yaml) · [`
 | update | PUT | `/projects/{projectId}/providers/Aruba.Storage/blockStorages/{id}` |
 | delete | DELETE | `/projects/{projectId}/providers/Aruba.Storage/blockStorages/{id}` |
 
-status fields: `metadata.id, status.failureReason, status.error` · excluded from spec: `id`
+status fields: `metadata.id, status.failureReason, status.error` · excluded from spec: `filter, id, limit, offset, projection, sort`
 
-Configuration query params: `api-version, filter, includeDeleted, limit, offset, projection, sort`
+Configuration query params: `api-version, includeDeleted`
 
 Sample: [`samples/storage/blockstorage.yaml`](../../samples/storage/blockstorage.yaml) · [`blockstorage-configuration.yaml`](../../samples/storage/blockstorage-configuration.yaml)
 
@@ -65,9 +65,9 @@ Sample: [`samples/storage/blockstorage.yaml`](../../samples/storage/blockstorage
 | update | PUT | `/projects/{projectId}/providers/Aruba.Storage/images/{id}` |
 | delete | DELETE | `/projects/{projectId}/providers/Aruba.Storage/images/{id}` |
 
-status fields: `metadata.id, status.failureReason, status.error` · excluded from spec: `id`
+status fields: `metadata.id, status.failureReason, status.error` · excluded from spec: `filter, id, limit, offset, projection, sort`
 
-Configuration query params: `api-version, filter, includeDeleted, limit, offset, projection, sort`
+Configuration query params: `api-version, includeDeleted`
 
 Sample: [`samples/storage/image.yaml`](../../samples/storage/image.yaml) · [`image-configuration.yaml`](../../samples/storage/image-configuration.yaml)
 
@@ -81,9 +81,9 @@ Sample: [`samples/storage/image.yaml`](../../samples/storage/image.yaml) · [`im
 | update | PUT | `/projects/{projectId}/providers/Aruba.Storage/backups/{backupId}/restores/{id}` |
 | delete | DELETE | `/projects/{projectId}/providers/Aruba.Storage/backups/{backupId}/restores/{id}` |
 
-status fields: `metadata.id, status.failureReason, status.error` · excluded from spec: `id`
+status fields: `metadata.id, status.failureReason, status.error` · excluded from spec: `filter, id, limit, offset, projection, sort`
 
-Configuration query params: `api-version, filter, includeDeleted, limit, offset, projection, sort`
+Configuration query params: `api-version, includeDeleted`
 
 Sample: [`samples/storage/restore.yaml`](../../samples/storage/restore.yaml) · [`restore-configuration.yaml`](../../samples/storage/restore-configuration.yaml)
 
@@ -97,9 +97,9 @@ Sample: [`samples/storage/restore.yaml`](../../samples/storage/restore.yaml) · 
 | update | PUT | `/projects/{projectId}/providers/Aruba.Storage/snapshots/{id}` |
 | delete | DELETE | `/projects/{projectId}/providers/Aruba.Storage/snapshots/{id}` |
 
-status fields: `metadata.id, status.failureReason, status.error` · excluded from spec: `id`
+status fields: `metadata.id, status.failureReason, status.error` · excluded from spec: `filter, id, limit, offset, projection, sort`
 
-Configuration query params: `api-version, filter, includeDeleted, limit, offset, projection, sort`
+Configuration query params: `api-version, includeDeleted`
 
 Sample: [`samples/storage/snapshot.yaml`](../../samples/storage/snapshot.yaml) · [`snapshot-configuration.yaml`](../../samples/storage/snapshot-configuration.yaml)
 

@@ -38,9 +38,9 @@ timestamp: 2026-09-28T00:00:00Z
 | update | PUT | `/projects/{projectId}/providers/Aruba.Network/elasticIps/{id}` |
 | delete | DELETE | `/projects/{projectId}/providers/Aruba.Network/elasticIps/{id}` |
 
-status fields: `metadata.id, status.failureReason, status.error` · excluded from spec: `id`
+status fields: `metadata.id, status.failureReason, status.error` · excluded from spec: `filter, id, limit, offset, projection, sort`
 
-Configuration query params: `api-version, filter, ignoreDeletedStatus, limit, offset, projection, sort`
+Configuration query params: `api-version, ignoreDeletedStatus`
 
 Sample: [`samples/network/elasticip.yaml`](../../samples/network/elasticip.yaml) · [`elasticip-configuration.yaml`](../../samples/network/elasticip-configuration.yaml)
 
@@ -51,9 +51,9 @@ Sample: [`samples/network/elasticip.yaml`](../../samples/network/elasticip.yaml)
 | findby | GET | `/projects/{projectId}/providers/Aruba.Network/loadBalancers` |
 | get | GET | `/projects/{projectId}/providers/Aruba.Network/loadBalancers/{id}` |
 
-status fields: `metadata.id, status.failureReason, status.error` · excluded from spec: `id`
+status fields: `metadata.id, status.failureReason, status.error` · excluded from spec: `filter, id, limit, offset, projection, sort`
 
-Configuration query params: `api-version, filter, ignoreDeletedStatus, limit, offset, projection, sort`
+Configuration query params: `api-version, ignoreDeletedStatus`
 
 Sample: [`samples/network/loadbalancer.yaml`](../../samples/network/loadbalancer.yaml) · [`loadbalancer-configuration.yaml`](../../samples/network/loadbalancer-configuration.yaml)
 
@@ -67,9 +67,9 @@ Sample: [`samples/network/loadbalancer.yaml`](../../samples/network/loadbalancer
 | update | PUT | `/projects/{projectId}/providers/Aruba.Network/vpcs/{vpcId}/securityGroups/{id}` |
 | delete | DELETE | `/projects/{projectId}/providers/Aruba.Network/vpcs/{vpcId}/securityGroups/{id}` |
 
-status fields: `metadata.id, status.failureReason, status.error` · excluded from spec: `id`
+status fields: `metadata.id, status.failureReason, status.error` · excluded from spec: `filter, id, limit, offset, projection, sort`
 
-Configuration query params: `api-version, filter, ignoreDeletedStatus, limit, offset, projection, sort`
+Configuration query params: `api-version, ignoreDeletedStatus`
 
 Sample: [`samples/network/securitygroup.yaml`](../../samples/network/securitygroup.yaml) · [`securitygroup-configuration.yaml`](../../samples/network/securitygroup-configuration.yaml)
 
@@ -83,9 +83,9 @@ Sample: [`samples/network/securitygroup.yaml`](../../samples/network/securitygro
 | update | PUT | `/projects/{projectId}/providers/Aruba.Network/vpcs/{vpcId}/securityGroups/{securityGroupId}/securityRules/{id}` |
 | delete | DELETE | `/projects/{projectId}/providers/Aruba.Network/vpcs/{vpcId}/securityGroups/{securityGroupId}/securityRules/{id}` |
 
-status fields: `metadata.id, status.failureReason, status.error` · excluded from spec: `id`
+status fields: `metadata.id, status.failureReason, status.error` · excluded from spec: `filter, id, limit, offset, projection, sort`
 
-Configuration query params: `api-version, filter, ignoreDeletedStatus, limit, offset, projection, sort`
+Configuration query params: `api-version, ignoreDeletedStatus`
 
 Sample: [`samples/network/securityrule.yaml`](../../samples/network/securityrule.yaml) · [`securityrule-configuration.yaml`](../../samples/network/securityrule-configuration.yaml)
 
@@ -99,9 +99,9 @@ Sample: [`samples/network/securityrule.yaml`](../../samples/network/securityrule
 | update | PUT | `/projects/{projectId}/providers/Aruba.Network/vpcs/{vpcId}/subnets/{id}` |
 | delete | DELETE | `/projects/{projectId}/providers/Aruba.Network/vpcs/{vpcId}/subnets/{id}` |
 
-status fields: `metadata.id, status.failureReason, status.error` · excluded from spec: `id`
+status fields: `metadata.id, status.failureReason, status.error` · excluded from spec: `filter, id, limit, offset, projection, sort`
 
-Configuration query params: `api-version, filter, ignoreDeletedStatus, limit, offset, projection, sort`
+Configuration query params: `api-version, ignoreDeletedStatus`
 
 Sample: [`samples/network/subnet.yaml`](../../samples/network/subnet.yaml) · [`subnet-configuration.yaml`](../../samples/network/subnet-configuration.yaml)
 
@@ -115,9 +115,9 @@ Sample: [`samples/network/subnet.yaml`](../../samples/network/subnet.yaml) · [`
 | update | PUT | `/projects/{projectId}/providers/Aruba.Network/vpcs/{id}` |
 | delete | DELETE | `/projects/{projectId}/providers/Aruba.Network/vpcs/{id}` |
 
-status fields: `metadata.id, status.failureReason, status.error` · excluded from spec: `id`
+status fields: `metadata.id, status.failureReason, status.error` · excluded from spec: `filter, id, limit, offset, projection, sort`
 
-Configuration query params: `api-version, filter, ignoreDeletedStatus, limit, offset, projection, sort`
+Configuration query params: `api-version, ignoreDeletedStatus`
 
 Sample: [`samples/network/vpc.yaml`](../../samples/network/vpc.yaml) · [`vpc-configuration.yaml`](../../samples/network/vpc-configuration.yaml)
 
@@ -131,9 +131,9 @@ Sample: [`samples/network/vpc.yaml`](../../samples/network/vpc.yaml) · [`vpc-co
 | update | PUT | `/projects/{projectId}/providers/Aruba.Network/vpcs/{vpcId}/vpcPeerings/{id}` |
 | delete | DELETE | `/projects/{projectId}/providers/Aruba.Network/vpcs/{vpcId}/vpcPeerings/{id}` |
 
-status fields: `metadata.id, status.failureReason, status.error` · excluded from spec: `id`
+status fields: `metadata.id, status.failureReason, status.error` · excluded from spec: `filter, id, limit, offset, projection, sort`
 
-Configuration query params: `api-version, filter, ignoreDeletedStatus, limit, offset, projection, sort`
+Configuration query params: `api-version, ignoreDeletedStatus`
 
 Sample: [`samples/network/vpcpeering.yaml`](../../samples/network/vpcpeering.yaml) · [`vpcpeering-configuration.yaml`](../../samples/network/vpcpeering-configuration.yaml)
 
@@ -147,9 +147,9 @@ Sample: [`samples/network/vpcpeering.yaml`](../../samples/network/vpcpeering.yam
 | update | PUT | `/projects/{projectId}/providers/Aruba.Network/vpcs/{vpcId}/vpcPeerings/{vpcPeeringId}/vpcPeeringRoutes/{id}` |
 | delete | DELETE | `/projects/{projectId}/providers/Aruba.Network/vpcs/{vpcId}/vpcPeerings/{vpcPeeringId}/vpcPeeringRoutes/{id}` |
 
-status fields: `metadata.id, status.failureReason, status.error` · excluded from spec: `id`
+status fields: `metadata.id, status.failureReason, status.error` · excluded from spec: `filter, id, limit, offset, projection, sort`
 
-Configuration query params: `api-version, filter, ignoreDeletedStatus, limit, offset, projection, sort`
+Configuration query params: `api-version, ignoreDeletedStatus`
 
 Sample: [`samples/network/vpcpeeringroute.yaml`](../../samples/network/vpcpeeringroute.yaml) · [`vpcpeeringroute-configuration.yaml`](../../samples/network/vpcpeeringroute-configuration.yaml)
 
@@ -163,9 +163,9 @@ Sample: [`samples/network/vpcpeeringroute.yaml`](../../samples/network/vpcpeerin
 | update | PUT | `/projects/{projectId}/providers/Aruba.Network/vpnTunnels/{vpnTunnelId}/vpnRoutes/{id}` |
 | delete | DELETE | `/projects/{projectId}/providers/Aruba.Network/vpnTunnels/{vpnTunnelId}/vpnRoutes/{id}` |
 
-status fields: `metadata.id, status.failureReason, status.error` · excluded from spec: `id`
+status fields: `metadata.id, status.failureReason, status.error` · excluded from spec: `filter, id, limit, offset, projection, sort`
 
-Configuration query params: `api-version, filter, ignoreDeletedStatus, limit, offset, projection, sort`
+Configuration query params: `api-version, ignoreDeletedStatus`
 
 Sample: [`samples/network/vpnroute.yaml`](../../samples/network/vpnroute.yaml) · [`vpnroute-configuration.yaml`](../../samples/network/vpnroute-configuration.yaml)
 
@@ -179,9 +179,9 @@ Sample: [`samples/network/vpnroute.yaml`](../../samples/network/vpnroute.yaml) �
 | update | PUT | `/projects/{projectId}/providers/Aruba.Network/vpnTunnels/{id}` |
 | delete | DELETE | `/projects/{projectId}/providers/Aruba.Network/vpnTunnels/{id}` |
 
-status fields: `metadata.id, status.failureReason, status.error` · excluded from spec: `id`
+status fields: `metadata.id, status.failureReason, status.error` · excluded from spec: `filter, id, limit, offset, projection, sort`
 
-Configuration query params: `api-version, filter, ignoreDeletedStatus, limit, offset, projection, sort`
+Configuration query params: `api-version, ignoreDeletedStatus`
 
 Sample: [`samples/network/vpntunnel.yaml`](../../samples/network/vpntunnel.yaml) · [`vpntunnel-configuration.yaml`](../../samples/network/vpntunnel-configuration.yaml)
 
