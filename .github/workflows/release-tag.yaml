@@ -67,6 +67,35 @@ jobs:
             echo "::error::before the GHCR push, rather than publishing half of a release."
             exit 1
           fi
+          # PRESENT AND AUTHENTICATING IS NOT ENOUGH. publish-chart.yaml 1.0.0 interpolates
+          # this token into a git clone URL, so a value carrying whitespace -- a trailing
+          # newline from a paste is the usual way -- produces
+          #
+          #   fatal: ... URL rejected: Malformed input to a URL function
+          #
+          # at the publisher's "Clone gh-pages" step. Measured, not hypothesised:
+          # github-provider-kog 0.7.6 (run 42411357647) failed exactly there on
+          # 2026-11-07 and was left half-published, because its caller had already pushed
+          # to GHCR.
+          #
+          # An API check cannot see this. The token AUTHENTICATES fine -- `gh api` strips
+          # nothing and needs nothing stripped, because the value never reaches a URL. The
+          # defect is in how the publisher USES it, and it is invisible to every check that
+          # only asks whether the credential works. So this gate asserts the SHAPE of the
+          # value as well as its power, which is the only check that runs before the push.
+          #
+          # A GitHub token contains no whitespace anywhere, so stripping all of it and
+          # comparing is exact: it catches leading, trailing and embedded alike. The value
+          # is never echoed; only the comparison's outcome is.
+          if [ "${CHARTS_PUBLISH_TOKEN}" != "$(printf '%s' "${CHARTS_PUBLISH_TOKEN}" | tr -d '[:space:]')" ]; then
+            echo "::error::CHARTS_PUBLISH_TOKEN contains whitespace. No GitHub token does, so the"
+            echo "::error::secret was almost certainly stored with a trailing newline. The publisher"
+            echo "::error::puts this value in a git URL and fails with 'Malformed input to a URL"
+            echo "::error::function' AFTER the GHCR push, leaving the release half-published."
+            echo "::error::Re-create the secret with no trailing newline: printf '%s' \"\$TOKEN\" | gh secret set ..."
+            echo "::error::Failing now, before anything is pushed."
+            exit 1
+          fi
 
       - name: Every chart here must qualify for the `blueprints` channel
         run: |
