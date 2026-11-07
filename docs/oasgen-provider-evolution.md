@@ -36,10 +36,11 @@ Scope analysed: 11 specs, ~108 operations, **34 manageable resources** across th
 
 ## 0. Summary table
 
-> **Pin status (2026-11-07): 0.52.0.** 0.53.0 is skipped (stamps `default: {}` on 240
-> optional object paths), and **0.54.0 is skipped too** — it fixes the stamping but no
-> managed resource can read its auth Secret, so nothing reconciles. Both are measured;
-> see the appendices. 0.54.1 pending.
+> **Pin status (2026-11-07): 0.54.1.** 0.53.0 and 0.54.0 are both skipped and both
+> measured — 0.53.0 stamps `default: {}` on 240 optional object paths; 0.54.0 fixes that
+> and then cannot reconcile at all, because its auth-secret RBAC collector missed
+> `apiKey.tokenRef`, which is 25 of our 36 kinds. 0.54.1 derives those paths from the
+> auth shapes and verified clean end to end. See the appendices.
 
 
 | # | Issue | Status | Resources affected | Evolution needed |
@@ -740,6 +741,102 @@ to Aruba on their strength.
 **The samples were checked against these CRDs too**, captured from the cluster before
 teardown rather than rendered locally: 8 CRDs for the 4 installed kinds, and
 `scripts/check_samples.py` found no type, unknown-field or missing-required mismatch.
+
+## Appendix — the 0.52.0 → 0.54.1 pin move (2026-11-07)
+
+0.54.1 is the pin. 0.53.0 and 0.54.0 are both skipped and both measured — see the
+appendix above for 0.54.0, which fixed the stamping and then could not reconcile at all.
+
+### Step 1 — warning census
+
+Same instrument, same 13 documents, same 36 definitions:
+
+| | resource CRD | Configuration CRD | total |
+|---|---|---|---|
+| 0.53.0 | 2 | 238 | 240 |
+| **0.54.1** | **0** | **0** | **0** |
+
+0 render failures. The zero is measured: the identical test reports 240 at 0.53.0.
+
+### Step 2 — 72-CRD diff against the pin it replaces
+
+Same definitions on both sides, key-level:
+
+```
+0.52.0 vs 0.54.1 -> differing 36, identical 36 (all 36 Configuration CRDs identical)
+  ADDED:          status.observedGeneration.{type,format,description}  (x36)
+  REMOVED:        none
+  VALUE CHANGED:  none
+```
+
+### Step 3 — the live reconcile, which is the step that decides
+
+Released 0.54.1 images, no overrides, current definitions, free network chain:
+
+```
+RESULT: 4 resources created and observed
+  drift Vpc/ga-ns-vpc:          ok
+  drift Subnet/ga-ns-subnet:    ok
+  drift SecurityGroup/ga-ns-sg: ok      <- SKIPPED at 0.52.0
+  drift SecurityRule/ga-ns-sr:  ok
+residue check: leftovers = 0, clean
+chain exited 0
+```
+
+**Better than 0.52.0's own run**, which was 3/4 drift with two unconfirmed deletes. The
+SecurityGroup row moved because of this repo's own fix, visible in the log — `drift body
+pruned to the update schema — declared spec: dropped properties.preset` — not because of
+anything upstream.
+
+### The #500 fix, verified rather than read
+
+`authSecretRefPaths` is now derived by reflection over the auth shape map. Reading that
+is not running it, since reflection can silently yield nothing, so it was executed:
+
+```
+[spec authentication apiKey tokenRef]      <- the path whose absence broke 25 of 36 kinds
+[spec authentication basic usernameRef]
+[spec authentication basic passwordRef]
+[spec authentication bearer tokenRef]
+```
+
+The probe asserts the derivation produces *something* before checking for `apiKey`, so
+the check cannot pass vacuously.
+
+And the Roles now exist in the **Secret's** namespace with rules, tightly scoped:
+
+```
+vpcs-arubacloud.ogen.krateo.io-v1alpha1-authsecrets: rules=1
+  grants secrets: verbs=[get, list, watch] names=[arubacloud-token]
+```
+
+`rules=1` rather than merely existing is the check — 0.54.0's failure included a Role
+that existed and was empty.
+
+### One of our own checks was wrong, and the run is what exposed it
+
+A `kubectl auth can-i get secrets` probe returned **no** for both namespaces, which
+contradicts a chain that created, observed and drift-corrected four resources — a
+reconcile cannot happen without reading the Secret. The Role is named
+`vpcs-…-v1alpha1-**authsecrets**` and the probe asked about the subject
+`vpcs-…-v1alpha1`, a name that was guessed. **The `no` is an artifact of the wrong
+subject, not a denial.**
+
+**The binding is verified, and by the stronger instrument.** `kubectl auth can-i`
+*simulates* an authorization decision; the chain *is* one. Four resources reconciled, so
+the ServiceAccount read `arubacloud-token` — that settles whether the binding is correct.
+What remains unread is narrower: the binding's subject *string*, worth a one-line
+`kubectl get rolebinding` next time a cluster is up and not worth standing one up for.
+This correction is the oasgen-provider maintainer's; the first draft of this appendix
+recorded the binding as "unverified", which over-corrected by discarding evidence that
+outranked the probe.
+
+**The rule, which is the finding rather than the footnote: ask the ground truth, not the
+reimplementation.** A guessed subject name produced a confident `no` about a system that
+was working. Had the chain not disagreed, this would have gone out as a second
+stop-the-line against a defect that does not exist.
+
+---
 
 ## Appendix — the `offset` footgun: three corrections, ending with the mechanism
 
