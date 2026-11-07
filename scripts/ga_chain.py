@@ -403,6 +403,90 @@ def update_method(url):
     return None
 
 
+def update_body_props(url):
+    """The property names the OAS says this URL's update body accepts, by level.
+
+    Returns {"": {top-level names}, "properties": {names under `properties`}} or None
+    when the operation declares no resolvable body. Matched exactly as update_method
+    matches, so the two cannot disagree about which operation a URL names.
+
+    This exists because a create body and an update body are different schemas, and
+    sending a create-only field to the update endpoint is rejected outright.
+    SecurityGroup is the live case: `SecurityGroupDto.properties` carries
+    {default, preset} while `SecurityGroupPropertiesUpdateDto` carries {default} ONLY.
+    The chain's declared spec is what create sent, so it includes `preset`, and the
+    PUT refused it -- which the harness reported as "400 for every body shape tried"
+    and I read as Aruba refusing SecurityGroup updates. It was refusing one field.
+
+    Measured against a live Active security group, seven shapes:
+        metadata + properties.default      -> 200 accepted
+        metadata only (no properties)      -> 500 Internal Server Error
+        metadata without location          -> 400 Status: invalid status
+        tags only / properties only        -> 400 Name: field is required
+        response echo, with or without status -> 400 Status: invalid status
+    """
+    method = update_method(url)
+    if not method:
+        return None
+    concrete = [seg for seg in url.split("?")[0].split("/") if seg]
+    for doc in _oas_docs().values():
+        for tmpl, ops in (doc.get("paths") or {}).items():
+            segs = [seg for seg in tmpl.split("/") if seg]
+            if len(segs) != len(concrete):
+                continue
+            if not all(t.startswith("{") or t == c for t, c in zip(segs, concrete)):
+                continue
+            op = ops.get(method.lower())
+            if not isinstance(op, dict):
+                continue
+
+            def deref(node, _depth=0):
+                """Resolve $ref and collapse a description-only allOf wrapper."""
+                if not isinstance(node, dict) or _depth > 6:
+                    return node if isinstance(node, dict) else {}
+                if "$ref" in node:
+                    name = node["$ref"].split("/")[-1]
+                    return deref((doc.get("components", {})
+                                     .get("schemas", {}) or {}).get(name, {}),
+                                 _depth + 1)
+                if "allOf" in node and len(node["allOf"]) == 1:
+                    return deref(node["allOf"][0], _depth + 1)
+                return node
+
+            body = (((op.get("requestBody") or {}).get("content") or {})
+                    .get("application/json") or {}).get("schema")
+            if body is None:
+                return None
+            top = deref(body)
+            props = top.get("properties") or {}
+            inner = deref(props.get("properties") or {}).get("properties") or {}
+            return {"": set(props), "properties": set(inner)}
+    return None
+
+
+def prune_to_update_schema(cand, url):
+    """Drop fields the update body does not declare. Returns (cand, dropped names).
+
+    Silent pruning would be its own bug -- a field the author meant to drift would
+    vanish and the assertion would pass on a weaker claim -- so the caller logs what
+    went.
+    """
+    allowed = update_body_props(url)
+    if not allowed:
+        return cand, []
+    dropped = []
+    for key in list(cand):
+        if allowed[""] and key not in allowed[""]:
+            dropped.append(key)
+            cand.pop(key)
+    if allowed["properties"] and isinstance(cand.get("properties"), dict):
+        for key in list(cand["properties"]):
+            if key not in allowed["properties"]:
+                dropped.append(f"properties.{key}")
+                cand["properties"].pop(key)
+    return cand, dropped
+
+
 def _subset(want, got):
     """True when every key/value in `want` appears in `got`, recursively.
 
@@ -582,6 +666,18 @@ def drift_check(kind, name, url, spec=None, drift_body=None, drift_assert=None):
     candidates.append(("response echo", echo))
     for _, cand in candidates:
         cand.setdefault("metadata", {})["tags"] = ["drifted-by-hand"]
+
+    # Prune each candidate to what the UPDATE body declares. The declared spec is what
+    # CREATE sent, and a create-only field is rejected by the update endpoint -- which
+    # looks identical to the API refusing updates entirely. Logged, never silent: a
+    # dropped field the author meant to drift would weaken the assertion invisibly.
+    pruned = []
+    for label, cand in candidates:
+        cand, dropped = prune_to_update_schema(cand, url)
+        if dropped:
+            pruned.append(f"{label}: dropped {', '.join(sorted(dropped))}")
+    for note in pruned:
+        print(f"    drift body pruned to the update schema — {note}")
 
     # 202 Accepted is a normal answer here: storage updates are asynchronous, and
     # treating anything but 200 as a failure silently skipped the drift check on every
