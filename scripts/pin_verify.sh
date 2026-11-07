@@ -19,11 +19,19 @@
 #   KEEP=0 scripts/pin_verify.sh     # delete the cluster afterwards
 set -uo pipefail
 
-PIN="${OASGEN_VERSION:-0.52.0}"              # 0.52.0 is the PIN; 0.36.0 is the FLOOR.
-                                             # The pin is 0.52.0 and NOT 0.53.0: 0.53.0
-                                             # bumps plumbing v1.14.2 -> v1.27.0, which
-                                             # stamps `default: {}` on 240 optional
-                                             # object paths across these 36 definitions.
+PIN="${OASGEN_VERSION:-0.54.0}"              # 0.54.0 is the PIN; 0.36.0 is the FLOOR.
+                                             # The pin SKIPS 0.53.0. 0.53.0 bumped
+                                             # plumbing v1.14.2 -> v1.27.0, which stamps
+                                             # `default: {}` on 240 optional object
+                                             # paths across these 36 definitions -- 238
+                                             # of them on the Configuration CRD, and
+                                             # exactly ONE consequential
+                                             # (VpcPropertiesDto.default = true).
+                                             # 0.54.0 sets crdgen's NoParentDefaults at
+                                             # both call sites, measured back to 0: same
+                                             # census, same documents, 0 stamps, and the
+                                             # only CRD change versus 0.52.0 is
+                                             # status.observedGeneration added.
                                              # See docs/oasgen-provider-evolution.md.
                                              # The floor:
                                              # `profile` is in the provider list, and

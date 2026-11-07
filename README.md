@@ -13,9 +13,9 @@ Kubernetes Custom Resources — generated directly from the official
 The predecessor blueprint managed a single resource (`Subnet`) and needed a Go
 proxy (`subnet-plugin`) just to reshape Aruba's `metadata` object. The
 **krateo-platformops builds** of oasgen-provider and rest-dynamic-controller (both
-pinned at **0.52.0**; **0.36.0** is the hard floor, and the move off 0.41.0 was
+pinned at **0.54.0**; **0.36.0** is the hard floor, and both moves off 0.41.0 were
 measured — see the
-0.41.0 → 0.52.0 pin appendix in
+0.41.0 → 0.52.0 and 0.52.0 → 0.54.0 pin appendices in
 [oasgen-provider-evolution](docs/oasgen-provider-evolution.md))
 remove that need through nested identifiers, `requestFieldMapping`,
 `fieldMapping`, `secretRef`, `async` and Snowplow `*ApiRef` delegation. This repo
@@ -30,9 +30,9 @@ plugins**, and every load-bearing claim has been
 #    Installing only one of them is the most common setup failure: the provider
 #    without the CRDs fails every apply with "no matches for kind".
 helm install oasgen-provider-crds oci://ghcr.io/krateo-platformops/charts/oasgen-provider-crds \
-  --version 0.52.0 --namespace krateo-system --create-namespace
+  --version 0.54.0 --namespace krateo-system --create-namespace
 helm install oasgen-provider oci://ghcr.io/krateo-platformops/charts/oasgen-provider \
-  --version 0.52.0 --namespace krateo-system
+  --version 0.54.0 --namespace krateo-system
 
 # 1. Auth token. Aruba's token lasts ~1h, so there are two paths:
 #    (a) PREFERRED — External Secrets mints and refreshes it. This is what the
@@ -69,9 +69,9 @@ have the features this repo relies on (nested identifiers, `fieldMapping`,
 | Component | Minimum | Why |
 |-----------|---------|-----|
 | `ghcr.io/krateo-platformops/oasgen-provider` | **0.52.0** | **a hard floor, not a preference.** Below 0.35.0 libopenapi cannot parse these OAS documents at all, so no RestDefinition becomes Ready; `metadata` properties are dropped from generated CRDs until [#236](https://github.com/krateo-platformops/oasgen-provider/issues/236) in 0.36.0. Earlier features this repo relies on arrived sooner — `apiKey`-in-header auth and typed-map `additionalProperties` in 0.21.1, per-verb `oasPath` in 0.34.0 ([#227](https://github.com/krateo-platformops/oasgen-provider/pull/227)) — but none of them help below the parse floor. **Why 0.52.0 and not 0.53.0:** 0.52.0 adds [#424](https://github.com/krateo-platformops/oasgen-provider/pull/424) (OAS 3.0 `nullable`/`minProperties` reach the CRD) and [#421](https://github.com/krateo-platformops/oasgen-provider/pull/421) (a `fieldMapping` no longer deletes the spec property it reads from — the whole fleet uses `requestFieldMapping`) while keeping plumbing at v1.14.2. 0.53.0 jumps to plumbing v1.27.0, which stamps `default: {}` on **240** optional object paths across these 36 definitions — measured, including `Vpc.spec.properties`, whose `default` child defaults to `true` and may be held by only one vpc per region. **Also expect 16 false-positive "identifier absent from the findby response" warnings** at 0.52.0: they are an `allOf` blind spot upstream, not a real defect — do not act on them. Both are documented with the measurements in [oasgen-provider-evolution](docs/oasgen-provider-evolution.md) |
-| `ghcr.io/krateo-platformops/rest-dynamic-controller` | **0.52.0** | derived from the chart's `appVersion`, so it is not separately selectable. Sends the `apiKey` header + `valuePrefix`, honours `handleParam`, forwards the CR spec on every `*ApiRef` direction, trims Secret-sourced credentials, and redacts credential **headers** in verbose dumps from 0.26.1 ([#166](https://github.com/krateo-platformops/oasgen-provider/pull/166) — see [Authentication](docs/authentication.md)) |
-| chart `oci://ghcr.io/krateo-platformops/charts/oasgen-provider` | **0.52.0** | the two components are released in lockstep at identical versions |
-| chart `oci://ghcr.io/krateo-platformops/charts/oasgen-provider-crds` | **0.52.0** | same version as the provider chart; it is a separate install |
+| `ghcr.io/krateo-platformops/rest-dynamic-controller` | **0.54.0** | derived from the chart's `appVersion`, so it is not separately selectable. Sends the `apiKey` header + `valuePrefix`, honours `handleParam`, forwards the CR spec on every `*ApiRef` direction, trims Secret-sourced credentials, and redacts credential **headers** in verbose dumps from 0.26.1 ([#166](https://github.com/krateo-platformops/oasgen-provider/pull/166) — see [Authentication](docs/authentication.md)) |
+| chart `oci://ghcr.io/krateo-platformops/charts/oasgen-provider` | **0.54.0** | the two components are released in lockstep at identical versions |
+| chart `oci://ghcr.io/krateo-platformops/charts/oasgen-provider-crds` | **0.54.0** | same version as the provider chart; it is a separate install |
 
 This is the version CI pins (`OASGEN_VERSION` in `.github/workflows/validate.yaml`
 and `PIN` in `scripts/pin_verify.sh`) and the only version any claim in these docs
@@ -88,10 +88,10 @@ drift apart — a chart version *is* the pair it ships.
 ```sh
 # CRDs first — they are a separate chart
 helm install oasgen-provider-crds oci://ghcr.io/krateo-platformops/charts/oasgen-provider-crds \
-  --version 0.52.0 --namespace krateo-system --create-namespace
+  --version 0.54.0 --namespace krateo-system --create-namespace
 
 helm install oasgen-provider oci://ghcr.io/krateo-platformops/charts/oasgen-provider \
-  --version 0.52.0 --namespace krateo-system
+  --version 0.54.0 --namespace krateo-system
 ```
 
 > [!IMPORTANT]
