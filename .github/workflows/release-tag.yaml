@@ -185,14 +185,23 @@ jobs:
   #
   # MUST BE PINNED BY FULL COMMIT SHA BEFORE THIS MERGES, with a `# 1.0.0` comment.
   # This workflow receives CHARTS_PUBLISH_TOKEN, an org-wide write token, so a moving
-  # major tag would hand that token to whatever `1` points at next. `@1` is a
-  # placeholder only because tag `1` does not exist yet (checked: 404), so there is no
-  # SHA to pin to. .github/dependabot.yml is already in place to bump the pin, which is
-  # the other half of the trade -- a SHA pin with nothing to update it is permanently
-  # stale.
+  # major tag would hand that token to whatever `1` points at next.
+  #
+  # Pinned to the commit tag 1.0.0 points at, verified rather than taken on trust:
+  #
+  #   git ls-remote https://github.com/krateo-blueprints/charts 'refs/tags/1.0.0^{}'
+  #   a2d63ba50e138b17f678528d6d6be3afef48715a  refs/tags/1.0.0^{}
+  #
+  # The `^{}` matters. 1.0.0 is an ANNOTATED tag, so `refs/tags/1.0.0` resolves to the tag
+  # OBJECT (54acb674...), not to a commit, and Actions will not run a workflow pinned to
+  # one. The dereferenced commit is the only correct value here.
+  #
+  # Tag `1` still does not exist, so the `@1` this replaces was never resolvable at all.
+  # .github/dependabot.yml is already in place to bump the pin, which is the other half of
+  # the trade -- a SHA pin with nothing to update it is permanently stale.
   publish-to-index:
     needs: package-and-push
-    uses: krateo-blueprints/charts/.github/workflows/publish-chart.yaml@1
+    uses: krateo-blueprints/charts/.github/workflows/publish-chart.yaml@a2d63ba50e138b17f678528d6d6be3afef48715a # 1.0.0
     with:
       source_repo: ${{ github.repository }}
       git_tag: ${{ github.ref_name }}
