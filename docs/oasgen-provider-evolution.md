@@ -795,11 +795,51 @@ CR adopting an existing resource, or a CR whose status was lost. That is far nar
 than "every reconcile", and it is the same case the `github-provider-kog` session raised
 against oasgen#485's design.
 
+### Measured, with a control: the duplicate does NOT happen (2026-11-07)
+
+Two further runs settle it. Both on a 0.52.0 cluster with the pre-#41 definitions, and
+both with the offset **derived from the collection size and verified by a direct GET to
+return zero items before patching**.
+
+**Established resource** — one CR reconciled to Ready, then the offset applied:
+
+```
+offset=12 verified -> total=2 items=0
+480s watched       -> no duplicate
+conditions: Ready=True Synced=True Observed=True(ResponseObtained)
+```
+
+**Adopt shape**, which is where it should fire hardest — the resource exists and the CR
+carries no recorded id, so findby is the only way to decide existence. Run with a
+control arm, because a duplicate alone would prove nothing:
+
+| arm | offset | result | conditions |
+|---|---|---|---|
+| **A (control)** | none | `x1` for 300s, **adopted** | `Observed=True Ready=True Synced=True` |
+| **B (subject)** | set, verified blind | `x1` for 420s, **no duplicate** | `Ready=False Synced=False`, no `Observed` |
+
+The control is what makes arm B meaningful: adoption demonstrably works, so the absence
+of a duplicate under a blinded findby is a result rather than a non-event.
+
+**So the consequence is refuted, not merely unproven.** A blinded findby leaves the
+resource **unobservable and stuck**, and does not cause a second one to be created.
+
+**What is still not established:** the mechanism. The run captured condition types and
+statuses but not reasons, and its controller-log grep returned nothing, so whether the
+synthesised 404 was treated as an error or as absence-that-failed-to-create is unknown.
+Arm A set an `Observed` condition and arm B set none, which is a difference in what was
+written, not evidence about internal branching.
+
+**This bears on upstream #485 and #486.** Both rest on "not-found drives a create, so an
+unmatched listing duplicates a live resource". The shape where that should fire hardest
+was measured and it did not fire. Reported to the maintainer as the outcome without a
+mechanism story attached.
+
 ### Status
 
-The removal stays. The consequence is recorded as **unproven**, the re-run uses an offset
-derived from the collection size so it cannot be undermined by the test adding an item,
-and nothing upstream was filed on the duplicate-create claim.
+The removal stays — the footgun is real and `offset` demonstrably empties the findby
+response. **The duplicate-create consequence is withdrawn.** Nothing filed upstream ever
+rested on it.
 
 ---
 
