@@ -820,9 +820,21 @@ contradicts a chain that created, observed and drift-corrected four resources �
 reconcile cannot happen without reading the Secret. The Role is named
 `vpcs-…-v1alpha1-**authsecrets**` and the probe asked about the subject
 `vpcs-…-v1alpha1`, a name that was guessed. **The `no` is an artifact of the wrong
-subject, not a denial**, and the binding's actual subject is unverified: the cluster was
-torn down with the run. Recorded as unresolved rather than quietly dropped, because the
-only reason it did not read as a failure is that a different check disagreed with it.
+subject, not a denial.**
+
+**The binding is verified, and by the stronger instrument.** `kubectl auth can-i`
+*simulates* an authorization decision; the chain *is* one. Four resources reconciled, so
+the ServiceAccount read `arubacloud-token` — that settles whether the binding is correct.
+What remains unread is narrower: the binding's subject *string*, worth a one-line
+`kubectl get rolebinding` next time a cluster is up and not worth standing one up for.
+This correction is the oasgen-provider maintainer's; the first draft of this appendix
+recorded the binding as "unverified", which over-corrected by discarding evidence that
+outranked the probe.
+
+**The rule, which is the finding rather than the footnote: ask the ground truth, not the
+reimplementation.** A guessed subject name produced a confident `no` about a system that
+was working. Had the chain not disagreed, this would have gone out as a second
+stop-the-line against a defect that does not exist.
 
 ---
 
