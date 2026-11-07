@@ -36,6 +36,12 @@ Scope analysed: 11 specs, ~108 operations, **34 manageable resources** across th
 
 ## 0. Summary table
 
+> **Pin status (2026-11-07): 0.52.0.** 0.53.0 is skipped (stamps `default: {}` on 240
+> optional object paths), and **0.54.0 is skipped too** — it fixes the stamping but no
+> managed resource can read its auth Secret, so nothing reconciles. Both are measured;
+> see the appendices. 0.54.1 pending.
+
+
 | # | Issue | Status | Resources affected | Evolution needed |
 |---|-------|--------|--------------------|------------------|
 | A1 | `nullable: true` ignored | 🟩 | all (~4119 keys) | **Shipped** in oasgen 0.52.0 ([#424](https://github.com/krateo-platformops/oasgen-provider/pull/424)) — `nullable` and `minProperties` reach the CRD; measured present at 0.52.0 and absent at 0.41.0. The strip this once forced was a no-op and has been removed |
@@ -734,6 +740,179 @@ to Aruba on their strength.
 **The samples were checked against these CRDs too**, captured from the cluster before
 teardown rather than rendered locally: 8 CRDs for the 4 installed kinds, and
 `scripts/check_samples.py` found no type, unknown-field or missing-required mismatch.
+
+## Appendix — correction: the `offset` footgun is real, its consequence is NOT proven
+
+PR #41 removed `offset`, `limit`, `filter`, `sort` and `projection` from
+`configurationFields` and excluded them from the spec. **That change is still right.**
+This corrects the consequence its description claimed.
+
+### What is measured and stands
+
+```
+GET .../vpcs             -> 200  total=1  len(values)=1
+GET .../vpcs?offset=1    -> 200  total=1  len(values)=0
+GET .../vpcs?offset=5    -> 200  total=1  len(values)=0
+```
+
+A Configuration-settable `offset` can make the findby response carry **zero items while
+`total` says otherwise**, with the contradiction sitting unread in the same envelope.
+That is a real footgun on a field no user has a legitimate reason to set, and removing it
+needs no further justification.
+
+### What was claimed and is NOT proven
+
+PR #41 said this produces "a duplicate external resource per reconcile". **That has not
+been observed, and the one attempt to observe it was invalid.**
+
+The experiment set `offset=1` against a collection that by then held **two** vpcs — the
+account's standing one plus the test resource — so `offset=1` skipped one and returned
+the other, possibly the target. The `offset=1 -> 0 items` measurement above was taken on
+a **one**-item collection and did not transfer. The run reported no duplicate in eight
+minutes, with the CR at `Ready=True`, `Synced=True`, `Observed=True(ResponseObtained)`.
+
+Worse than the bad offset: the script printed a list of candidate explanations for the
+null result and **that list did not include the confound it had just fallen into.** A
+hedge that enumerates the wrong candidates is not much better than no hedge.
+
+### The candidate that would narrow the claim substantially
+
+`Observed=True(ResponseObtained)` says observe ran and concluded the resource exists. One
+explanation is that once a CR carries an id in status, `IsResourceKnown` returns true and
+observe uses **get**, never reaching findby — exactly the branch in RDC's `exists.go`:
+
+```go
+action := apiaction.Get
+if !isKnown {
+    // Not addressable by identifier yet ... findby is the only way to answer
+    action = apiaction.FindBy
+}
+```
+
+If that is what happened, a blinded findby is irrelevant to an **established** resource,
+and the hazard needs a resource that exists while its CR carries no recorded id — a fresh
+CR adopting an existing resource, or a CR whose status was lost. That is far narrower
+than "every reconcile", and it is the same case the `github-provider-kog` session raised
+against oasgen#485's design.
+
+### Status
+
+The removal stays. The consequence is recorded as **unproven**, the re-run uses an offset
+derived from the collection size so it cannot be undermined by the test adding an item,
+and nothing upstream was filed on the duplicate-create claim.
+
+---
+
+## Appendix — 0.54.0 is UNUSABLE here, and 0.53.0 remains skipped (2026-11-07)
+
+**Do not pin 0.54.0.** The render side is fixed and the reconcile side is broken.
+
+### What 0.54.0 got right
+
+0.54.0 sets `crdgen`'s `NoParentDefaults` at both call sites in `render.go`, which
+resolves the stamping that kept us off 0.53.0. Measured with the same census against
+the same 13 documents:
+
+| | resource CRD | Configuration CRD | total |
+|---|---|---|---|
+| 0.53.0 | 2 across 2 kinds | **238 across 36 kinds** | 240 |
+| 0.54.0 | 0 | 0 | **0** |
+
+The zero is measured, not assumed — the identical instrument reports 240 at 0.53.0.
+And rendering all 72 CRDs with the **same** definitions at 0.52.0 and 0.54.0: the only
+difference is `status.observedGeneration` added to the 36 resource CRDs, with all 36
+Configuration CRDs **byte-identical**, nothing removed and no value changed.
+
+Worth recording that 238 of the 240 were on the **Configuration** CRD and only 2 on the
+resource CRDs, and that exactly **one** of the 240 was ever a hazard
+(`VpcPropertiesDto.default = true`). "240 stamped paths" with no qualifier reads as 240
+hazards; it was not.
+
+### Why it is unusable anyway
+
+On a kind cluster running released 0.54.0 images with no overrides, **no managed
+resource reaches Ready**:
+
+```
+Vpc/ga-ns-vpc  Ready=Unknown(ObserveFailed):
+  observe failed: secrets "arubacloud-token" is forbidden:
+  User "system:serviceaccount:krateo-system:vpcs-arubacloud.ogen.krateo.io-v1alpha1"
+  cannot get resource "secrets" in API group "" in the namespace "default"
+```
+
+```
+can-i get secrets -n default         -> no
+can-i get secrets -n krateo-system   -> no      <- not a namespace-scoping problem
+can-i get vpcs (its own CR)          -> yes     <- the ClusterRole is fine
+```
+
+There is **no namespace** in which that ServiceAccount can read a Secret, so moving the
+Secret is not a workaround.
+
+**The cause** (established by the oasgen-provider maintainer, recorded here with that
+attribution rather than as our finding): `deploy/authsecretrbac.go` collects auth-secret
+refs from three paths — `basic.usernameRef`, `basic.passwordRef`, `bearer.tokenRef` —
+while the generator produces a fourth shape, `apiKey.tokenRef`. oasgen#475 removed the
+blanket `resources: ["secrets"]` ClusterRole grant that had been masking the gap. Filed
+as [oasgen-provider#500](https://github.com/krateo-platformops/oasgen-provider/issues/500)
+as the measurement, with the cause added by the maintainer.
+
+**Our exposure, measured:** 25 of the 36 kinds use `apiKey` and 11 use `bearer`.
+
+```
+apiKey (25): AlertRule Backup BlockStorage ElasticIp Folder Hpc Image Kaas KaasBackup
+             Key Kmip Kms LoadBalancer Project Registry Restore SecurityGroup
+             SecurityRule Snapshot Subnet Vpc VpcPeering VpcPeeringRoute VpnRoute
+             VpnTunnel
+bearer (11): AiKey BackupPolicy BackupPolicyAssignment CloudServer Database
+             DatabaseBackup DatabaseUser Dbaas Grant KeyPair ScheduledJob
+```
+
+Whether the 11 bearer kinds still work at 0.54.0 is **not measured** — the run failed on
+the first apiKey kind and never reached a bearer one.
+
+### An error of ours worth keeping
+
+A first reading of the cluster found a Role named for the resource with `rules: null` in
+`krateo-system` and reported that as the cause. **That was wrong**: it is an unrelated
+placeholder rendered by `deploy.go` into the RestDefinition's namespace. The facts that
+held were the `can-i` results; the explanation was attached to the first mechanism that
+fit the shape of the evidence.
+
+### Why CI could not catch it, which is the reusable part
+
+The 0.54.0 run went **green** on every check:
+
+```
+Every RestDefinition reaches Ready        <- the RestDefinition, i.e. CRD generation
+Each Configuration CRD exposes EXACTLY its document's auth method   <- the CRD's shape
+Samples are accepted by the generated CRDs   <- kubectl dry-run, no reconcile
+Composition charts render against the generated CRDs
+Provider logged no errors
+```
+
+**None of those reconciles a managed resource, and the smoke job never creates an
+`arubacloud-token` Secret at all.** So the Secret-read path is structurally
+unexercised, and the suite passed for reasons unrelated to what changed — the same shape
+as a golden file that stays byte-identical because no fixture carries the shape under
+test. A green run here licenses "it installs and generates", never "it reconciles".
+
+The conclusion drawn from that green run at the time — "#475 does not break a
+36-definition consumer at install, generation, readiness or auth" — was **over-scoped**.
+The four steps were true; what they licensed was not.
+
+Only a live reconcile against the vendor found this, and it was kept as the gate for the
+unpin rather than CI being accepted in its place. That decision is the whole reason the
+pin did not move.
+
+### State
+
+**The pin stays 0.52.0**, which is live-verified end to end. 0.53.0 stays skipped for the
+stamping. 0.54.0 is skipped for this. 0.54.1 is expected with the collector fixed, and
+will be measured the same way: census, 72-CRD diff, then a live reconcile — with the live
+reconcile understood as the step that actually decides.
+
+---
 
 ### A warning the bump adds that is WRONG, and should not be acted on
 
