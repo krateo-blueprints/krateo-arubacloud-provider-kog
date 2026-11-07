@@ -33,9 +33,9 @@ timestamp: 2026-09-28T00:00:00Z
 | update | PUT | `/projects/{projectId}/providers/Aruba.Container/kaas/{id}` |
 | delete | DELETE | `/projects/{projectId}/providers/Aruba.Container/kaas/{id}` |
 
-status fields: `metadata.id, status.failureReason, status.error` · excluded from spec: `id`
+status fields: `metadata.id, status.failureReason, status.error` · excluded from spec: `filter, id, limit, offset, projection, sort`
 
-Configuration query params: `api-version, filter, ignoreDeletedStatus, limit, offset, projection, sort`
+Configuration query params: `api-version, ignoreDeletedStatus`
 
 Sample: [`samples/container/kaas.yaml`](../../samples/container/kaas.yaml) · [`kaas-configuration.yaml`](../../samples/container/kaas-configuration.yaml)
 
@@ -49,9 +49,9 @@ Sample: [`samples/container/kaas.yaml`](../../samples/container/kaas.yaml) · [`
 | update | PUT | `/projects/{projectId}/providers/Aruba.Container/kaas/{kaasId}/backups/{id}` |
 | delete | DELETE | `/projects/{projectId}/providers/Aruba.Container/kaas/{kaasId}/backups/{id}` |
 
-status fields: `metadata.id, status.failureReason, status.error` · excluded from spec: `id`
+status fields: `metadata.id, status.failureReason, status.error` · excluded from spec: `filter, id, limit, offset, projection, sort`
 
-Configuration query params: `api-version, filter, ignoreDeletedStatus, limit, offset, projection, sort`
+Configuration query params: `api-version, ignoreDeletedStatus`
 
 Sample: [`samples/container/kaasbackup.yaml`](../../samples/container/kaasbackup.yaml) · [`kaasbackup-configuration.yaml`](../../samples/container/kaasbackup-configuration.yaml)
 
@@ -67,9 +67,9 @@ Sample: [`samples/container/kaasbackup.yaml`](../../samples/container/kaasbackup
 | update | PUT | `/projects/{projectId}/providers/Aruba.Container/registries/{id}` |
 | delete | DELETE | `/projects/{projectId}/providers/Aruba.Container/registries/{id}` |
 
-status fields: `metadata.id, status.failureReason, status.error` · excluded from spec: `id`
+status fields: `metadata.id, status.failureReason, status.error` · excluded from spec: `filter, id, limit, offset, projection, sort`
 
-Configuration query params: `api-version, filter, ignoreDeletedStatus, limit, loadHarborVersion, offset, projection, sort`
+Configuration query params: `api-version, ignoreDeletedStatus, loadHarborVersion`
 
 Sample: [`samples/container/registry.yaml`](../../samples/container/registry.yaml) · [`registry-configuration.yaml`](../../samples/container/registry-configuration.yaml)
 

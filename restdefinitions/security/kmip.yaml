@@ -15,7 +15,12 @@ spec:
     - id
     compareScope: updatable
     excludedSpecFields:
+    - filter
     - kmipId
+    - limit
+    - offset
+    - projection
+    - sort
     verbsDescription:
     - action: findby
       method: GET
@@ -56,36 +61,6 @@ spec:
       fromRestDefinition:
         actions:
         - '*'
-    - fromOpenAPI:
-        name: filter
-        in: query
-      fromRestDefinition:
-        actions:
-        - findby
-    - fromOpenAPI:
-        name: sort
-        in: query
-      fromRestDefinition:
-        actions:
-        - findby
-    - fromOpenAPI:
-        name: projection
-        in: query
-      fromRestDefinition:
-        actions:
-        - findby
-    - fromOpenAPI:
-        name: offset
-        in: query
-      fromRestDefinition:
-        actions:
-        - findby
-    - fromOpenAPI:
-        name: limit
-        in: query
-      fromRestDefinition:
-        actions:
-        - findby
     - fromOpenAPI:
         name: includeDeleted
         in: query

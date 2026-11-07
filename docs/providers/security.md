@@ -33,9 +33,9 @@ timestamp: 2026-09-28T00:00:00Z
 | update | PUT | `/projects/{projectId}/providers/Aruba.Security/kms/{id}/keys/{keyId}` |
 | delete | DELETE | `/projects/{projectId}/providers/Aruba.Security/kms/{id}/keys/{keyId}` |
 
-status fields: `keyId` · excluded from spec: `keyId`
+status fields: `keyId` · excluded from spec: `filter, keyId, limit, offset, projection, sort`
 
-Configuration query params: `api-version, filter, limit, offset, projection, sort`
+Configuration query params: `api-version`
 
 Sample: [`samples/security/key.yaml`](../../samples/security/key.yaml) · [`key-configuration.yaml`](../../samples/security/key-configuration.yaml)
 
@@ -51,9 +51,9 @@ Sample: [`samples/security/key.yaml`](../../samples/security/key.yaml) · [`key-
 | update | PUT | `/projects/{projectId}/providers/Aruba.Security/kms/{id}/kmip/{kmipId}` |
 | delete | DELETE | `/projects/{projectId}/providers/Aruba.Security/kms/{id}/kmip/{kmipId}` |
 
-status fields: `id` · excluded from spec: `kmipId`
+status fields: `id` · excluded from spec: `filter, kmipId, limit, offset, projection, sort`
 
-Configuration query params: `api-version, filter, includeDeleted, limit, offset, projection, sort`
+Configuration query params: `api-version, includeDeleted`
 
 Sample: [`samples/security/kmip.yaml`](../../samples/security/kmip.yaml) · [`kmip-configuration.yaml`](../../samples/security/kmip-configuration.yaml)
 
@@ -67,9 +67,9 @@ Sample: [`samples/security/kmip.yaml`](../../samples/security/kmip.yaml) · [`km
 | update | PUT | `/projects/{projectId}/providers/Aruba.Security/kms/{id}` |
 | delete | DELETE | `/projects/{projectId}/providers/Aruba.Security/kms/{id}` |
 
-status fields: `metadata.id, status.failureReason` · excluded from spec: `id`
+status fields: `metadata.id, status.failureReason` · excluded from spec: `filter, id, limit, offset, projection, sort`
 
-Configuration query params: `api-version, filter, ignoreDeletedStatus, limit, offset, projection, sort`
+Configuration query params: `api-version, ignoreDeletedStatus`
 
 Sample: [`samples/security/kms.yaml`](../../samples/security/kms.yaml) · [`kms-configuration.yaml`](../../samples/security/kms-configuration.yaml)
 

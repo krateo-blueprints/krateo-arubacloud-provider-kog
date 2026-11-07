@@ -813,6 +813,32 @@ def id_mapping_for(r, idp):
     return [{"inPath": idp, "inCustomResource": id_target(r)}]
 
 
+# findby query parameters that change WHICH ITEMS the matcher sees, and are therefore
+# never safe to expose as user-settable configuration.
+#
+# Measured against the live API on a ONE-item collection:
+#
+#     GET .../vpcs             -> 200  total=1  len(values)=1
+#     GET .../vpcs?offset=1    -> 200  total=1  len(values)=0
+#     GET .../vpcs?offset=5    -> 200  total=1  len(values)=0
+#
+# A Configuration CR carrying `offset` therefore makes findby match nothing, which the
+# controller reads as not-found, and not-found drives a CREATE -- a duplicate external
+# resource per reconcile. The envelope even states the contradiction (`total=1` beside
+# `values: []`) and nothing looks at it. No large collection and no pagination needed.
+#
+# `limit` is the same hazard from the other end (the target may not be in the first N),
+# `sort` reorders a list that findby only ever reads one page of, and `filter` narrows
+# it outright. `projection` had no observable effect on any value tried, but it is
+# shipped with an EMPTY description like the other three, so its semantics are unknown
+# and it is excluded on the same grounds rather than on a measured effect.
+#
+# None of these has a legitimate use: narrowing the collection a controller uses to
+# find its own resource can only make it fail to find it. api-version is kept, being
+# required rather than view-narrowing.
+VIEW_NARROWING_FINDBY_QUERY = ("offset", "limit", "filter", "sort", "projection")
+
+
 def config_fields(r):
     # api-version is normally one configurationField for every verb, because a
     # Configuration CR holds ONE value for it. A resource whose verbs are resolved
@@ -825,7 +851,7 @@ def config_fields(r):
         "fromRestDefinition": {"actions": list(av_actions)},
     }]
     for q in r["list_q"]:
-        if q == "api-version":
+        if q == "api-version" or q in VIEW_NARROWING_FINDBY_QUERY:
             continue
         fields.append({
             "fromOpenAPI": {"name": q, "in": "query"},
@@ -845,6 +871,17 @@ def render(r):
     ov = r["ov"]
     verbs = []
     excluded = set()  # item id path params sourced from status/spec, not user input
+
+    # Dropping a view-narrowing query parameter from configurationFields does NOT make
+    # it go away -- MEASURED: it relocates to `spec.<name>` in all 36 CRDs
+    # (spec.offset, spec.limit, spec.sort, spec.filter, spec.projection), where it is
+    # still user-settable and now sits on every CR instead of one Configuration. That
+    # is worse, not better. So it has to be excluded from the spec as well, and both
+    # halves of the change belong together.
+    #
+    # This is the same shape as the excludedSpecFields audit: a field held out of the
+    # spec by a stanza, where removing the stanza silently puts it back.
+    excluded.update(q for q in r["list_q"] if q in VIEW_NARROWING_FINDBY_QUERY)
 
     if r["has_list"]:
         verbs.append({"action": "findby", "method": "GET", "path": r["coll"]})

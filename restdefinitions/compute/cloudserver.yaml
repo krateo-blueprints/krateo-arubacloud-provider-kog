@@ -17,6 +17,11 @@ spec:
     - status.error
     excludedSpecFields:
     - cloudServerId
+    - filter
+    - limit
+    - offset
+    - projection
+    - sort
     updateApiRef:
       name: arubacloud-compute-cloudserver-update
       namespace: krateo-system
@@ -52,36 +57,6 @@ spec:
         actions:
         - findby
         - get
-    - fromOpenAPI:
-        name: filter
-        in: query
-      fromRestDefinition:
-        actions:
-        - findby
-    - fromOpenAPI:
-        name: sort
-        in: query
-      fromRestDefinition:
-        actions:
-        - findby
-    - fromOpenAPI:
-        name: projection
-        in: query
-      fromRestDefinition:
-        actions:
-        - findby
-    - fromOpenAPI:
-        name: offset
-        in: query
-      fromRestDefinition:
-        actions:
-        - findby
-    - fromOpenAPI:
-        name: limit
-        in: query
-      fromRestDefinition:
-        actions:
-        - findby
     - fromOpenAPI:
         name: ignoreDeletedStatus
         in: query

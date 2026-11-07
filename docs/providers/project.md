@@ -32,9 +32,9 @@ timestamp: 2026-09-28T00:00:00Z
 | update | PUT | `/folders/{id}` |
 | delete | DELETE | `/folders/{id}` |
 
-status fields: `id` · excluded from spec: `id`
+status fields: `id` · excluded from spec: `filter, id, limit, offset, projection, sort`
 
-Configuration query params: `api-version, filter, limit, offset, projection, sort`
+Configuration query params: `api-version`
 
 Sample: [`samples/project/folder.yaml`](../../samples/project/folder.yaml) · [`folder-configuration.yaml`](../../samples/project/folder-configuration.yaml)
 
@@ -48,9 +48,9 @@ Sample: [`samples/project/folder.yaml`](../../samples/project/folder.yaml) · [`
 | update | PUT | `/projects/{id}` |
 | delete | DELETE | `/projects/{id}` |
 
-status fields: `metadata.id` · excluded from spec: `id`
+status fields: `metadata.id` · excluded from spec: `filter, id, limit, offset, projection, sort`
 
-Configuration query params: `api-version, filter, limit, offset, projection, sort`
+Configuration query params: `api-version`
 
 Sample: [`samples/project/project.yaml`](../../samples/project/project.yaml) · [`project-configuration.yaml`](../../samples/project/project-configuration.yaml)
 
