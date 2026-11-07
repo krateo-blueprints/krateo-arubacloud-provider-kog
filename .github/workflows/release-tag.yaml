@@ -216,10 +216,23 @@ jobs:
   # This workflow receives CHARTS_PUBLISH_TOKEN, an org-wide write token, so a moving
   # major tag would hand that token to whatever `1` points at next.
   #
-  # Pinned to the commit tag 1.0.1 points at, verified rather than taken on trust:
+  # Pinned to the commit tag 1.0.2 points at, verified rather than taken on trust:
   #
-  #   git ls-remote https://github.com/krateo-blueprints/charts 'refs/tags/1.0.1^{}'
-  #   36ea357cb0fe4b49628cc984d9939babf0049d03  refs/tags/1.0.1^{}
+  #   git ls-remote https://github.com/krateo-blueprints/charts 'refs/tags/1.0.2^{}'
+  #   f0138e816ce827279ad087202889c009899741f7  refs/tags/1.0.2^{}
+  #
+  # 1.0.1 fixed the token-in-a-URL defect that half-published github-provider-kog 0.7.6,
+  # and then showed a second one on the first green run. The publisher clones gh-pages,
+  # merges the new chart in and pushes; two repos publishing in the same minute make the
+  # second push lose a race and fail with `fetch first`. Measured, not predicted:
+  # openstack-as-a-service 0.3.37 (run 42414460552) took steps 1-12 green and was refused
+  # at step 13. Its re-run went green on all 16, which worked only because the cause was
+  # OUTSIDE the publisher -- a re-run reuses the old pin, so it cannot recover from a
+  # publisher defect. 1.0.2 re-clones and retries.
+  #
+  # That failure leaves the version in GHCR and absent from the index until the re-run, so
+  # it is a half-published state of the kind rule 1 exists to prevent -- recoverable, but
+  # only by someone who notices.
   #
   # NOT 1.0.0. That release interpolated the token into a git clone URL, so a value
   # carrying whitespace failed at its "Clone gh-pages" step AFTER the caller's GHCR push.
@@ -236,7 +249,7 @@ jobs:
   # the trade -- a SHA pin with nothing to update it is permanently stale.
   publish-to-index:
     needs: package-and-push
-    uses: krateo-blueprints/charts/.github/workflows/publish-chart.yaml@36ea357cb0fe4b49628cc984d9939babf0049d03 # 1.0.1
+    uses: krateo-blueprints/charts/.github/workflows/publish-chart.yaml@f0138e816ce827279ad087202889c009899741f7 # 1.0.2
     with:
       source_repo: ${{ github.repository }}
       git_tag: ${{ github.ref_name }}
