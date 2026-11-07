@@ -108,7 +108,28 @@ def token(force=False):
     raise SystemExit(f"no token in {TOKEN_SECRET_NS}/{TOKEN_SECRET}")
 
 
+# Attempt census, so a transport-failure count has a denominator.
+#
+# A run on 2026-11-07 logged 7 `TimeoutError` retries across four resources. That
+# number alone says nothing: the state lines below are printed only when a state
+# CHANGES, so every GET that saw no change is invisible, and 7-out-of-unknown is not
+# a rate. Reporting a bare numerator to a vendor is how a weak claim discredits the
+# measurements next to it.
+_CALLS = {"attempts": 0, "transport_errors": 0, "http_errors": 0, "ok": 0}
+
+
+def call_census():
+    """Return the attempt census as a one-line summary, with the rate if meaningful."""
+    a = _CALLS["attempts"]
+    if not a:
+        return "no API calls were attempted"
+    te = _CALLS["transport_errors"]
+    return (f"{a} API call attempt(s): {_CALLS['ok']} ok, {te} transport failure(s) "
+            f"({100.0 * te / a:.1f}%), {_CALLS['http_errors']} HTTP error(s)")
+
+
 def api(method, path, body=None, _retried=False):
+    _CALLS["attempts"] += 1
     req = urllib.request.Request(
         f"{API}{path}{'&' if '?' in path else '?'}api-version=1.0",
         method=method,
@@ -119,6 +140,7 @@ def api(method, path, body=None, _retried=False):
     try:
         with urllib.request.urlopen(req, timeout=30) as resp:
             raw = resp.read()
+            _CALLS["ok"] += 1
             return resp.status, (json.loads(raw) if raw else None)
     except urllib.error.HTTPError as e:
         if e.code == 401 and not _retried:
@@ -128,6 +150,7 @@ def api(method, path, body=None, _retried=False):
                   file=sys.stderr)
             token(force=True)
             return api(method, path, body, _retried=True)
+        _CALLS["http_errors"] += 1
         raw = e.read()
         try:
             return e.code, json.loads(raw)
@@ -143,8 +166,11 @@ def api(method, path, body=None, _retried=False):
         # that outside HTTPError, nothing caught it, and the VpcPeeringRoute verdict
         # was lost. The teardown still ran, so nothing leaked -- but the run had to be
         # paid for twice.
+        _CALLS["transport_errors"] += 1
         print(f"    transport error on {method} {path.rsplit('/', 1)[-1]}: "
-              f"{type(e).__name__} — will retry", file=sys.stderr)
+              f"{type(e).__name__} — will retry "
+              f"({_CALLS['transport_errors']} of {_CALLS['attempts']} attempts so far)",
+              file=sys.stderr)
         return 0, None
 
 
@@ -1062,6 +1088,12 @@ def main():
             # `return 1` here anyway. Python 3.14 flagged it as a SyntaxWarning during
             # a live billable run, which is the only reason I saw it.
             teardown_rc = 1
+
+    # The attempt census, printed unconditionally. A transport-failure count without
+    # a denominator is not a rate, and the per-resource lines above only appear when a
+    # state CHANGES -- so the failures are visible and the successes are not. This is
+    # the line that makes "7 timeouts" mean something, or nothing.
+    print(f"\n=== transport census: {call_census()} ===")
 
     # Outside the try/finally: an exception from the try has already propagated past
     # here with its traceback intact, which is the whole point of not returning above.
