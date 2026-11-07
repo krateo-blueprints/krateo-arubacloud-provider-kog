@@ -741,7 +741,7 @@ to Aruba on their strength.
 teardown rather than rendered locally: 8 CRDs for the 4 installed kinds, and
 `scripts/check_samples.py` found no type, unknown-field or missing-required mismatch.
 
-## Appendix — correction: the `offset` footgun is real, its consequence is NOT proven
+## Appendix — the `offset` footgun: three corrections, ending with the mechanism
 
 PR #41 removed `offset`, `limit`, `filter`, `sort` and `projection` from
 `configurationFields` and excluded them from the spec. **That change is still right.**
@@ -821,25 +821,72 @@ control arm, because a duplicate alone would prove nothing:
 The control is what makes arm B meaningful: adoption demonstrably works, so the absence
 of a duplicate under a blinded findby is a result rather than a non-event.
 
-**So the consequence is refuted, not merely unproven.** A blinded findby leaves the
-resource **unobservable and stuck**, and does not cause a second one to be created.
+### The mechanism, captured on a third run — and it reverses the refutation
 
-**What is still not established:** the mechanism. The run captured condition types and
-statuses but not reasons, and its controller-log grep returned nothing, so whether the
-synthesised 404 was treated as an error or as absence-that-failed-to-create is unknown.
-Arm A set an `Observed` condition and arm B set none, which is a difference in what was
-written, not evidence about internal branching.
+The runs above recorded condition *types* only. Re-run with reasons and messages:
 
-**This bears on upstream #485 and #486.** Both rest on "not-found drives a create, so an
-unmatched listing duplicates a live resource". The shape where that should fire hardest
-was measured and it did not fire. Reported to the maintainer as the outcome without a
-mechanism story attached.
+```
+ARM A   Observed=True  reason=ResponseObtained
+        Ready=True     reason=Available
+        Synced=True    reason=ReconcileSuccess
+        status.metadata.id = '6aef4270…'            <- adopted
+
+ARM B   Ready=False    reason=Creating
+          message: create failed: unexpected status: 400
+        Synced=False   reason=ReconcileError
+        status.metadata.id = None                   <- never adopted
+```
+
+**`reason=Creating` with `create failed`.** The chain happened exactly as originally
+claimed: findby blinded → observe concluded absent → **the reconciler called create**.
+It was the vendor that stopped the duplicate, not the controller.
+
+So "the offset does not reach the create path" — written in the previous section and in
+PR #41's comment — **was wrong**. It does reach it.
+
+### And Aruba HAS a name-collision backstop, which contradicts what we told two peers
+
+Measured directly, two POSTs:
+
+```
+POST .../vpcs {"metadata":{"name":"ga-dupname-probe", …}}  -> 201
+POST .../vpcs {"metadata":{"name":"ga-dupname-probe", …}}  -> 400
+  {"errors":[{"field":"Name",
+              "message":"resource with the same name already exists for user …"}]}
+```
+
+Functionally the same backstop as GitHub's 422. We had asserted the opposite — "this
+vendor has no equivalent of GitHub's 422" — in upstream #486 and to two peer sessions,
+drawn from another team's analysis of *their* vendor and never tested against ours. One
+POST would have settled it at any point. Corrected on #486.
+
+### Where that leaves it
+
+| claim | status |
+|---|---|
+| `offset` empties the findby response | **measured true** |
+| observe then concludes absent and create is attempted | **measured true** (`reason=Creating`) |
+| a duplicate resource results | **false for a name-unique kind** — the vendor refuses with 400 |
+| the resource is left broken | **measured true** — `Ready=False`, retrying a create that cannot succeed |
+| "Aruba has no 422-equivalent" | **false** |
+
+The outcome is a resource stuck retrying a refused create, which is arguably easier to
+miss than a duplicate because nothing appears at the vendor to notice.
+
+**Not established:** whether every kind is name-constrained. `Vpc` is; a kind identified
+by something the vendor does not constrain could still duplicate. One kind measured, not
+the catalogue.
 
 ### Status
 
-The removal stays — the footgun is real and `offset` demonstrably empties the findby
-response. **The duplicate-create consequence is withdrawn.** Nothing filed upstream ever
-rested on it.
+The removal stays. What changed three times was the *consequence*, and the final version
+is the one with the mechanism attached: create IS attempted, and the vendor refuses it.
+The resource ends up stuck rather than duplicated.
+
+Worth recording the shape of the error, since it repeated: each intermediate conclusion
+was drawn from a measurement that was real but did not cover the step being claimed —
+resource counts, then condition types, then condition reasons. Only the third actually
+looked at the step in question.
 
 ---
 
