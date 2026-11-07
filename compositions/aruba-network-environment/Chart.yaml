@@ -15,8 +15,20 @@ description: >-
 type: application
 version: CHART_VERSION
 appVersion: "1.0.0"
+# An absolute https icon is required by the krateo-blueprints publishing standard and
+# the Marketplace shows it. Krateo's own brand asset rather than Aruba's: hotlinking a
+# vendor's logo is not ours to decide. Verified to serve image/svg+xml, and note the
+# HYPHENATED org -- krateoplatformops/.github 404s, the same install-source confusion
+# scripts/validate.py already screens for in the install docs.
+icon: https://raw.githubusercontent.com/krateo-platformops/.github/main/brand/logo.svg
 keywords:
+  # The Marketplace renders these as tags, so they must describe what the chart
+  # PROVISIONS. `cloudserver` was here and is removed: the description above spends a
+  # paragraph explaining CloudServer is deliberately excluded, so the tag advertised a
+  # resource this chart does not create.
   - krateo
   - arubacloud
   - composition
-  - cloudserver
+  - vpc
+  - subnet
+  - securitygroup

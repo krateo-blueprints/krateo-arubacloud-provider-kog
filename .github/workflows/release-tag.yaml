@@ -52,21 +52,102 @@ jobs:
           echo "${{ secrets.GITHUB_TOKEN }}" | \
             helm registry login ghcr.io --username "${{ github.actor }}" --password-stdin
 
+      - name: The Marketplace index token must be present
+        env:
+          CHARTS_PUBLISH_TOKEN: ${{ secrets.CHARTS_PUBLISH_TOKEN }}
+        run: |
+          set -euo pipefail
+          # Checked BEFORE anything is pushed. Without it the GHCR push would succeed and
+          # the index publish would not, which is the state the publishing standard exists
+          # to prevent: a chart in GHCR and absent from the index is not published, because
+          # the Marketplace installs from the index and never re-resolves against GHCR.
+          if [ -z "${CHARTS_PUBLISH_TOKEN}" ]; then
+            echo "::error::secret CHARTS_PUBLISH_TOKEN is not set, so this release cannot reach"
+            echo "::error::the helm index and the Marketplace would never list it. Failing now,"
+            echo "::error::before the GHCR push, rather than publishing half of a release."
+            exit 1
+          fi
+
+      - name: Every chart here must qualify for the `blueprints` channel
+        run: |
+          set -euo pipefail
+          # The standard says the channel follows from the CONTENT, not from preference:
+          # `blueprints` for a chart with values.schema.json AND a CompositionDefinition,
+          # `operators` for everything else. The publisher refuses a mismatch.
+          #
+          # This repo passes a single `channel: blueprints` to the reusable workflow, which
+          # is correct only while every chart here is a blueprint. Asserted rather than
+          # assumed, so adding an operator or CRD chart later fails the release with the
+          # reason instead of silently filing it in the wrong channel.
+          bad=0
+          while IFS= read -r -d '' cf; do
+            dir=$(dirname "$cf")
+            name=$(awk '/^name:/{print $2; exit}' "$cf")
+            [ -f "$dir/values.schema.json" ] || { echo "::error::${name}: no values.schema.json"; bad=1; }
+            if [ ! -f "$dir/compositiondefinition.yaml" ] && [ ! -f "$(dirname "$dir")/compositiondefinition.yaml" ]; then
+              echo "::error::${name}: no CompositionDefinition in the chart dir or its parent"; bad=1
+            fi
+          done < <(find . -type f -name Chart.yaml -not -path '*/charts/*' -print0)
+          [ "$bad" = "0" ] || {
+            echo "::error::Not every chart qualifies as a blueprint, so `channel: blueprints`"
+            echo "::error::would be wrong for at least one. Split the release by channel first."
+            exit 1; }
+          echo "every chart qualifies for the blueprints channel"
+
       - name: Package and push every chart
         run: |
           set -euo pipefail
+          mkdir -p charts-dist
           find . -type f -name Chart.yaml -not -path '*/charts/*' -print0 | while IFS= read -r -d '' cf; do
             dir=$(dirname "$cf")
             name=$(awk '/^name:/{print $2; exit}' "$cf")
             echo "::group::${name} (${dir})"
             # Stamp the CHART_VERSION placeholder, and pin the package version to the tag either way.
             sed -i "s/CHART_VERSION/${VERSION}/g" "$cf"
+
+            # A blueprint archive must be SELF-DESCRIBING: the publishing standard requires
+            # values.schema.json and compositiondefinition.yaml at the archive root, because
+            # the Marketplace reads the archive and nothing else. Ours lives one directory
+            # above the chart, so copy the already-stamped file in.
+            src=""
+            [ -f "$dir/compositiondefinition.yaml" ] && src="$dir/compositiondefinition.yaml"
+            [ -z "$src" ] && [ -f "$(dirname "$dir")/compositiondefinition.yaml" ] \
+              && src="$(dirname "$dir")/compositiondefinition.yaml"
+            if [ -n "$src" ] && [ "$src" != "$dir/compositiondefinition.yaml" ]; then
+              cp "$src" "$dir/compositiondefinition.yaml"
+              echo "copied $src into the chart directory"
+            fi
+
             helm dependency update "$dir" 2>/dev/null || true
-            helm package "$dir" --version "${VERSION}" --destination .
-            helm push "${name}-${VERSION}.tgz" "${OCI_REPO}"
+            helm package "$dir" --version "${VERSION}" --destination charts-dist
+
+            # CHECK THE ARCHIVE, not the directory. `helm package` succeeds whether the file
+            # is there or not, which is exactly how two org charts shipped a
+            # CompositionDefinition pinned to someone else's version.
+            tgz="charts-dist/${name}-${VERSION}.tgz"
+            for want in "${name}/values.schema.json" "${name}/compositiondefinition.yaml"; do
+              tar -tzf "$tgz" | grep -qx "$want" || {
+                echo "::error::${tgz} does not contain ${want}"; exit 1; }
+            done
+            # And the CD inside the archive must name THIS version, not a literal left behind.
+            cdver=$(tar -xzOf "$tgz" "${name}/compositiondefinition.yaml" \
+                    | awk '/version:/{print $2; exit}')
+            [ "$cdver" = "${VERSION}" ] || {
+              echo "::error::${tgz}: CompositionDefinition says version ${cdver}, tag is ${VERSION}"
+              exit 1; }
+            echo "archive verified: schema + CompositionDefinition present, CD version ${cdver}"
+
+            helm push "$tgz" "${OCI_REPO}"
             echo "Published ${OCI_REPO}/${name}:${VERSION}"
             echo "::endgroup::"
           done
+
+      - name: Hand the chart tarballs to the index job
+        uses: actions/upload-artifact@v4
+        with:
+          name: charts-dist
+          path: charts-dist/*.tgz
+          if-no-files-found: error
 
       - name: Publish the stamped CompositionDefinition on the release
         env:
@@ -88,3 +169,16 @@ jobs:
             || gh release create "${VERSION}" --title "${VERSION}" --notes "Apply the attached CompositionDefinition to register this version."
           gh release upload "${VERSION}" "${assets[@]}" --clobber
           echo "attached: ${assets[*]}"
+
+  # Second half of the standard's rule 1: the same bytes also reach the helm index here,
+  # because the Marketplace installs from the index and never re-resolves against GHCR.
+  # Pinned to the major tag @1 so a publisher fix reaches every repository at once.
+  publish-to-index:
+    needs: package-and-push
+    uses: krateo-blueprints/charts/.github/workflows/publish-chart.yaml@1
+    with:
+      source_repo: ${{ github.repository }}
+      git_tag: ${{ github.ref_name }}
+      channel: blueprints
+    secrets:
+      PUBLISH_TOKEN: ${{ secrets.CHARTS_PUBLISH_TOKEN }}
