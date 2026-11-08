@@ -130,6 +130,7 @@ def main():
     verify_no_return_in_finally(errors)
     verify_maturity_counts_match(errors)
     verify_parity_page_names_every_kind(errors)
+    verify_status_fields_exist_in_response_schema(errors)
     charts = validate_charts(errors)
     validate_composition_generated(errors)
 
@@ -1171,6 +1172,136 @@ def validate_charts(errors):
                 errors.append(f"{d}: helm template rendered no resources")
     return len(chart_dirs)
 
+
+
+def verify_status_fields_exist_in_response_schema(errors):
+    """Every additionalStatusFields path must exist in the verb's RESPONSE schema.
+
+    A status field's type resolves from the get (or findby) response schema, so a path
+    absent from that schema can never be populated by any reconcile. It is inert by
+    construction, and nothing at runtime says so: the CRD gains the property, the
+    resource goes Ready, and the field stays empty forever. A count of Ready resources
+    cannot see it. Reported by keycloak-provider-kog on 2026-11-08, from their own
+    catalogue, and checked here against ours: 88 declarations across 33 kinds, all
+    present. This gate keeps it that way for the next definition.
+
+    UNRESOLVED IS NOT ABSENT. Every failure to find a document, verb, path or response
+    schema is its own error naming the stage, never a missing-field report. That pair --
+    "I could not look" read as "it is not there" -- is the single error class that cost
+    this repository the most during the 0.54.x campaign.
+    """
+    cm_by_name = {}
+    for f in sorted(glob.glob("configmaps/*.yaml")):
+        cm = yaml.safe_load(open(f))
+        if cm and (cm.get("metadata") or {}).get("name"):
+            cm_by_name[cm["metadata"]["name"]] = cm.get("data") or {}
+
+    def deref(doc, node, seen=None):
+        seen = seen or set()
+        while isinstance(node, dict) and "$ref" in node:
+            ref = node["$ref"]
+            if ref in seen or not ref.startswith("#/"):
+                return None
+            seen.add(ref)
+            cur = doc
+            for seg in ref[2:].split("/"):
+                if not isinstance(cur, dict) or seg not in cur:
+                    return None
+                cur = cur[seg]
+            node = cur
+        return node
+
+    def props_of(doc, schema):
+        schema = deref(doc, schema)
+        if not isinstance(schema, dict):
+            return {}
+        out = dict(schema.get("properties") or {})
+        for sub in schema.get("allOf") or []:
+            sub = deref(doc, sub)
+            if isinstance(sub, dict):
+                out.update(sub.get("properties") or {})
+        return out
+
+    examined = 0
+    for path in sorted(glob.glob("restdefinitions/**/*.yaml", recursive=True)):
+        d = yaml.safe_load(open(path))
+        if not d or d.get("kind") != "RestDefinition":
+            continue
+        res = (d.get("spec") or {}).get("resource") or {}
+        fields = res.get("additionalStatusFields") or []
+        if not fields:
+            continue
+        kind = res.get("kind", path)
+        oas = (d.get("spec") or {}).get("oasPath") or ""
+        parts = oas[len("configmap://"):].split("/") if oas.startswith("configmap://") else []
+        if len(parts) != 3:
+            errors.append("%s: cannot parse oasPath %r, so its status fields were NOT "
+                          "checked" % (kind, oas))
+            continue
+        data = cm_by_name.get(parts[1])
+        if data is None or parts[2] not in data:
+            errors.append("%s: no ConfigMap %r with key %r, so its status fields were "
+                          "NOT checked" % (kind, parts[1], parts[2]))
+            continue
+        try:
+            doc = json.loads(data[parts[2]])
+        except Exception as exc:                                  # noqa: BLE001
+            errors.append("%s: %s is not JSON (%s), so its status fields were NOT "
+                          "checked" % (kind, parts[2], exc))
+            continue
+        verbs = {v.get("action"): v for v in (res.get("verbsDescription") or [])}
+        verb = verbs.get("get") or verbs.get("findby")
+        if not verb:
+            errors.append("%s: declares additionalStatusFields but no get or findby "
+                          "verb, so nothing can populate them" % kind)
+            continue
+        which = "get" if "get" in verbs else "findby"
+        op = ((doc.get("paths") or {}).get(verb.get("path")) or {}).get(
+            (verb.get("method") or "get").lower())
+        if not op:
+            errors.append("%s: %s %s is absent from %s, so its status fields were NOT "
+                          "checked" % (kind, verb.get("method"), verb.get("path"),
+                                       parts[2]))
+            continue
+        schema = None
+        for code in ("200", "201", "default"):
+            resp = deref(doc, (op.get("responses") or {}).get(code))
+            if not isinstance(resp, dict):
+                continue
+            for ctype in ("application/json", "text/json", "text/plain"):
+                cand = (resp.get("content") or {}).get(ctype, {}).get("schema")
+                if cand:
+                    schema = cand
+                    break
+            if schema:
+                break
+        if schema is None:
+            errors.append("%s: the %s verb declares no JSON response schema, so its "
+                          "status fields were NOT checked" % (kind, which))
+            continue
+        for field in fields:
+            node, failed = schema, None
+            for i, seg in enumerate(field.split(".")):
+                available = props_of(doc, node)
+                if seg not in available:
+                    failed = ".".join(field.split(".")[:i + 1])
+                    break
+                node = available[seg]
+            examined += 1
+            if failed:
+                errors.append(
+                    "%s: additionalStatusFields %r is absent from the %s response "
+                    "schema (first missing segment %r). It can never be populated: the "
+                    "CRD gains the property, the resource goes Ready, and the field "
+                    "stays empty. Declare it on the response schema or drop it."
+                    % (kind, field, which, failed))
+    if examined == 0:
+        errors.append("verify_status_fields_exist_in_response_schema examined ZERO "
+                      "field declarations. 33 kinds declared 88 of them on 2026-11-08, "
+                      "so zero means the walk broke, not that the repository changed.")
+    else:
+        print("Checked %d additionalStatusFields declaration(s) against their response "
+              "schema" % examined)
 
 if __name__ == "__main__":
     main()
