@@ -1143,8 +1143,10 @@ close that, and it needs the credential source cluster up.
 
 ### Reproducing the numbers
 
-The probes live outside this repo because they are Go tests against a clone of
-oasgen-provider, run per tag:
+The probes are Go tests against a clone of oasgen-provider, run per tag. They are
+committed under `tests/probes/` with a runbook -- they cannot run in this repo's CI,
+because they import oasgen internals, but keeping them only in someone's shell cost a
+full rebuild from this prose on 2026-11-09. Two of them:
 
 * render the committed `Vpc`/`SecurityGroup` definitions against
   `openapi/network-provider.json` and report whether `spec.properties` carries its own
@@ -1152,6 +1154,66 @@ oasgen-provider, run per tag:
 * render all 36 definitions from `restdefinitions/` and tally `GenerationWarnings` by
   code — untyped warnings, which is what crdgen's stamping notices are, must be counted
   under their own bucket or the 240 disappears.
+
+## Appendix — 0.56.0: the CRD-shape axis is measured clean (2026-11-09)
+
+**The question.** 0.55.0 and 0.56.0 landed on 2026-11-08 and 2026-11-09. From the 0.54.1
+pin the CRD generator's `plumbing` dependency moves **v1.27.0 → v1.33.0** (0.55.0 is
+v1.29.1), read from `go/oasgen-provider/go.mod` at each tag. v1.27.0 is the version whose
+`crdgen/nesteddefault.go` produced the 240 stamped paths that kept the pin off 0.53.0, so
+"did two more plumbing minors regress the fix" is the one question worth asking first.
+
+**The static answer, which is not sufficient.** `NoParentDefaults: true` is present at
+both `crdgen.GenerateWithWarnings` call sites — the resource CRD and the Configuration
+CRD — in `internal/tools/render/render.go`, identical at 0.54.1 and 0.56.0. That shows
+oasgen still *passes* the flag. It does not show plumbing v1.33.0 still *honours* it,
+which is one layer away and exactly the gap that has produced wrong answers here before.
+
+**The measurement.** `tests/probes/fleet_parentdefault_probe_test.go` renders all 36
+committed RestDefinitions against the 12 generated-from vendored documents (`auditing.json`
+is vendored and not generated from) and counts every node where `default` is an empty
+object, across both the resource CRD and the Configuration CRD:
+
+| tag | plumbing | definitions rendered | render failures | stamped `default: {}` | control, flag UNSET |
+|---|---|---|---|---|---|
+| 0.53.0 | v1.27.0 | 36 | 0 | **240** | 1 |
+| **0.54.1** (pin) | v1.27.0 | 36 | 0 | **0** | 1 |
+| 0.56.0 | v1.33.0 | 36 | 0 | **0** | 1 |
+
+`identifier absent from findby items` warnings: 18 at every tag, unchanged.
+
+**Why the zeros are worth something.** Two independent reasons, because a zero from a
+broken instrument is the failure mode this document keeps recording.
+
+1. **The control is positive at every tag.** It re-renders the real `Vpc` spec schema
+   through `crdgen` with `NoParentDefaults` unset and requires a stamp to appear. So the
+   library still stamps when told to, at v1.33.0 as at v1.27.0 — the flag is being
+   honoured, not quietly ignored.
+2. **240 reproduces exactly.** The same probe, same walker, same fleet, returns the
+   figure this document recorded independently for 0.53.0. A counter that reproduces a
+   known non-zero is a counter, not a constant.
+
+The probe fails rather than reporting a clean fleet when the control reads zero, and it
+did fail twice on the way to this table — once because `crdgen` returns YAML and the
+control's `json.Unmarshal` rejected it, once because the control was anchored on whichever
+definition sorted first, which has no defaulted descendant and therefore cannot stamp
+whatever the flag says. Both looked like corroboration of a clean fleet.
+
+**Where the 240 actually sit**, from the per-kind paths: `Vpc` is the only kind stamped on
+its **resource** CRD, at `spec.properties.properties` — the region-unique `default: true`
+hazard. Every other stamp is a Configuration CRD parent, `configuration`, `configuration.query`
+and `configuration.query.{create,delete,findby,get,update}`, which is the inert bulk and
+matches the 238/2 split recorded for 0.53.0.
+
+**What this does NOT cover, and it is the half that bit us.** Render says nothing about
+reconcile. 0.54.0 rendered cleanly, with the stamping fixed, and still could not reconcile
+at all because its auth-secret RBAC collector missed `apiKey.tokenRef` — 25 of our 36
+kinds (oasgen#500). Nothing in a CRD diff can see that. So this appendix clears one axis
+of a 0.56.0 pin move and the live axis is a separate measurement; see
+`scripts/pin_verify.sh`, which installs the released chart with no image overrides and
+runs the free `network-security` chain.
+
+---
 
 ## Appendix — the 0.27.1 → 0.34.0 pin move, and the evidence behind it
 
