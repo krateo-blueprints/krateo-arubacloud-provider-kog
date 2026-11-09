@@ -292,3 +292,238 @@ func TestFleetParentDefaultStamping(t *testing.T) {
 			"stamp', not 'the fleet is clean'.")
 	}
 }
+
+// Shared by both probes so they cannot disagree about what the fleet IS.
+func restDefinitionFiles(repo string) ([]string, error) {
+	var files []string
+	err := filepath.Walk(filepath.Join(repo, "restdefinitions"), func(p string, _ os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if strings.HasSuffix(p, ".yaml") || strings.HasSuffix(p, ".yml") {
+			files = append(files, p)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	sort.Strings(files)
+	if len(files) == 0 {
+		return nil, fmt.Errorf("found 0 RestDefinitions -- the walk is broken, not the repo empty")
+	}
+	return files, nil
+}
+
+func loadRestDefinition(t *testing.T, f string) (*definitionv1alpha1.RestDefinition, bool) {
+	t.Helper()
+	raw, err := os.ReadFile(f)
+	if err != nil {
+		t.Fatalf("%s: %v", f, err)
+	}
+	j, err := yaml.YAMLToJSON(raw)
+	if err != nil {
+		t.Fatalf("%s: %v", f, err)
+	}
+	cr := &definitionv1alpha1.RestDefinition{}
+	if err := json.Unmarshal(j, cr); err != nil {
+		t.Fatalf("%s: %v", f, err)
+	}
+	if cr.Kind != "RestDefinition" || cr.Spec.Resource.Kind == "" {
+		return nil, false
+	}
+	return cr, true
+}
+
+func loadOAS(repo, file string, cache map[string]oas2jsonschema.OASDocument) (oas2jsonschema.OASDocument, error) {
+	if d, ok := cache[file]; ok {
+		return d, nil
+	}
+	b, err := os.ReadFile(filepath.Join(repo, "openapi", file))
+	if err != nil {
+		return nil, err
+	}
+	d, err := oas2jsonschema.NewLibOASParser().Parse(b)
+	if err != nil {
+		return nil, err
+	}
+	cache[file] = d
+	return d, nil
+}
+
+// TestFleetAuthShape asserts, for every kind, that the generated ConfigurationCRD exposes
+// EXACTLY the auth method its OAS document declares -- by EQUALITY, not membership, which
+// is openstack-nova-operator-kog's rule and the load-bearing idea here:
+//
+//     got == ["apiKey"]     a completeness assertion
+//     "apiKey" in got       passes on a CRD that ALSO carries bearer
+//
+// This is the OFFLINE half of scripts/assert_auth_crds.py. It covers all 36 kinds with no
+// cluster, no credentials and no vendor API, because it reads the generator's own output.
+// It deliberately does NOT replace the live check: the 0.54.0 break was in
+// deploy/authsecretrbac.go, which provisions the Role on the Secret, and no amount of
+// CRD rendering can see that. Shape here; RBAC in a cluster.
+func TestFleetAuthShape(t *testing.T) {
+	repo := os.Getenv("ARUBA_REPO")
+	if repo == "" {
+		t.Fatal("set ARUBA_REPO to the aruba-provider-kog checkout")
+	}
+	// Provenance travels WITH the result: openstack-nova-operator-kog lost a run to a
+	// fingerprint taken by a build that could not see the `default` keyword, where "found
+	// none" and "cannot see any" are the same output. Name the instrument in the output.
+	t.Logf("# instrument: TestFleetAuthShape, equality on authentication.properties keys")
+
+	files, err := restDefinitionFiles(repo)
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+	parsed := map[string]oas2jsonschema.OASDocument{}
+	checked, mismatches, notChecked := 0, 0, 0
+
+	for _, f := range files {
+		cr, ok := loadRestDefinition(t, f)
+		if !ok {
+			continue
+		}
+		baseFile, err := providerOf(cr.Spec.OASPath)
+		if err != nil {
+			t.Fatalf("%s: %v", f, err)
+		}
+		base, err := loadOAS(repo, baseFile, parsed)
+		if err != nil {
+			t.Fatalf("%s: %v", f, err)
+		}
+
+		// The expectation is DERIVED from the same document the generator reads, never
+		// hardcoded, so it cannot drift from the vendored OAS.
+		want, err := declaredAuthMethod(repo, baseFile)
+		if err != nil {
+			t.Logf("NOT CHECKED %-26s could not read the declared scheme: %v", cr.Spec.Resource.Kind, err)
+			notChecked++
+			continue
+		}
+
+		// CloudServer's create resolves against the compute 1.1 document via a per-verb
+		// oasPath (oasgen#227). Passing a single-document set makes its POST unfindable and
+		// the render fails -- which this probe reported as NOT CHECKED rather than as a
+		// mismatch, correctly, but it was still my bug and not a defect in the subject.
+		byVerb := map[string]oas2jsonschema.OASDocument{}
+		for _, vb := range cr.Spec.Resource.VerbsDescription {
+			if vb.OASPath == "" {
+				continue
+			}
+			vf, verr := providerOf(vb.OASPath)
+			if verr != nil {
+				t.Fatalf("%s verb %s: %v", f, vb.Action, verr)
+			}
+			d, derr := loadOAS(repo, vf, parsed)
+			if derr != nil {
+				t.Fatalf("%s verb %s: %v", f, vb.Action, derr)
+			}
+			byVerb[vb.Action] = d
+		}
+
+		res, err := render.CRDs(context.Background(), cr, render.TargetGVK(cr, base),
+			oas2jsonschema.NewDocumentSetWithOverrides(base, byVerb), render.HasSecuritySchemes(base))
+		if err != nil {
+			t.Logf("NOT CHECKED %-26s render failed: %v", cr.Spec.Resource.Kind, err)
+			notChecked++
+			continue
+		}
+		if res.ConfigurationCRD == nil {
+			t.Logf("NOT CHECKED %-26s no ConfigurationCRD generated", cr.Spec.Resource.Kind)
+			notChecked++
+			continue
+		}
+
+		got, err := authMethods(res.ConfigurationCRD)
+		if err != nil {
+			t.Logf("NOT CHECKED %-26s %v", cr.Spec.Resource.Kind, err)
+			notChecked++
+			continue
+		}
+		checked++
+		if len(got) != 1 || got[0] != want {
+			t.Errorf("MISMATCH %-26s declares %q, CRD exposes %v", cr.Spec.Resource.Kind, want, got)
+			mismatches++
+			continue
+		}
+		t.Logf("OK   %-26s methods=[%s]", cr.Spec.Resource.Kind, want)
+	}
+
+	t.Logf("checked: %d   mismatches: %d   NOT checked: %d", checked, mismatches, notChecked)
+	if checked == 0 {
+		t.Fatal("checked 0 kinds -- the probe is broken, not the fleet correct")
+	}
+	if notChecked > 0 {
+		t.Errorf("%d kind(s) could NOT be checked; that is not the same as correct", notChecked)
+	}
+}
+
+// declaredAuthMethod returns "apiKey" or "bearer" from the document's securitySchemes.
+func declaredAuthMethod(repo, file string) (string, error) {
+	b, err := os.ReadFile(filepath.Join(repo, "openapi", file))
+	if err != nil {
+		return "", err
+	}
+	var doc struct {
+		Components struct {
+			SecuritySchemes map[string]struct {
+				Type   string `json:"type"`
+				Scheme string `json:"scheme"`
+				In     string `json:"in"`
+			} `json:"securitySchemes"`
+		} `json:"components"`
+	}
+	if err := json.Unmarshal(b, &doc); err != nil {
+		return "", err
+	}
+	ss := doc.Components.SecuritySchemes
+	if len(ss) != 1 {
+		return "", fmt.Errorf("%s declares %d security schemes, expected exactly 1", file, len(ss))
+	}
+	for _, v := range ss {
+		switch {
+		case v.Type == "apiKey":
+			return "apiKey", nil
+		case v.Type == "http" && strings.EqualFold(v.Scheme, "bearer"):
+			return "bearer", nil
+		case v.Type == "http":
+			return "", fmt.Errorf("%s declares http scheme %q, which this probe does not map", file, v.Scheme)
+		default:
+			return "", fmt.Errorf("%s declares scheme type %q, which this probe does not map", file, v.Type)
+		}
+	}
+	return "", fmt.Errorf("unreachable")
+}
+
+func authMethods(crd any) ([]string, error) {
+	blob, err := json.Marshal(crd)
+	if err != nil {
+		return nil, err
+	}
+	var m map[string]any
+	if err := json.Unmarshal(blob, &m); err != nil {
+		return nil, err
+	}
+	spec, _ := m["spec"].(map[string]any)
+	versions, _ := spec["versions"].([]any)
+	if len(versions) == 0 {
+		return nil, fmt.Errorf("ConfigurationCRD has no versions")
+	}
+	v0, _ := versions[0].(map[string]any)
+	cur := v0
+	for _, k := range []string{"schema", "openAPIV3Schema", "properties", "spec", "properties", "authentication", "properties"} {
+		next, ok := cur[k].(map[string]any)
+		if !ok {
+			return nil, fmt.Errorf("could not descend to authentication.properties (stopped at %q)", k)
+		}
+		cur = next
+	}
+	out := make([]string, 0, len(cur))
+	for k := range cur {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out, nil
+}

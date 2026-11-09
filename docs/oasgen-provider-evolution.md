@@ -1211,7 +1211,90 @@ at all because its auth-secret RBAC collector missed `apiKey.tokenRef` — 25 of
 kinds (oasgen#500). Nothing in a CRD diff can see that. So this appendix clears one axis
 of a 0.56.0 pin move and the live axis is a separate measurement; see
 `scripts/pin_verify.sh`, which installs the released chart with no image overrides and
-runs the free `network-security` chain.
+runs the free `network-security` chain. **That axis is now measured too** — below.
+
+### The reconcile axis, measured on the released stack (2026-11-09)
+
+`scripts/pin_verify.sh` with `OASGEN_VERSION=0.56.0`, a fresh cluster, released charts,
+no image overrides. Images actually running: `oasgen-provider:0.56.0` ×1 and
+`rest-dynamic-controller:0.56.0` ×4.
+
+```
+4 resources created and observed
+4/4 drift injected, confirmed present upstream, and corrected
+4/4 deleted -- residue check: leftovers = 0
+59 API call attempts, 55 ok, 0 transport failures, 4 HTTP errors
+PIN_VERIFY_RC=0
+```
+
+**Why those four kinds are the right four**, which was nearly got wrong here: Vpc, Subnet,
+SecurityGroup and SecurityRule all come from `network-provider.json`, which declares
+`apiKey: header`. They are in the apiKey 25 — the exact class whose RBAC gap made 0.54.0
+unusable. A clean chain on bearer kinds would have proved nothing about it.
+
+The RBAC itself, read from the cluster rather than inferred:
+
+```
+role/vpcs-arubacloud.ogen.krateo.io-v1alpha1-authsecrets   (ns default)
+  apiGroups=[""] resources=["secrets"] verbs=["get","list","watch"]
+  resourceNames=["arubacloud-token"]
+  ... identical for subnets, securitygroups, securityrules; RoleBindings present
+blanket cluster-wide ClusterRoles with an unqualified `secrets` resource: 0
+```
+
+The zero is what makes the rest conclusive instead of merely consistent. With the blanket
+grant gone — removed in 0.53.0 by oasgen#475, which is what had been masking the collector
+gap — these per-kind Roles are the *only* Secret access. A still-gapped collector would
+mean no access and no reconcile, so 4 created / 4 drift-corrected / 4 deleted could not
+have happened.
+
+### The auth-CRD shape across all 36 kinds, offline
+
+`TestFleetAuthShape` in `tests/probes/`, at 0.56.0:
+
+```
+checked: 36   mismatches: 0   NOT checked: 0
+apiKey: 25    bearer: 11
+```
+
+which reproduces the 25/11 split this document records, derived independently from the
+documents' own `securitySchemes` rather than hardcoded. It asserts **equality**, not
+membership — `got == ["apiKey"]` is a completeness claim, `"apiKey" in got` passes on a
+CRD that also carries bearer. That idea is openstack-nova-operator-kog's.
+
+**Why offline and not in a cluster.** A `RESTDEFS_SCOPE=all` run was attempted first and
+failed at `kind create`: `wait-control-plane: ... client rate limiter Wait returned an
+error: rate: Wait(n=1) would exceed context deadline`, with seven kind clusters and a load
+average of 55 on the shared VM. That is contention, not a 0.56.0 defect, and it is worth
+naming because an environmental failure in a version-verification run is exactly the thing
+that gets misfiled as a version verdict. The offline probe needs no cluster, no
+credentials and no vendor API, so it is the better instrument for *shape* — but it cannot
+see RBAC provisioning, which lives in `deploy/authsecretrbac.go` and only exists in a
+cluster. Shape offline; RBAC live. The live evidence above therefore covers **4 of the 25**
+apiKey kinds, and that is the honest width of the claim.
+
+`scripts/assert_auth_crds.py` is now wired into `pin_verify.sh` so the in-cluster half is
+asserted on every future pin move rather than depending on someone remembering.
+
+### Two things NOT to carry out of this, both from peer sessions
+
+**"A provider bump cannot silently re-render your CRDs" is NOT established.** It was
+reported from a 0.52.0 → 0.56.0 in-place upgrade showing 12 of 12 CRDs with unchanged
+`resourceVersion`, and the reporting session then retracted the mechanism: oasgen-provider
+read the code and `regenerate-on-upgrade` defaults to true while `generatorChanged`
+returns true unconditionally when the stored `generatorBuild` is empty, so no branch
+produces that result. Whether the re-render fired and was a byte-identical no-op apply, or
+never fired at all, is open. Do not rely on either.
+
+**What survives, and it is the part that shaped the method here:** under *both* of those
+cases an upgrade-and-diff would show unchanged CRDs, so it cannot distinguish "nothing
+changed" from "nothing was re-rendered". The CRD-shape test therefore has to be a **fresh
+render per tag**, which is what the table above is. keycloak-provider-kog then refined the
+discriminator with a measured counter-example: an in-place upgrade *does* regenerate a CRD
+when that kind's OAS asset hash moves — a keycloak CRD went to `generation: 2` on a
+combined provider-and-asset bump. So the question is whether the OAS hash moved, not
+whether the upgrade was in place; for a provider-only bump, fresh-render-per-tag remains
+the right instrument.
 
 ---
 

@@ -889,6 +889,36 @@ esac
 # This exists so that flow does not have to rely on the chain FAILING on an empty CS_ID
 # to leave a cluster behind. A setup step whose success condition is an error is not a
 # setup step.
+# The auth-CRD shape, asserted before the chain runs.
+#
+# WHY IT BELONGS HERE. 0.54.0 rendered perfectly and could not reconcile at all: its
+# auth-secret RBAC collector missed `apiKey.tokenRef`, which is 25 of our 36 kinds
+# (oasgen#500), and the blanket `secrets` ClusterRole that had been masking the gap was
+# removed in 0.53.0 by oasgen#475. Nothing in this harness asserted that axis -- apiKey
+# appeared only in a comment at the top of this file. The chain reaches four kinds; this
+# reaches every kind whose Configuration CRD is installed, for free, read-only, with no
+# vendor API and no credentials.
+#
+# It asserts EQUALITY, not membership: `got == ["apiKey"]` is a completeness claim, while
+# `"apiKey" in got` passes on a CRD that ALSO carries bearer. The idea is
+# openstack-nova-operator-kog's.
+#
+# NOTE ON SCOPE, so a failure is read correctly: with RESTDEFS_SCOPE=chain (the default)
+# only the chain's definitions are applied, so the other kinds' Configuration CRDs are
+# ABSENT and the script reports them as failures. That is "not installed", not "wrong".
+# Run RESTDEFS_SCOPE=all for a fleet-wide verdict; the offline equivalent that needs no
+# cluster at all is TestFleetAuthShape in tests/probes/.
+say "asserting auth-CRD shape (equality) on the installed Configuration CRDs"
+if KUBE_CONTEXT="$CTX" python3 scripts/assert_auth_crds.py; then
+  say "auth-CRD shape OK"
+elif [ "${RESTDEFS_SCOPE}" = "all" ]; then
+  say "FAILED: auth-CRD shape assertion failed with every definition applied"
+  exit 1
+else
+  say "auth-CRD assertion reported failures; with RESTDEFS_SCOPE=${RESTDEFS_SCOPE} the"
+  say "absent kinds are expected -- check the OK lines above for the installed ones"
+fi
+
 if [ "${SKIP_CHAIN:-0}" = "1" ]; then
   say "SKIP_CHAIN=1 -- cluster ready, not running ${CHAIN}"
   say "drive it yourself, e.g. KUBE_CONTEXT=${CTX} python3 -u scripts/ga_job_probe.py"
