@@ -89,6 +89,27 @@ jobs:
               core.notice(`Opened drift issue #${created.number}`);
             }
 
-      - name: Fail the run when drift was found
-        if: steps.check.outputs.code == '1'
-        run: exit 1
+      # A GREEN RUN HERE MUST MEAN "the check looked and found nothing".
+      #
+      # It used to mean less than that. Both this step and the issue-filing step above were
+      # gated on `code == '1'`, so the script's exit 2 -- returned deliberately when EVERY
+      # document is unreachable, so that a flaky network does not cry wolf -- produced a
+      # green scheduled run, no issue, and nothing anywhere saying the check had not run.
+      # "I could not reach upstream" was indistinguishable from "nothing drifted", on a
+      # weekly job nobody watches when it passes.
+      #
+      # Any code that is not 0 now fails. An unexpected code fails too: that was the same
+      # hole, since only 1 was ever handled.
+      - name: Fail the run unless the check looked and found nothing
+        if: steps.check.outputs.code != '0'
+        run: |
+          code='${{ steps.check.outputs.code }}'
+          case "$code" in
+            1)
+              echo "::error title=Upstream OpenAPI drift::Vendored documents differ from what Aruba publishes. The drift issue has the per-document detail." ;;
+            2)
+              echo "::error title=Drift check could not look::EVERY document was unreachable, so this run measured nothing about drift. No issue was filed because no drift was observed -- and none could have been. Re-run once upstream is reachable; do not read this as a clean result." ;;
+            *)
+              echo "::error title=Drift check exited unexpectedly::Exit code '$code' is not one this workflow knows how to interpret, so it is treated as 'did not look' rather than as success." ;;
+          esac
+          exit 1
