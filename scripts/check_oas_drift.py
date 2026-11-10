@@ -26,7 +26,11 @@ import urllib.request
 # https://api.arubacloud.com/openapi/<name> -- which this repo's docs used to cite --
 # 301-redirects to the docs homepage and returns HTML for every name, so it silently
 # "drifts" all 12 at once. Verified: this URL matches every vendored checksum today.
-BASE = "https://arubacloud.github.io/api/openapi"
+# Overridable so the "every document unreachable" path -- which returns 2 and must NOT be
+# read as a clean result -- can actually be exercised. Before this, BASE was a constant and
+# that branch was unreachable by any test, which is how .github/workflows/oas-drift.yaml
+# came to treat exit 2 as success for as long as it did. Also serves a mirror.
+BASE = os.environ.get("OAS_DRIFT_BASE", "https://arubacloud.github.io/api/openapi")
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OASDIR = os.path.join(ROOT, "openapi")
 TIMEOUT = 30
