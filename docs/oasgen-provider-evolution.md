@@ -1143,8 +1143,10 @@ close that, and it needs the credential source cluster up.
 
 ### Reproducing the numbers
 
-The probes live outside this repo because they are Go tests against a clone of
-oasgen-provider, run per tag:
+The probes are Go tests against a clone of oasgen-provider, run per tag. They are
+committed under `tests/probes/` with a runbook -- they cannot run in this repo's CI,
+because they import oasgen internals, but keeping them only in someone's shell cost a
+full rebuild from this prose on 2026-11-09. Two of them:
 
 * render the committed `Vpc`/`SecurityGroup` definitions against
   `openapi/network-provider.json` and report whether `spec.properties` carries its own
@@ -1152,6 +1154,149 @@ oasgen-provider, run per tag:
 * render all 36 definitions from `restdefinitions/` and tally `GenerationWarnings` by
   code — untyped warnings, which is what crdgen's stamping notices are, must be counted
   under their own bucket or the 240 disappears.
+
+## Appendix — 0.56.0: the CRD-shape axis is measured clean (2026-11-09)
+
+**The question.** 0.55.0 and 0.56.0 landed on 2026-11-08 and 2026-11-09. From the 0.54.1
+pin the CRD generator's `plumbing` dependency moves **v1.27.0 → v1.33.0** (0.55.0 is
+v1.29.1), read from `go/oasgen-provider/go.mod` at each tag. v1.27.0 is the version whose
+`crdgen/nesteddefault.go` produced the 240 stamped paths that kept the pin off 0.53.0, so
+"did two more plumbing minors regress the fix" is the one question worth asking first.
+
+**The static answer, which is not sufficient.** `NoParentDefaults: true` is present at
+both `crdgen.GenerateWithWarnings` call sites — the resource CRD and the Configuration
+CRD — in `internal/tools/render/render.go`, identical at 0.54.1 and 0.56.0. That shows
+oasgen still *passes* the flag. It does not show plumbing v1.33.0 still *honours* it,
+which is one layer away and exactly the gap that has produced wrong answers here before.
+
+**The measurement.** `tests/probes/fleet_parentdefault_probe_test.go` renders all 36
+committed RestDefinitions against the 12 generated-from vendored documents (`auditing.json`
+is vendored and not generated from) and counts every node where `default` is an empty
+object, across both the resource CRD and the Configuration CRD:
+
+| tag | plumbing | definitions rendered | render failures | stamped `default: {}` | control, flag UNSET |
+|---|---|---|---|---|---|
+| 0.53.0 | v1.27.0 | 36 | 0 | **240** | 1 |
+| **0.54.1** (pin) | v1.27.0 | 36 | 0 | **0** | 1 |
+| 0.56.0 | v1.33.0 | 36 | 0 | **0** | 1 |
+
+`identifier absent from findby items` warnings: 18 at every tag, unchanged.
+
+**Why the zeros are worth something.** Two independent reasons, because a zero from a
+broken instrument is the failure mode this document keeps recording.
+
+1. **The control is positive at every tag.** It re-renders the real `Vpc` spec schema
+   through `crdgen` with `NoParentDefaults` unset and requires a stamp to appear. So the
+   library still stamps when told to, at v1.33.0 as at v1.27.0 — the flag is being
+   honoured, not quietly ignored.
+2. **240 reproduces exactly.** The same probe, same walker, same fleet, returns the
+   figure this document recorded independently for 0.53.0. A counter that reproduces a
+   known non-zero is a counter, not a constant.
+
+The probe fails rather than reporting a clean fleet when the control reads zero, and it
+did fail twice on the way to this table — once because `crdgen` returns YAML and the
+control's `json.Unmarshal` rejected it, once because the control was anchored on whichever
+definition sorted first, which has no defaulted descendant and therefore cannot stamp
+whatever the flag says. Both looked like corroboration of a clean fleet.
+
+**Where the 240 actually sit**, from the per-kind paths: `Vpc` is the only kind stamped on
+its **resource** CRD, at `spec.properties.properties` — the region-unique `default: true`
+hazard. Every other stamp is a Configuration CRD parent, `configuration`, `configuration.query`
+and `configuration.query.{create,delete,findby,get,update}`, which is the inert bulk and
+matches the 238/2 split recorded for 0.53.0.
+
+**What this does NOT cover, and it is the half that bit us.** Render says nothing about
+reconcile. 0.54.0 rendered cleanly, with the stamping fixed, and still could not reconcile
+at all because its auth-secret RBAC collector missed `apiKey.tokenRef` — 25 of our 36
+kinds (oasgen#500). Nothing in a CRD diff can see that. So this appendix clears one axis
+of a 0.56.0 pin move and the live axis is a separate measurement; see
+`scripts/pin_verify.sh`, which installs the released chart with no image overrides and
+runs the free `network-security` chain. **That axis is now measured too** — below.
+
+### The reconcile axis, measured on the released stack (2026-11-09)
+
+`scripts/pin_verify.sh` with `OASGEN_VERSION=0.56.0`, a fresh cluster, released charts,
+no image overrides. Images actually running: `oasgen-provider:0.56.0` ×1 and
+`rest-dynamic-controller:0.56.0` ×4.
+
+```
+4 resources created and observed
+4/4 drift injected, confirmed present upstream, and corrected
+4/4 deleted -- residue check: leftovers = 0
+59 API call attempts, 55 ok, 0 transport failures, 4 HTTP errors
+PIN_VERIFY_RC=0
+```
+
+**Why those four kinds are the right four**, which was nearly got wrong here: Vpc, Subnet,
+SecurityGroup and SecurityRule all come from `network-provider.json`, which declares
+`apiKey: header`. They are in the apiKey 25 — the exact class whose RBAC gap made 0.54.0
+unusable. A clean chain on bearer kinds would have proved nothing about it.
+
+The RBAC itself, read from the cluster rather than inferred:
+
+```
+role/vpcs-arubacloud.ogen.krateo.io-v1alpha1-authsecrets   (ns default)
+  apiGroups=[""] resources=["secrets"] verbs=["get","list","watch"]
+  resourceNames=["arubacloud-token"]
+  ... identical for subnets, securitygroups, securityrules; RoleBindings present
+blanket cluster-wide ClusterRoles with an unqualified `secrets` resource: 0
+```
+
+The zero is what makes the rest conclusive instead of merely consistent. With the blanket
+grant gone — removed in 0.53.0 by oasgen#475, which is what had been masking the collector
+gap — these per-kind Roles are the *only* Secret access. A still-gapped collector would
+mean no access and no reconcile, so 4 created / 4 drift-corrected / 4 deleted could not
+have happened.
+
+### The auth-CRD shape across all 36 kinds, offline
+
+`TestFleetAuthShape` in `tests/probes/`, at 0.56.0:
+
+```
+checked: 36   mismatches: 0   NOT checked: 0
+apiKey: 25    bearer: 11
+```
+
+which reproduces the 25/11 split this document records, derived independently from the
+documents' own `securitySchemes` rather than hardcoded. It asserts **equality**, not
+membership — `got == ["apiKey"]` is a completeness claim, `"apiKey" in got` passes on a
+CRD that also carries bearer. That idea is openstack-nova-operator-kog's.
+
+**Why offline and not in a cluster.** A `RESTDEFS_SCOPE=all` run was attempted first and
+failed at `kind create`: `wait-control-plane: ... client rate limiter Wait returned an
+error: rate: Wait(n=1) would exceed context deadline`, with seven kind clusters and a load
+average of 55 on the shared VM. That is contention, not a 0.56.0 defect, and it is worth
+naming because an environmental failure in a version-verification run is exactly the thing
+that gets misfiled as a version verdict. The offline probe needs no cluster, no
+credentials and no vendor API, so it is the better instrument for *shape* — but it cannot
+see RBAC provisioning, which lives in `deploy/authsecretrbac.go` and only exists in a
+cluster. Shape offline; RBAC live. The live evidence above therefore covers **4 of the 25**
+apiKey kinds, and that is the honest width of the claim.
+
+`scripts/assert_auth_crds.py` is now wired into `pin_verify.sh` so the in-cluster half is
+asserted on every future pin move rather than depending on someone remembering.
+
+### Two things NOT to carry out of this, both from peer sessions
+
+**"A provider bump cannot silently re-render your CRDs" is NOT established.** It was
+reported from a 0.52.0 → 0.56.0 in-place upgrade showing 12 of 12 CRDs with unchanged
+`resourceVersion`, and the reporting session then retracted the mechanism: oasgen-provider
+read the code and `regenerate-on-upgrade` defaults to true while `generatorChanged`
+returns true unconditionally when the stored `generatorBuild` is empty, so no branch
+produces that result. Whether the re-render fired and was a byte-identical no-op apply, or
+never fired at all, is open. Do not rely on either.
+
+**What survives, and it is the part that shaped the method here:** under *both* of those
+cases an upgrade-and-diff would show unchanged CRDs, so it cannot distinguish "nothing
+changed" from "nothing was re-rendered". The CRD-shape test therefore has to be a **fresh
+render per tag**, which is what the table above is. keycloak-provider-kog then refined the
+discriminator with a measured counter-example: an in-place upgrade *does* regenerate a CRD
+when that kind's OAS asset hash moves — a keycloak CRD went to `generation: 2` on a
+combined provider-and-asset bump. So the question is whether the OAS hash moved, not
+whether the upgrade was in place; for a provider-only bump, fresh-render-per-tag remains
+the right instrument.
+
+---
 
 ## Appendix — the 0.27.1 → 0.34.0 pin move, and the evidence behind it
 
