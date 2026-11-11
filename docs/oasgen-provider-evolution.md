@@ -1182,6 +1182,37 @@ object, across both the resource CRD and the Configuration CRD:
 
 `identifier absent from findby items` warnings: 18 at every tag, unchanged.
 
+**What that zero does and does not say.** It counts **materialised optional parents** —
+nodes where `default` is an *empty object* — and nothing else. It is not a count of
+defaults. The same 36 kinds carry **225 `default` keys** at 0.56.0, essentially all of them
+authored by the documents and benign:
+
+```
+ 35x  ConfigurationCRD …query.get.api-version        = "1"      (and findby 35, delete 32,
+ 25x  ConfigurationCRD …authentication.apiKey.header = "Authorization"   create 32, update 27)
+ 14x  ConfigurationCRD …query.get.ignoreDeletedStatus = false
+  7x  ConfigurationCRD …query.get.includeDeleted      = false
+  1x  CRD …spec.properties.properties.default         = true    <- the one that matters
+```
+
+The `apiKey.header` default appears on all 25 apiKey kinds and is the value the security
+scheme declares, which is what RDC must send — benign, and still a default that
+materialises on a live Configuration CR. The single consequential one remains `Vpc`'s
+`default: true`, as the rest of this appendix describes.
+
+This distinction is recorded because the precise claim and the available misreading differ:
+"0 stamped `default: {}`" is exact, and "no defaults" is what a skim takes away.
+openstack-nova-operator-kog published two wrong figures from exactly that gap — a
+fingerprint produced by a build that could not see defaults, whose zeros meant "cannot see
+any" rather than "there are none".
+
+**A limitation of the all-defaults census, named rather than left implicit:** Aruba has
+vendor properties *literally named* `default` — `Vpc`, `Subnet`, `SecurityGroup` and
+`Project` each declare a boolean property called `default` — so a walk that reads the
+`default` key conflates a property of that name with the `default` keyword. Four of the 225
+are that conflation. The stamping walk above is immune, because it requires the value to be
+an empty map and a property schema never is; so the 240/0/0 figures are unaffected.
+
 **Why the zeros are worth something.** Two independent reasons, because a zero from a
 broken instrument is the failure mode this document keeps recording.
 
