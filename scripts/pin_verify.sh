@@ -234,6 +234,21 @@ cluster_create() {
         --kubeconfig "$PIN_KUBECONFIG" || die "kind create failed"
       ;;
     gke)
+      # GKE caps clusters per ZONE (3 on this project), and the zone is shared with every
+      # other session's throwaway clusters. Count first: the create otherwise runs for ~2
+      # minutes and then 403s with a message that reads like a permission problem.
+      local used
+      used=$(gcloud container clusters list --project "$GKE_PROJECT" \
+               --filter="location:${GKE_ZONE}" --format='value(name)' 2>/dev/null | grep -c . )
+      echo "    ${GKE_ZONE} currently holds ${used} cluster(s)"
+      if [ "${used:-0}" -ge 3 ]; then
+        echo "    zones with room in this project:" >&2
+        gcloud container clusters list --project "$GKE_PROJECT" \
+          --format='value(location)' 2>/dev/null | sort | uniq -c \
+          | awk '$1 < 3 {printf "      %s (%d used)\n", $2, $1}' >&2
+        die "${GKE_ZONE} is at the per-zone cluster limit (${used}/3) and the clusters there
+  belong to other sessions. Set GKE_ZONE to a zone with room, or delete one of yours."
+      fi
       # Resolve the newest available patch of the REQUIRED minor, and refuse if it is gone
       # rather than letting GKE pick.
       local ver
@@ -270,11 +285,15 @@ cleanup() {
     say "deleting cluster ${CLUSTER}"
     cluster_delete
     rm -f "$PIN_KUBECONFIG"
-  else
+  elif cluster_exists; then
     printf '\ncluster %s left up (KEEP=0 to delete it)\n' "$CLUSTER"
     printf 'its kubeconfig: %s\n' "$PIN_KUBECONFIG"
     printf 'reach it with: KUBECONFIG=%s kubectl --context %s get nodes\n' \
            "$PIN_KUBECONFIG" "$CTX"
+  else
+    # KEEP=1 but there is nothing to keep. Saying "left up" here sent the first GKE run's
+    # reader looking for a cluster whose create had 403'd four lines earlier.
+    printf '\ncluster %s does NOT exist -- nothing was left up\n' "$CLUSTER"
   fi
 }
 trap cleanup EXIT
