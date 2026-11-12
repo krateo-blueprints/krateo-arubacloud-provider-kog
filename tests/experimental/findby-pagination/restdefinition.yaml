@@ -1,0 +1,96 @@
+# EXPERIMENTAL -- NEVER apply this to a real cluster alongside the fleet.
+#
+# A copy of restdefinitions/network/vpc.yaml that differs in exactly ONE way: `limit` is
+# exposed as a findby configurationField, so a Configuration can narrow the findby view on
+# purpose. The fleet definition excludes it via VIEW_NARROWING_FINDBY_QUERY precisely so
+# that cannot happen -- a findby is how existence is decided, and narrowing its view makes
+# the check lie.
+#
+# WHY THIS EXISTS. oasgen-provider#486: findby does not consult the paginator at all
+# (restclient.go:488 returns early to CallFindBySingle whenever Pagination is nil), so the
+# three-verdict machinery that exists to stop a truncated scan being read as absence is
+# bypassed. The maintainer TRACED the consequence -- the item falls off the page, findby
+# reports absence, the controller takes absence as "does not exist" and creates a duplicate
+# -- but has not run it, and no unit test of his can: his tests supply pagination config
+# deliberately, so they never exercise the no-pagination path.
+#
+# Narrowed by measurement: the hazard is FIRST-CONTACT only. Once status.metadata.id
+# exists, observe uses get, not findby (restResources.go:323-369, and measured here: 600s
+# with a blinded findby on an addressable Vpc gave no event, no error, Ready=Available, no
+# findby call logged). All 36 of our kinds declare a get verb, so none of them is exposed
+# in steady state. Adoption is the window.
+#
+# WHY limit=1 RATHER THAN 51 RESOURCES. The hazard needs "the item is not on the page
+# findby read" -- a small page, not a big collection. Verified by the maintainer against
+# the client: `total` appears zero times in the findby path, CallFindBySingle never reads
+# the envelope or the request parameters, and findItemInList only checks len(items) == 0.
+# Nothing upstream can distinguish a list short because we asked for 1 from one short
+# because the vendor capped at 50.
+#
+# Generated from vpc.yaml by the command in README.md -- do not hand-edit.
+apiVersion: ogen.krateo.io/v1alpha1
+kind: RestDefinition
+metadata:
+  name: arubacloud-network-vpc
+spec:
+  oasPath: configmap://krateo-system/arubacloud-network-openapi/network.json
+  resourceGroup: arubacloud.ogen.krateo.io
+  resource:
+    kind: Vpc
+    identifiers:
+    - metadata.name
+    additionalStatusFields:
+    - metadata.id
+    - status.failureReason
+    - status.error
+    excludedSpecFields:
+    - filter
+    - id
+    - limit
+    - offset
+    - projection
+    - sort
+    verbsDescription:
+    - action: findby
+      method: GET
+      path: /projects/{projectId}/providers/Aruba.Network/vpcs
+    - action: get
+      method: GET
+      path: /projects/{projectId}/providers/Aruba.Network/vpcs/{id}
+      requestFieldMapping:
+      - inPath: id
+        inCustomResource: status.metadata.id
+    - action: create
+      method: POST
+      path: /projects/{projectId}/providers/Aruba.Network/vpcs
+    - action: update
+      method: PUT
+      path: /projects/{projectId}/providers/Aruba.Network/vpcs/{id}
+      requestFieldMapping:
+      - inPath: id
+        inCustomResource: status.metadata.id
+    - action: delete
+      method: DELETE
+      path: /projects/{projectId}/providers/Aruba.Network/vpcs/{id}
+      requestFieldMapping:
+      - inPath: id
+        inCustomResource: status.metadata.id
+    configurationFields:
+    - fromOpenAPI:
+        name: api-version
+        in: query
+      fromRestDefinition:
+        actions:
+        - '*'
+    - fromOpenAPI:
+        name: ignoreDeletedStatus
+        in: query
+      fromRestDefinition:
+        actions:
+        - get
+    - fromOpenAPI:
+        name: limit
+        in: query
+      fromRestDefinition:
+        actions:
+        - findby
