@@ -1,0 +1,82 @@
+# ADOPTION: the resource exists at the vendor BEFORE the CR does.
+#
+# Nothing in this repo exercised this path until 2026-11-12. Every other chain creates
+# its resources through the controller, so `findby` always ran against a collection it
+# had populated itself. That leaves the whole adoption path -- findby matching an
+# existing resource, Observe reporting the difference, Update correcting it -- untested,
+# and it is exactly the path oasgen#540 was about: an adopted CR whose Update hard-failed
+# forever on a per-CR Role only Create creates, sitting at Ready=True with Synced=False
+# and no PUT ever sent.
+#
+# WHY A Vpc AND NOT OUR secretRef KIND. #540 is a secretRef defect, and DatabaseUser is
+# our only secretRef kind -- but it declares no `update` action at all (findby/get/
+# create/delete), Aruba has no PUT on a dbaas user, and its response carries only
+# username/creationDate/createdBy. There is nothing to correct, so it CANNOT reach the
+# failing code path. Measured 2026-11-12: 28 of 36 kinds have an update action, and the
+# intersection of those with secretRef is EMPTY. So this fleet cannot corroborate the
+# secretRef half at all; what it CAN test is adoption-then-Update convergence, which is
+# the half that generalises, and a Vpc tests it for free.
+#
+# THE DIFFERENCE IS THE POINT. The pre-created VPC carries `tags: [adopted-by-hand]`
+# while the CR declares `tags: []`. So adoption alone is not enough to converge: the
+# controller must adopt the resource AND send a correcting Update. A fixture where the
+# pre-existing resource already matches the spec would pass without Update ever running,
+# which is a test that cannot express the defect it is named after.
+#
+# Free: VPCs do not bill. No --with-billable.
+name: network-adoption
+vars:
+  PROJECT: ''
+  LOCATION: ITBG-Bergamo
+residue:
+- /projects/${PROJECT}/providers/Aruba.Network/vpcs
+resources:
+- kind: Vpc
+  name: ga-ad-vpc
+  # Created by the chain through the API, not by the controller. `path` is the COLLECTION:
+  # a VPC's id is vendor-assigned, so the resource's own path is not knowable until the
+  # POST has answered, which is why adoption cannot be expressed with `self`.
+  adopt:
+    path: /projects/${PROJECT}/providers/Aruba.Network/vpcs
+    idPath: metadata.id
+    match: metadata.name
+    matchValue: ga-ad-vpc
+    body:
+      metadata:
+        name: ga-ad-vpc
+        location:
+          value: ${LOCATION}
+        tags:
+        - adopted-by-hand
+      properties:
+        default: false
+        preset: false
+    # Read from the VENDOR after the CR reports Ready and Synced. Without this the chain
+    # proves adoption, then proves a LATER injected drift is corrected, but never that
+    # the difference present AT ADOPTION TIME was reconciled -- which is the
+    # Update-after-adoption path #540 is about. Ready and Synced report what the
+    # controller believes; this reads what is actually there.
+    corrected:
+      path: metadata.tags
+      equals: []
+  spec:
+    configurationRef:
+      name: vpc-config
+      namespace: default
+    projectId: ${PROJECT}
+    metadata:
+      name: ga-ad-vpc
+      location:
+        value: ${LOCATION}
+      # Empty, while the pre-created resource has one tag. This is the drift the
+      # controller must correct after adopting, and `tags` is the right field to use
+      # because the 0.61.0 network-security run already proved it driftable and
+      # correctable on this kind.
+      tags: []
+    properties:
+      default: false
+      preset: false
+  # The ordinary drift probe still runs afterwards, so this chain asserts correction
+  # twice: once from the state the resource was adopted in, and once from a drift
+  # injected under a CR the controller has already converged.
+  drift: /projects/${PROJECT}/providers/Aruba.Network/vpcs/${id:self}

@@ -317,6 +317,176 @@ def busy_refusal(resp):
 SETTLE_TIMEOUT = int(os.environ.get("SETTLE_TIMEOUT", "420"))
 
 
+def dig(obj, dotted):
+    """Read a dotted path out of a nested dict, returning None rather than raising.
+
+    A missing intermediate and a present-but-null leaf both give None, and callers treat
+    None as "could not read it" instead of comparing None to a value -- which would turn
+    a failed read into a false finding.
+    """
+    cur = obj
+    for part in dotted.split("."):
+        if not isinstance(cur, dict):
+            return None
+        cur = cur.get(part)
+    return cur
+
+
+def _collection_items(body):
+    """Aruba's list envelope is {total, values[]}; tolerate a plain list too."""
+    if isinstance(body, dict):
+        for k in ("values", "items", "value"):
+            if isinstance(body.get(k), list):
+                return body[k]
+        return None
+    return body if isinstance(body, list) else None
+
+
+def wait_synced(kind, name, timeout=180):
+    """Assert the CR reports Synced=True, which is NOT implied by Ready.
+
+    `Ready` describes the external resource; `Synced` describes whether the last
+    reconcile succeeded. The pair can disagree, and the disagreement is the signature of
+    oasgen#540: an adopted CR whose Update hard-failed sat at Ready=True with
+    Synced=False/ReconcileError and no PUT ever sent. A harness reading only Ready, or
+    only ground truth upstream, cannot see it -- which is what this one did until
+    2026-11-12, and what azuredevops-provider-kog named as the first limit of their own
+    0.57.0 evidence.
+
+    It PRINTS ON SUCCESS, deliberately. The first version returned True silently, and the
+    run log then contained no occurrence of the word Synced at all: a pass was
+    indistinguishable from the assertion never executing, which is the one thing an
+    assertion must never be. Absence of the condition is also reported differently from
+    Synced=False -- "the provider never set it" and "the last reconcile failed" need
+    different fixes.
+    """
+    deadline = time.time() + timeout
+    started = time.time()
+    while True:
+        r = kubectl("get", f"{kind}.{GROUP}", name, "-n", NS, "-o",
+                    'jsonpath={.status.conditions[?(@.type=="Synced")].status}')
+        if r.stdout.strip() == "True":
+            print(f"    ASSERTED Synced=True on {kind}/{name} "
+                  f"after {time.time() - started:.0f}s")
+            return True
+        if time.time() >= deadline:
+            conds = kubectl("get", f"{kind}.{GROUP}", name, "-n", NS, "-o",
+                            "jsonpath={range .status.conditions[*]}"
+                            "{.type}={.status}({.reason}): {.message}; {end}").stdout
+            if "Synced=" not in conds:
+                print(f"    FAIL: {kind}/{name} reports NO Synced condition at all after "
+                      f"{timeout}s -- a missing condition, not a failed reconcile. "
+                      f"conditions: {conds.strip()[:400] or '(none)'}", file=sys.stderr)
+            else:
+                print(f"    FAIL: {kind}/{name} never reached Synced=True after {timeout}s"
+                      f"\n      conditions: {conds.strip()[:400]}", file=sys.stderr)
+            return False
+        time.sleep(5)
+
+
+def adopt_precreate(res, variables, ids, kind, name):
+    """Create the resource AT THE VENDOR before the CR exists, so findby has prey.
+
+    `self` cannot be used: for any kind whose identifier is vendor-assigned, the
+    resource's own path is unknowable until the POST answers. So this works from the
+    COLLECTION path and reads the new id out of the response.
+    """
+    ad = res["adopt"]
+    coll = expand(ad["path"], variables, ids, kind)
+    body = expand(ad["body"], variables, ids, kind)
+    idp = ad.get("idPath", "metadata.id")
+    match = ad.get("match", "metadata.name")
+    mval = str(expand(ad["matchValue"], variables, ids, kind))
+
+    print(f"--- ADOPT: pre-creating {kind}/{name} at the vendor (no CR yet)")
+    code, resp = api("POST", coll, body)
+    if code not in (200, 201, 202):
+        raise RuntimeError(
+            f"adopt pre-create failed: POST {coll} -> {code} {str(resp)[:300]}")
+
+    pre = dig(resp, idp) if isinstance(resp, dict) else None
+    if pre is None:
+        deadline = time.time() + 180
+        while True:
+            lcode, lbody = api("GET", coll)
+            hit = [i for i in (_collection_items(lbody) or [])
+                   if str(dig(i, match)) == mval]
+            if len(hit) == 1:
+                pre = dig(hit[0], idp)
+                break
+            if len(hit) > 1:
+                raise RuntimeError(
+                    f"adopt pre-create: {len(hit)} resources already carry {match}={mval} "
+                    f"before the CR exists -- the fixture is dirty and an adoption test "
+                    f"against it would prove nothing")
+            if time.time() >= deadline:
+                raise RuntimeError(
+                    f"adopt pre-create: nothing at {coll} carries {match}={mval} after "
+                    f"180s (list said {lcode}); the POST reported {code} but nothing "
+                    f"exists for the CR to adopt")
+            time.sleep(10)
+    pre = str(pre)
+    print(f"    pre-created upstream, {idp}={pre}, {match}={mval}")
+    return pre, coll, idp, match, mval, ad
+
+
+def adopt_assert(kind, name, rid, pre, coll, idp, match, mval, ad):
+    """The two claims adoption makes, each failing with its own message.
+
+    A different id means the controller CREATED instead of adopting; two resources with
+    the same name mean it created a DUPLICATE. One "adoption failed" message would not
+    tell them apart, and the duplicate case is the one that costs money.
+    """
+    if str(rid) != str(pre):
+        raise RuntimeError(
+            f"ADOPTION FAILED: {kind}/{name} reports id={rid}, but the resource "
+            f"pre-created at the vendor has {idp}={pre}. It did not adopt it.")
+
+    code, body = api("GET", coll)
+    items = _collection_items(body)
+    if items is None:
+        print(f"    WARNING: GET {coll} returned {code} with no readable list; the "
+              f"no-duplicate claim is NOT established", file=sys.stderr)
+    else:
+        same = [i for i in items if str(dig(i, match)) == mval]
+        if len(same) != 1:
+            raise RuntimeError(
+                f"DUPLICATE CREATED: {len(same)} resources at {coll} carry "
+                f"{match}={mval}, expected 1. ids: {[dig(i, idp) for i in same]}")
+        print(f"    ADOPTED: CR id == pre-created id ({pre}), and exactly 1 resource "
+              f"upstream carries {match}={mval}")
+
+
+def adopt_corrected(kind, name, coll, pre, ad, variables, ids):
+    """Assert the state the resource was ADOPTED IN has actually been corrected.
+
+    Without this the chain proves adoption and then proves a LATER injected drift gets
+    corrected, but never that the difference present at adoption time was reconciled --
+    which is the Update-after-adoption path oasgen#540 is about. Ready and Synced can
+    both be true while this is still wrong, because they report what the controller
+    believes, and this reads the vendor.
+    """
+    spec = ad.get("corrected")
+    if not spec:
+        return
+    path = spec["path"]
+    want = expand(spec["equals"], variables, ids, kind)
+    url = f"{coll}/{pre}"
+    code, body = api("GET", url)
+    if code != 200 or not isinstance(body, dict):
+        raise RuntimeError(
+            f"adopt corrected-check: GET {url} -> {code}; cannot read the adopted "
+            f"resource, so the correction is UNVERIFIED (not proven absent)")
+    got = dig(body, path)
+    if got != want:
+        raise RuntimeError(
+            f"ADOPTION DID NOT CONVERGE: {kind}/{name} is Ready and Synced, but upstream "
+            f"{path}={got!r} while the CR declares {want!r}. The difference present at "
+            f"adoption time was never corrected -- this is the oasgen#540 shape.")
+    print(f"    CONVERGED: the adoption-time difference was corrected upstream "
+          f"({path} == {want!r})")
+
+
 def wait_settled(url, timeout=None):
     """Poll until the resource is in a state that accepts writes.
 
@@ -852,6 +1022,10 @@ def main():
                 if r.returncode != 0:
                     raise RuntimeError(f"secret apply failed: {r.stderr.strip()[:200]}")
 
+            adopt_state = None
+            if res.get("adopt"):
+                adopt_state = adopt_precreate(res, variables, ids, kind, name)
+
             print(f"--- creating {kind}/{name}")
             r = kubectl("apply", "-f", "-", stdin=yaml.safe_dump(manifest))
             if r.returncode != 0:
@@ -864,6 +1038,14 @@ def main():
             rid = upstream_id(kind, name, res.get("idPath"))
             if not rid:
                 raise RuntimeError(f"{kind}/{name} reported no upstream id")
+            # Asserted for EVERY resource, not only adopted ones: Ready=True with
+            # Synced=False is a silent-failure class this harness could not see.
+            if not wait_synced(kind, name):
+                raise RuntimeError(f"{kind}/{name} never reached Synced=True")
+            if adopt_state:
+                adopt_assert(kind, name, rid, *adopt_state)
+                adopt_corrected(kind, name, adopt_state[1], adopt_state[0],
+                                adopt_state[5], variables, ids)
             # Keyed by BOTH kind and CR name. Kind alone collides as soon as a chain
             # holds two of the same kind -- a VPC peering needs two Vpcs, and the
             # second silently overwrote the first, so ${id:Vpc} meant "whichever ran
