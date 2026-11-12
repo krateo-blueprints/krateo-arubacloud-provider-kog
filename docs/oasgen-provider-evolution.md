@@ -36,11 +36,15 @@ Scope analysed: 11 specs, ~108 operations, **34 manageable resources** across th
 
 ## 0. Summary table
 
-> **Pin status (2026-11-07): 0.54.1.** 0.53.0 and 0.54.0 are both skipped and both
-> measured — 0.53.0 stamps `default: {}` on 240 optional object paths; 0.54.0 fixes that
-> and then cannot reconcile at all, because its auth-secret RBAC collector missed
-> `apiKey.tokenRef`, which is 25 of our 36 kinds. 0.54.1 derives those paths from the
-> auth shapes and verified clean end to end. See the appendices.
+> **Pin status (2026-11-12): 0.61.0.** Moved from 0.54.1 deliberately without waiting for
+> oasgen#512, which Diego parked: waiting no longer bought one clean pin move, it only grew
+> the gap. `VIEW_NARROWING_FINDBY_QUERY` is **kept** in this move and comes out later as its
+> own change, so a failure afterwards has one candidate cause rather than two.
+>
+> Still true and still the reason the floor is where it is: 0.53.0 and 0.54.0 are both skipped
+> and both measured — 0.53.0 stamps `default: {}` on 240 optional object paths; 0.54.0 fixes
+> that and then cannot reconcile at all, because its auth-secret RBAC collector missed
+> `apiKey.tokenRef`, which is 25 of our 36 kinds. See the appendices.
 
 
 | # | Issue | Status | Resources affected | Evolution needed |
@@ -1177,7 +1181,7 @@ object, across both the resource CRD and the Configuration CRD:
 | tag | plumbing | definitions rendered | render failures | stamped `default: {}` | control, flag UNSET |
 |---|---|---|---|---|---|
 | 0.53.0 | v1.27.0 | 36 | 0 | **240** | 1 |
-| **0.54.1** (pin) | v1.27.0 | 36 | 0 | **0** | 1 |
+| **0.54.1** (the pin then) | v1.27.0 | 36 | 0 | **0** | 1 |
 | 0.56.0 | v1.33.0 | 36 | 0 | **0** | 1 |
 
 `identifier absent from findby items` warnings: 18 at every tag, unchanged.
@@ -1435,3 +1439,87 @@ for prov, fn in sorted(CONFIGMAP_PROVIDERS.items(), key=lambda kv: kv[1]):
     print(f"{fn:<32} path-item={pi:<4} operation={op}")
 EOF
 ```
+
+## Appendix — the 0.54.1 → 0.61.0 pin move (2026-11-12)
+
+**Why this move happened without oasgen#512.** The 0.54.1 hold existed so that one pin move
+could also delete `VIEW_NARROWING_FINDBY_QUERY`, the local stand-in for #512's refusal. On
+2026-11-12 Diego parked #512 — the confirmed queue is #614 → #617 → #543 → #598 → #563 → #550
+and #512 is not in it — so waiting no longer bought a single clean move, it only grew the gap.
+The gap had reached seven releases, with three breaking changes in 0.57.0 alone.
+
+**The exclusion is KEPT in this move, deliberately.** It comes out later as its own change.
+The reason is not caution, it is separability: if the bump and the removal land together, a
+failure afterwards has two candidate causes and cannot be attributed. We are the only consumer
+that can run the experiment at all — findby in 36 of 36 kinds, `configurationFields` in 36 of
+36, against nova's 0 and 0 — so a muddled result here is not recoverable from anyone else's
+corpus. The maintainer asked for the same split independently. `generate_restdefinitions.py`
+now records that the coexistence is expected, so it is not deleted later as redundant.
+
+### The CRD-shape axis, fresh render at the tag
+
+`tests/probes/fleet_parentdefault_probe_test.go` in a detached worktree at `0.61.0^{}`:
+
+```
+definitions rendered: 36   render failures: 0   stamped `default: {}` paths: 0
+CONTROL stamped paths (flag UNSET, must be > 0): 1
+TestFleetAuthShape: checked 36   mismatches 0   NOT checked 0
+```
+
+The control line is the point. A fleet zero from this probe means nothing unless the control
+reads greater than zero, because two earlier versions of it produced a clean fleet result from
+a dead instrument.
+
+### The reconcile axis, released images, no overrides
+
+`scripts/pin_verify.sh` with `OASGEN_VERSION=0.61.0` on a disposable GKE cluster:
+
+```
+images actually running: oasgen-provider:0.61.0 x1, rest-dynamic-controller:0.61.0 x4
+RESULT: 4 resources created and observed
+  drift Vpc/ga-ns-vpc: ok     drift Subnet/ga-ns-subnet: ok
+  drift SecurityGroup/ga-ns-sg: ok    drift SecurityRule/ga-ns-sr: ok
+4/4 deleted -- residue check: leftovers = 0
+transport census: 58 attempts, 54 ok, 0 transport failures (0.0%), 4 HTTP errors
+auth-CRD shape: 4/4 OK, methods=['apiKey'] fields=['header','tokenRef','valuePrefix']
+PIN_VERIFY_RC=0
+```
+
+All four drifts corrected, including `SecurityGroup`, which was SKIPPED at 0.52.0.
+
+**Two failed runs preceded that one, and neither was a version finding.** The first died on a
+GKE quota — three clusters is the per-zone maximum and europe-west3-a was full of other
+sessions' clusters — and the second on an unset `PROJECT`, which the chain fixture declares
+empty so it is never committed. Recorded because an environmental failure inside a
+version-verification run is exactly the thing that gets misfiled as a version verdict, and the
+0.56.0 appendix had to say the same thing about a `kind create` that failed under load. Both are
+now preflights: the zone cap is counted before the create, and the first run also exposed a
+defect in the new code — with `KEEP=1` and a failed create, teardown announced a cluster that
+did not exist.
+
+### Verification moved off the laptop
+
+This is the first pin move not measured on `kind`. Diego's 2026-11-12 directive is to stop
+building kind clusters on the shared laptop: seven at once took the load average to 148 and
+crashed the Docker VM, and that crash is what left `kind-aruba-110` — which holds the only copy
+of the client credential — exited for 27 hours. `pin_verify.sh` gained
+`CLUSTER_PROVIDER=kind|gke`; `kind` remains the default. The credential is still piped
+cluster-to-cluster and still never touches disk.
+
+### What this move does NOT cover
+
+- **`secretRef` is not exercised.** It appears in 1 of 36 definitions
+  (`database/databaseuser.yaml`) and the free network chain uses none, so 0.57.0's
+  `secretrbac!` change is unverified *here*. azuredevops-provider-kog verified it on shipped
+  0.57.0 against their own vendor — 25 RDs, adoption passing, 0 occurrences of the
+  `missing but was expected to already exist` hard error — and stated two limits: they asserted
+  drift at the vendor rather than waiting on `Synced=True`, and it is one kind with a scalar
+  ref on one vendor. Our harness has the same first gap: `ga_chain.py` asserts ground truth
+  upstream and never reads `Synced`.
+- **Adoption is not exercised at all.** `ga_chain.py` has no pre-create-at-vendor path, so
+  nothing here tests the defect issue 540 describes.
+- **0.60.0 and 0.61.0 carry no per-change triage.** 0.57.0's three breaking changes were
+  triaged; these two were read only at release-note level. 0.60.0 repairs a 0.59.0 deploy
+  defect (the restart gate never fired and the apply erased what it wrote, issues 599+595) and
+  0.61.0 fixes oasgen#576, where a failed instance list read as zero instances and the
+  `restresources-still-exist` finalizer could be removed while instances existed.
