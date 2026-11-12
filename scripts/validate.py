@@ -1320,14 +1320,24 @@ def verify_create_absence_is_declared(errors):
 
     THE PREDICATE IS NOT "no create verb". The maintainer traced three escapes that each
     return before the create builder is reached, so a kind is exposed only if it has NONE
-    of them: a real `create` verb, a `createApiRef` (delegation), or being a dispatch
-    resource. This checks the first two. **The dispatch escape is NOT checked**, because
-    its declaration key is unknown here -- so a dispatch resource without a create verb
-    would be reported and should not be. That is a known over-report rather than a silent
-    gap, and the fix is to extend the escape set, NOT to widen the allowlist, which would
-    exempt the kind for the wrong reason. Measured on this corpus: one `updateApiRef` and
-    one `deleteApiRef` in the whole tree, both on a kind that declares a real create, and
-    no `createApiRef` at all -- so both predicates agree here today.
+    of them, and all three are checked here:
+
+        exposed := no verb with action == "create"
+               AND no createApiRef
+               AND no verb with action == "dispatch"
+
+    `dispatch` is an ordinary value of the action enum (types.go:551), so it needs no
+    extra parsing -- it is in the same field as every other verb. A dispatch cannot be
+    half-declared either: a CEL rule at admission requires correlation, because a
+    dispatch that cannot be correlated would re-fire every reconcile while reporting
+    Ready, and `createDispatch` refuses to fire without one regardless.
+
+    Measured on this corpus: no `createApiRef` at all, no `dispatch` at all, and one
+    `updateApiRef` plus one `deleteApiRef` on a single kind that declares a real create
+    (CloudServer, whose update and delete go to Snowplow RESTActions). So all three
+    escapes are inert here today -- which is exactly why the check must encode them
+    anyway, since the first kind to use one would otherwise be reported as exposed when
+    the code path never reaches it.
 
     The allowlist is self-checking in both directions. An unlisted kind that cannot create
     is an error, AND a listed kind that CAN create is an error -- a stale exemption is how
@@ -1357,9 +1367,10 @@ def verify_create_absence_is_declared(errors):
         kind = res.get("kind") or f
         acts = {str(v.get("action", "")).lower()
                 for v in (res.get("verbsDescription") or [])}
-        # createApiRef delegates creation, so the create builder is never reached and the
-        # silent-success path cannot fire. Counts as having a create.
-        if "create" in acts or "createApiRef" in yaml.safe_dump(d):
+        # Either escape means the create builder is never reached, so the silent-success
+        # path cannot fire: createApiRef delegates creation, and a dispatch verb returns
+        # earlier still. Both count as having a create.
+        if acts & {"create", "dispatch"} or "createApiRef" in yaml.safe_dump(d):
             having.add(kind)
         else:
             lacking[kind] = (f, sorted(acts))
@@ -1367,12 +1378,12 @@ def verify_create_absence_is_declared(errors):
     for kind, (f, acts) in sorted(lacking.items()):
         if kind not in NO_CREATE_BY_DESIGN:
             errors.append(
-                "%s (%s) cannot create -- no create verb and no createApiRef -- and is "
-                "not in NO_CREATE_BY_DESIGN. Per oasgen-provider#624 a CR of this kind "
-                "reports a SUCCESSFUL create forever while nothing is created, with no "
-                "condition saying so. Verbs found: %s. If the vendor genuinely publishes "
-                "no POST, add it to the allowlist with the reason; if it is a dispatch "
-                "resource, extend the escape set instead." % (kind, f, acts))
+                "%s (%s) cannot create -- no create verb, no createApiRef and no "
+                "dispatch verb -- and is not in NO_CREATE_BY_DESIGN. Per "
+                "oasgen-provider#624 a CR of this kind reports a SUCCESSFUL create "
+                "forever while nothing is created, with no condition saying so. Verbs "
+                "found: %s. If the vendor genuinely publishes no POST, add it to the "
+                "allowlist with the reason." % (kind, f, acts))
 
     for kind in sorted(set(NO_CREATE_BY_DESIGN) - set(lacking)):
         if kind in having:
@@ -1393,7 +1404,7 @@ def verify_create_absence_is_declared(errors):
                       "than that the repository changed.")
     else:
         print("Checked `create` reachability across %d RestDefinitions "
-              "(%d exempt by design; createApiRef counts as create)"
+              "(%d exempt by design; createApiRef and dispatch count as create)"
               % (parsed, len(lacking)))
 
 
