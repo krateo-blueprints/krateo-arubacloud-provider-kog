@@ -43,6 +43,20 @@ LOCATION = os.environ.get("LOCATION", "ITBG-Bergamo")
 VPCS = f"/projects/{PROJECT}/providers/Aruba.Network/vpcs"
 
 failures = []
+_created = False      # set once anything exists upstream that cleanup must remove
+
+
+def die(msg):
+    """Abort, but never while holding resources.
+
+    Run 1 called sys.exit() from inside the setup assertion, which skipped cleanup() and
+    left two probe VPCs upstream -- so run 2 found a dirty fixture and refused to start.
+    An abort path that leaks is worse than a failure, because the next run inherits it.
+    """
+    print(f"\nABORT: {msg}")
+    if _created:
+        cleanup()
+    sys.exit(1)
 
 
 def kubectl(*args, stdin=None):
@@ -144,16 +158,15 @@ def assert_limit_is_stored(limit):
                   "-o", "jsonpath={.spec.configuration.query.findby.limit}").stdout.strip()
     if got != str(limit):
         if "unknown field" in err:
-            sys.exit("ABORT: the CRD has no findby.limit field at all -- this cluster's "
+            die("the CRD has no findby.limit field at all -- this cluster's "
                      "Vpc CRD was generated WITHOUT the experimental definition. "
                      "configurationFields are immutable, so it needs a fresh cluster.")
         if "Invalid value" in err:
-            sys.exit("ABORT: the CRD HAS findby.limit but rejected the value (%s). The "
+            die("the CRD HAS findby.limit but rejected the value (%s). The "
                      "experimental definition is installed correctly; the probe sent the "
                      "wrong type. `limit` is `type: integer` in the OAS." % err[:200])
-        sys.exit("ABORT: findby.limit read back as %r after a patch that exited %d. "
-                 "Silently pruned -- a result from here would be meaningless."
-                 % (got, r.returncode))
+        die("findby.limit read back as %r after a patch that exited %d. Silently "
+            "pruned -- a result from here would be meaningless." % (got, r.returncode))
     print(f"    ASSERTED findby.limit == {got!r} in the STORED Configuration")
 
 
@@ -217,13 +230,33 @@ def main():
     if code != 200:
         sys.exit("cannot list vpcs; aborting before creating anything")
 
+    stale = [n for n in names_of(items) if str(n or "").startswith(PREFIX)]
+    if stale:
+        print(f"\n=== reclaiming {len(stale)} leftover probe VPC(s) from an earlier run ===")
+        print(f"    {stale}  (only names starting {PREFIX!r} are ever touched)")
+        for i in [x for x in items if str(names_of([x])[0] or "").startswith(PREFIX)]:
+            md = i.get("metadata") or {}
+            c, _ = api("DELETE", f"{VPCS}/{md.get('id')}")
+            print(f"    DELETE {md.get('name')} -> {c}")
+        for _ in range(12):
+            time.sleep(15)
+            _, items = list_vpcs()
+            if not [n for n in names_of(items) if str(n or "").startswith(PREFIX)]:
+                print("    reclaimed; fixture is clean")
+                break
+        else:
+            sys.exit("could not reclaim leftover probe VPCs; refusing to run against a "
+                     "dirty fixture because an unexpected duplicate count would be "
+                     "unattributable")
+
     print("\n=== creating two probe VPCs at the vendor (free, deleted at the end) ===")
+    global _created
     for n in (f"{PREFIX}-a", f"{PREFIX}-b"):
+        _created = True
         c, _ = api("POST", VPCS, vpc_body(n))
         print(f"    POST {n} -> {c}")
         if c not in (200, 201, 202):
-            cleanup()
-            sys.exit(f"could not create {n}; nothing further attempted")
+            die(f"could not create {n} (HTTP {c}); nothing further attempted")
     time.sleep(20)
 
     # LIMIT=2, not 1. Measured on the first run: limit=1 returns the pre-existing default
@@ -238,9 +271,8 @@ def main():
     page_names = names_of(page)
     print(f"    GET vpcs?limit={LIMIT} -> {c}, {len(page)} item(s): {page_names}")
     if len(page) != LIMIT:
-        cleanup()
-        sys.exit(f"limit={LIMIT} returned {len(page)} items, so this vendor does not "
-                 f"honour it downward here and the experiment cannot be set up")
+        die(f"limit={LIMIT} returned {len(page)} items, so this vendor does not honour "
+            f"it downward here and the experiment cannot be set up")
     _, allv = list_vpcs()
     offpage = [n for n in names_of(allv)
                if str(n or "").startswith(PREFIX) and n not in page_names]
