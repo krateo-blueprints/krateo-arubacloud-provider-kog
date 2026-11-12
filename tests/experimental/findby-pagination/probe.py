@@ -39,6 +39,7 @@ PROJECT = os.environ["PROJECT"]
 CTX = os.environ["KUBE_CONTEXT"]
 NS = "default"
 GROUP = "arubacloud.ogen.krateo.io"
+VPC_VERSION = None     # discovered from the cluster, never hardcoded
 LOCATION = os.environ.get("LOCATION", "ITBG-Bergamo")
 VPCS = f"/projects/{PROJECT}/providers/Aruba.Network/vpcs"
 
@@ -95,6 +96,21 @@ def api(method, path, body=None):
         return 0, None
 
 
+def served_version(kind):
+    """Ask the cluster which version the CRD actually serves.
+
+    Reused from scripts/ga_chain.py, whose docstring warns against exactly the mistake
+    run 3 made: the CRD version derives from the OAS `info.version`, so it is NOT
+    v1alpha1 (that is the Configuration's version) and not reliably v1-0-0 either --
+    metering declares "1.0", so AlertRule is served at v1-0. Run 3 hardcoded v1alpha1 and
+    both arms failed with `no matches for kind "Vpc"` AFTER creating two VPCs upstream.
+    """
+    r = kubectl("get", "crd", "-o",
+                "jsonpath={range .items[?(@.spec.names.kind=='" + kind + "')]}"
+                "{.spec.versions[0].name}{end}")
+    return r.stdout.strip() or None
+
+
 def vpc_body(name):
     return {"metadata": {"name": name, "location": {"value": LOCATION}, "tags": []},
             "properties": {"default": False, "preset": False}}
@@ -116,7 +132,7 @@ def by_name(items, name):
 
 def cr_manifest(cr_name, vpc_name):
     return json.dumps({
-        "apiVersion": f"{GROUP}/v1alpha1", "kind": "Vpc",
+        "apiVersion": f"{GROUP}/{VPC_VERSION}", "kind": "Vpc",
         "metadata": {"name": cr_name, "namespace": NS,
                      "annotations": {"krateo.io/connector-verbose": "true"}},
         "spec": {"configurationRef": {"name": "vpc-config", "namespace": NS},
@@ -224,7 +240,20 @@ def cleanup():
 
 
 def main():
-    print("=== preflight: what exists now ===")
+    global VPC_VERSION
+    print("=== preflight: is the cluster usable AT ALL? (before touching the vendor) ===")
+    VPC_VERSION = served_version("Vpc")
+    cfg_version = served_version("VpcConfiguration")
+    print(f"    Vpc CRD served version:              {VPC_VERSION!r}")
+    print(f"    VpcConfiguration CRD served version: {cfg_version!r}")
+    if not VPC_VERSION:
+        sys.exit("ABORT: no CRD serves kind Vpc in this cluster, so no CR can be applied. "
+                 "Nothing was created upstream. Did pin_verify finish generating it?")
+    if not cfg_version:
+        sys.exit("ABORT: no CRD serves kind VpcConfiguration, so the findby cannot be "
+                 "narrowed. Nothing was created upstream.")
+
+    print("\n=== preflight: what exists now ==="),
     code, items = list_vpcs()
     print(f"    GET vpcs -> {code}, {len(items)} vpc(s): {names_of(items)}")
     if code != 200:
