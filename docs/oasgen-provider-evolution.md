@@ -1283,6 +1283,77 @@ gap — these per-kind Roles are the *only* Secret access. A still-gapped collec
 mean no access and no reconcile, so 4 created / 4 drift-corrected / 4 deleted could not
 have happened.
 
+### Which Role family the RBAC finding above measured (added 2026-11-12)
+
+oasgen 0.57.0 ships `fix(secretrbac)!: stop self-provisioning per-CR secretRef RBAC, so
+adoption can converge`
+([#571](https://github.com/krateo-platformops/oasgen-provider/pull/571), issue
+[540](https://github.com/krateo-platformops/oasgen-provider/issues/540)) — a BREAKING change
+that **deletes** a family of Secret-granting Roles. That is not the family measured above,
+and nothing but the name distinguishes them:
+
+| family | name shape | grants access to | provisioned by | at 0.57.0 |
+|---|---|---|---|---|
+| auth-secret, per **Kind** | `vpcs-arubacloud.ogen.krateo.io-v1alpha1-authsecrets` | the **credential** Secret (`arubacloud-token`) | `deploy/authsecretrbac.go` in oasgen-provider | unchanged (confirmed at `origin/main`) |
+| secretRef, per **CR** | `serviceendpointusernamepasswords-v7-1-ba4f6645-secrets` | a **spec-field** Secret resolved by the `secretRef` resolver | `EnsureSecretRole` in rest-dynamic-controller | **deleted** |
+
+Both end in a `secrets`-ish suffix, both carry `resources: ["secrets"]`, and both appear as
+namespaced Roles beside the controllers. A reader who takes the block above as "0.56.0's
+Secret RBAC, measured" would therefore read it as covering something 0.57.0 removes. It does
+not: every Role quoted above is the per-Kind auth-secret family, which exists so a generated
+controller can read the one credential Secret, and which is what oasgen#475 narrowed and
+oasgen#500 showed had a collector gap for `apiKey.tokenRef`.
+
+**Why the other family went away.** Issue 540 is not a 0.56.0 regression — it was measured
+identical at four tags, so it predates 0.52.0. Adoption never converged for any `secretRef`
+kind: `ensureSecretRefRBACAndResolve` passed `expectExisting = false` on Create and **true**
+on Update, and an adopted CR never ran Create, so Update hard-failed forever on a per-CR Role
+that only Create creates. #571's framing of the fix is worth keeping: *a subject cannot grant
+itself less than nothing* — self-imposed least privilege needs a broader grant to narrow from,
+and 0.54.0 had removed exactly that. The replacement grant is provisioned from the generated
+Kind's instances (#527), **which shipped in 0.56.0** — so the mechanism that replaces it is
+already present at the version measured above, and `RoleName`/`DeleteSecretRole` are kept so
+an upgrade still tears down Roles left by older releases.
+
+**Our exposure to the deleted family is one kind.** Measured 2026-11-12 over the 36 generated
+definitions, with a positive control (`kind: RestDefinition` 36/36, `findby` 36/36, proving the
+search reaches the tree):
+
+```
+secretRef in restdefinitions/:  1 of 36   -- database/databaseuser.yaml only
+bracket notation in paths:      0 of 36   -- 0.57.0 pathparsing! has nothing to act on here
+```
+
+So the per-CR family is reachable here only through `DatabaseUser`, and none of the four kinds
+in the live chain above (Vpc, Subnet, SecurityGroup, SecurityRule) uses `secretRef` at all —
+their grant is the auth-secret family, unchanged. The third breaking change in 0.57.0,
+`restclient!` withholding collection bodies from verbose dumps, touches no measurement in this
+repo: `scripts/ga_chain.py` counts its **own** HTTP attempts (`_CALLS`, the transport census),
+nothing consumes the `krateo.io/connector-verbose` annotation it sets, and no script reads
+controller logs for an assertion.
+
+**Confirmed by the oasgen-provider maintainer, measured at `origin/main` (2026-11-12).**
+`EnsureSecretRole` is gone — the one non-test occurrence left is a comment at
+`internal/tools/deploy/secretrefrbac.go:84` — while `internal/tools/deploy/authsecretrbac.go`
+exists untouched, with `AuthSecretRoleName(gvr)` producing
+`<resource>-<group>-<rbacVersion>-authsecrets`. The Role recorded above matches that function
+exactly, so it is the **current** shape and it survives 0.57.0. Two mechanisms, two files, two
+name functions; #571 is only about the other one.
+
+**A name form to watch for, from the same answer:** #440 renamed this family from
+`<resource>-<rbacVersion>-authsecrets` to the group-qualified form, and
+`legacyAuthSecretRoleName` plus `DeleteLegacyAuthSecretRBAC` exist to tear down the old one.
+Every `-authsecrets` reference in this document was checked on 2026-11-12 and all three carry
+the group-qualified form, so none is stale — but a quotation of the short form anywhere else
+dates from before #440 and should not be read as current.
+
+**What is still not triaged.** 0.60.0 and 0.61.0 shipped after this section was written
+(0.61.0 is latest as of 2026-11-12; the gap from the 0.54.1 pin is now seven releases). The
+three breaking changes triaged here are 0.57.0's only. Whatever 0.60.0 and 0.61.0 contain needs
+its own pass before a pin move, and the fact that this paragraph had to be added twice in two
+days — the section was first written against "0.59.0 is latest" — is the argument for checking
+`ls-remote` at the moment of the claim rather than trusting a number from the day before.
+
 ### The auth-CRD shape across all 36 kinds, offline
 
 `TestFleetAuthShape` in `tests/probes/`, at 0.56.0:
