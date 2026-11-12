@@ -120,24 +120,41 @@ def events_for(cr_name):
     return [l for l in r.stdout.splitlines() if l.strip()]
 
 
-def assert_limit_is_stored():
-    """A Configuration patch exits 0 while storing NOTHING if the CRD prunes the field.
+def assert_limit_is_stored(limit):
+    """Refuse to continue unless the narrowed `limit` is really in the stored object.
 
-    Measured 2026-11-07 on the fleet definition: `kubectl patch ... findby.offset` printed
-    a warning, exited 0, and stored nothing. So this reads the value back and refuses to
-    continue if it is absent -- otherwise the whole experiment would run with an
-    unnarrowed findby and report "no duplicate" as if that meant something.
+    A Configuration patch of a PRUNED field exits 0 and stores nothing -- measured
+    2026-11-07 with `findby.offset` on the fleet definition, which printed a warning and
+    succeeded. Without this read-back the experiment would run an UNNARROWED findby, both
+    arms would adopt cleanly, and "no duplicate" would be reported as a result.
+
+    THREE OUTCOMES, REPORTED SEPARATELY, because the first version of this conflated them
+    and misdiagnosed its own run. `limit` is `type: integer` in the OAS, so the generated
+    CRD types it integer and a string value is REJECTED rather than pruned:
+
+      rc!=0 + "unknown field"    -> the CRD lacks the field: wrong definition installed
+      rc!=0 + "Invalid value"    -> the CRD HAS it, our value has the wrong type
+      rc==0 but read-back empty  -> silently pruned, the original hazard
     """
     r = kubectl("patch", "vpcconfiguration", "vpc-config", "-n", NS, "--type", "merge",
-                "-p", json.dumps({"spec": {"configuration": {"query": {"findby": {"limit": "1"}}}}}))
-    print(f"    patch rc={r.returncode} {r.stderr.strip()[:120]}")
+                "-p", json.dumps({"spec": {"configuration": {"query": {"findby": {"limit": limit}}}}}))
+    err = (r.stderr or "").strip()
+    print(f"    patch rc={r.returncode} {err[:300]}")
     got = kubectl("get", "vpcconfiguration", "vpc-config", "-n", NS,
                   "-o", "jsonpath={.spec.configuration.query.findby.limit}").stdout.strip()
-    if got != "1":
-        sys.exit("ABORT: findby.limit did not store (read back %r). The CRD pruned it, so "
-                 "this cluster's Vpc CRD was generated WITHOUT the experimental "
-                 "definition. A result from here would be meaningless." % got)
-    print(f"    ASSERTED findby.limit == {got!r} in the stored Configuration")
+    if got != str(limit):
+        if "unknown field" in err:
+            sys.exit("ABORT: the CRD has no findby.limit field at all -- this cluster's "
+                     "Vpc CRD was generated WITHOUT the experimental definition. "
+                     "configurationFields are immutable, so it needs a fresh cluster.")
+        if "Invalid value" in err:
+            sys.exit("ABORT: the CRD HAS findby.limit but rejected the value (%s). The "
+                     "experimental definition is installed correctly; the probe sent the "
+                     "wrong type. `limit` is `type: integer` in the OAS." % err[:200])
+        sys.exit("ABORT: findby.limit read back as %r after a patch that exited %d. "
+                 "Silently pruned -- a result from here would be meaningless."
+                 % (got, r.returncode))
+    print(f"    ASSERTED findby.limit == {got!r} in the STORED Configuration")
 
 
 def run_arm(label, cr_name, vpc_name, expect_duplicate, settle=240):
@@ -209,23 +226,31 @@ def main():
             sys.exit(f"could not create {n}; nothing further attempted")
     time.sleep(20)
 
-    print("\n=== which VPC does a 1-item page actually return? (measured, not assumed) ===")
-    c, page = list_vpcs("limit=1")
+    # LIMIT=2, not 1. Measured on the first run: limit=1 returns the pre-existing default
+    # VPC (the oldest -- this collection is oldest-first), which left BOTH probe VPCs off
+    # the page and no on-page probe resource for the control arm. The only on-page
+    # candidate would have been the region-unique default VPC, and pointing a CR at that
+    # risks modifying it. With limit=2 the page holds the default plus one probe VPC, so
+    # both arms land on resources this probe created and deletes.
+    LIMIT = 2
+    print(f"\n=== which VPCs does a {LIMIT}-item page return? (measured, not assumed) ===")
+    c, page = list_vpcs(f"limit={LIMIT}")
     page_names = names_of(page)
-    print(f"    GET vpcs?limit=1 -> {c}, {len(page)} item(s): {page_names}")
-    if len(page) != 1:
+    print(f"    GET vpcs?limit={LIMIT} -> {c}, {len(page)} item(s): {page_names}")
+    if len(page) != LIMIT:
         cleanup()
-        sys.exit(f"limit=1 returned {len(page)} items, so this vendor does not honour it "
-                 f"downward here and the experiment cannot be set up")
+        sys.exit(f"limit={LIMIT} returned {len(page)} items, so this vendor does not "
+                 f"honour it downward here and the experiment cannot be set up")
     _, allv = list_vpcs()
     offpage = [n for n in names_of(allv)
                if str(n or "").startswith(PREFIX) and n not in page_names]
     onpage = [n for n in page_names if str(n or "").startswith(PREFIX)]
     print(f"    probe VPCs OFF the page: {offpage}")
+    # the control arm must use a probe VPC, never the pre-existing default
     print(f"    probe VPCs ON  the page: {onpage}")
 
     print("\n=== narrowing the findby through the Configuration ===")
-    assert_limit_is_stored()
+    assert_limit_is_stored(LIMIT)
 
     if offpage:
         run_arm("OFF-PAGE", f"{PREFIX}-offpage", offpage[0], expect_duplicate=True)
