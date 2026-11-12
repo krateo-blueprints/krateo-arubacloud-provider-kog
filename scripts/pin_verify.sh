@@ -148,7 +148,19 @@ AUTHN_VERSION="${AUTHN_VERSION:-0.27.3}"
 # rather than inherited, because an empty server-url fails at delegation time
 # with a live resource already created.
 ARUBA_API="${ARUBA_API:-https://api.arubacloud.com}"
-KEEP="${KEEP:-1}"
+# Keeping the cluster is the right default for kind -- it costs idle CPU on a machine you
+# already own, and a kept cluster is how you debug a failed run without rebuilding. On GKE
+# it is the wrong default: an idle cluster bills. Two e2-standard-4 nodes left up overnight
+# because someone read a result and moved on is a real cost, and the person who forgets is
+# the person who just got the answer they wanted.
+#
+# So the default is per-provider. Passing KEEP explicitly still wins either way, and a
+# failed GKE run that you want to inspect is KEEP=1.
+if [ "$CLUSTER_PROVIDER" = "gke" ]; then
+  KEEP="${KEEP:-0}"
+else
+  KEEP="${KEEP:-1}"
+fi
 
 say() { printf '\n=== %s ===\n' "$*"; }
 # Split registry/repository:tag into --set arguments for one of the chart's image
