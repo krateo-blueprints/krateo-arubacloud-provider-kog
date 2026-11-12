@@ -44,7 +44,32 @@ NODE_IMAGE="${NODE_IMAGE:-kindest/node:v1.36.4}"    # same pin as CI; see valida
                                                     # 1.36 is REQUIRED by chart 0.28.0+
 ESO_VERSION="${ESO_VERSION:-2.11.0}"               # as installed on the evidence cluster
 CLUSTER="${CLUSTER:-aruba-pin}"
-CTX="kind-${CLUSTER}"
+
+# WHICH KIND OF THROWAWAY CLUSTER.
+#
+# `kind` is the historical default and what every live verdict in docs/ was measured on.
+# `gke` exists because of Diego's 2026-11-12 directive to stop building kind clusters on the
+# shared laptop: seven at once took the load average to 148 and crashed the Docker VM, and
+# that crash is what left the evidence cluster exited for 27 hours. The provider is a switch
+# over three operations -- exists / create / delete -- plus the context NAME, which is the
+# only thing the rest of this script ever refers to.
+CLUSTER_PROVIDER="${CLUSTER_PROVIDER:-kind}"
+GKE_PROJECT="${GKE_PROJECT:-operations-dev-krateo-io}"   # Diego's choice, 2026-11-12
+GKE_ZONE="${GKE_ZONE:-europe-west3-a}"
+GKE_MACHINE="${GKE_MACHINE:-e2-standard-4}"
+GKE_NODES="${GKE_NODES:-2}"
+# The chart needs Kubernetes 1.36 (see NODE_IMAGE above). On GKE the patch is SELECTED at run
+# time rather than pinned: a pinned patch silently vanishes from GKE's available list as
+# versions roll, while accepting whatever GKE defaults to is how you get a 1.35 cluster and a
+# chart failure several minutes later that reads like a provider defect.
+GKE_K8S_MINOR="${GKE_K8S_MINOR:-1.36}"
+
+case "$CLUSTER_PROVIDER" in
+  kind) CTX="kind-${CLUSTER}" ;;
+  gke)  CTX="gke_${GKE_PROJECT}_${GKE_ZONE}_${CLUSTER}" ;;
+  *)    printf 'error: CLUSTER_PROVIDER must be kind or gke, got %s\n' "$CLUSTER_PROVIDER" >&2
+        exit 1 ;;
+esac
 export CTX
 SRC_CTX="${SRC_CONTEXT:-kind-aruba-110}"           # where the credential already lives
 CHAIN="${CHAIN:-tests/ga/chains/network-security.yaml}"
@@ -182,14 +207,68 @@ die() { printf 'error: %s\n' "$*" >&2; exit 1; }
 # destroying clusters -- one `kubectl config use-context` anywhere and the user's
 # default moves. The credential read is ONE command, so it names the shared file
 # explicitly (SRC_KUBECONFIG) instead, and nothing else can reach it.
-PIN_KUBECONFIG="${PIN_KUBECONFIG:-${TMPDIR:-/tmp}/kind-${CLUSTER}.kubeconfig}"
+PIN_KUBECONFIG="${PIN_KUBECONFIG:-${TMPDIR:-/tmp}/${CLUSTER_PROVIDER}-${CLUSTER}.kubeconfig}"
 SRC_KUBECONFIG="${SRC_KUBECONFIG:-${HOME}/.kube/config}"
 export KUBECONFIG="${PIN_KUBECONFIG}"
+
+# The three cluster operations, one implementation per provider. Everything below speaks
+# only in terms of ${CTX}, so adding a provider means adding a case here and nothing else.
+cluster_exists() {
+  case "$CLUSTER_PROVIDER" in
+    kind) kind get clusters 2>/dev/null | grep -qx "$CLUSTER" ;;
+    gke)  gcloud container clusters describe "$CLUSTER" --project "$GKE_PROJECT" \
+            --zone "$GKE_ZONE" --format='value(name)' >/dev/null 2>&1 ;;
+  esac
+}
+
+gke_credentials() {
+  gcloud container clusters get-credentials "$CLUSTER" \
+    --project "$GKE_PROJECT" --zone "$GKE_ZONE" >/dev/null 2>&1 \
+    || die "gcloud container clusters get-credentials failed for ${CLUSTER}"
+}
+
+cluster_create() {
+  case "$CLUSTER_PROVIDER" in
+    kind)
+      kind create cluster --name "$CLUSTER" --image "$NODE_IMAGE" \
+        --kubeconfig "$PIN_KUBECONFIG" || die "kind create failed"
+      ;;
+    gke)
+      # Resolve the newest available patch of the REQUIRED minor, and refuse if it is gone
+      # rather than letting GKE pick.
+      local ver
+      ver=$(gcloud container get-server-config --zone "$GKE_ZONE" --project "$GKE_PROJECT" \
+              --format='value(validMasterVersions)' 2>/dev/null \
+            | tr ';' '\n' | grep "^${GKE_K8S_MINOR}\." | head -1)
+      [ -n "$ver" ] || die "GKE in ${GKE_ZONE} offers no ${GKE_K8S_MINOR}.x master version,
+  and the chart requires ${GKE_K8S_MINOR} (see NODE_IMAGE). Choose another zone, or raise
+  GKE_K8S_MINOR once the chart supports a newer one."
+      echo "    version ${ver}, ${GKE_NODES}x${GKE_MACHINE} in ${GKE_ZONE}"
+      gcloud container clusters create "$CLUSTER" \
+        --project "$GKE_PROJECT" --zone "$GKE_ZONE" \
+        --cluster-version "$ver" --num-nodes "$GKE_NODES" --machine-type "$GKE_MACHINE" \
+        --no-enable-autoupgrade --no-enable-autorepair \
+        --labels=owner=aruba-provider-kog,purpose=pin-verify \
+        || die "gcloud container clusters create failed"
+      # get-credentials writes to $KUBECONFIG, which is the ISOLATED file -- so the GKE
+      # context lands in the same private file kind used, and ~/.kube/config is never touched.
+      gke_credentials
+      ;;
+  esac
+}
+
+cluster_delete() {
+  case "$CLUSTER_PROVIDER" in
+    kind) kind delete cluster --name "$CLUSTER" --kubeconfig "$PIN_KUBECONFIG" >/dev/null 2>&1 ;;
+    gke)  gcloud container clusters delete "$CLUSTER" --project "$GKE_PROJECT" \
+            --zone "$GKE_ZONE" --quiet >/dev/null 2>&1 ;;
+  esac
+}
 
 cleanup() {
   if [ "$KEEP" = "0" ]; then
     say "deleting cluster ${CLUSTER}"
-    kind delete cluster --name "$CLUSTER" --kubeconfig "$PIN_KUBECONFIG" >/dev/null 2>&1
+    cluster_delete
     rm -f "$PIN_KUBECONFIG"
   else
     printf '\ncluster %s left up (KEEP=0 to delete it)\n' "$CLUSTER"
@@ -200,7 +279,12 @@ cleanup() {
 }
 trap cleanup EXIT
 
-for bin in kind helm kubectl python3; do
+REQUIRED_BINS=(helm kubectl python3)
+case "$CLUSTER_PROVIDER" in
+  kind) REQUIRED_BINS+=(kind) ;;
+  gke)  REQUIRED_BINS+=(gcloud) ;;
+esac
+for bin in "${REQUIRED_BINS[@]}"; do
   command -v "$bin" >/dev/null || die "$bin is not on PATH"
 done
 # Distinguish "the credential is absent" from "the source cluster did not answer".
@@ -228,12 +312,18 @@ if [ -n "$src_err" ]; then
   esac
 fi
 
-say "creating ${CLUSTER} on ${NODE_IMAGE}"
-if kind get clusters 2>/dev/null | grep -qx "$CLUSTER"; then
-  echo "    already exists, reusing"
+if [ "$CLUSTER_PROVIDER" = "kind" ]; then
+  say "creating ${CLUSTER} on ${NODE_IMAGE}"
 else
-  kind create cluster --name "$CLUSTER" --image "$NODE_IMAGE" \
-    --kubeconfig "$PIN_KUBECONFIG" || die "kind create failed"
+  say "creating ${CLUSTER} on GKE in ${GKE_PROJECT}"
+fi
+if cluster_exists; then
+  echo "    already exists, reusing"
+  if [ "$CLUSTER_PROVIDER" = "gke" ]; then
+    gke_credentials
+  fi
+else
+  cluster_create
 fi
 
 say "installing external-secrets ${ESO_VERSION}"
@@ -426,6 +516,10 @@ fi
 
 HELM_SETS=()
 if [ -n "$PROVIDER_IMAGE" ] || [ -n "$RDC_IMAGE" ]; then
+  [ "$CLUSTER_PROVIDER" = "kind" ] || die "PROVIDER_IMAGE/RDC_IMAGE need a node to side-load
+  into and GKE has none -- the image would have to go through a registry the cluster can
+  pull from. Refusing, rather than installing the RELEASED image and reporting the run as a
+  local build. Use CLUSTER_PROVIDER=kind for local-image runs."
   say "loading locally built images into the kind node"
   for ref in "$PROVIDER_IMAGE" "$RDC_IMAGE"; do
     [ -n "$ref" ] || continue

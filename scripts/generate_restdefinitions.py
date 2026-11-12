@@ -836,6 +836,15 @@ def id_mapping_for(r, idp):
 # None of these has a legitimate use: narrowing the collection a controller uses to
 # find its own resource can only make it fail to find it. api-version is kept, being
 # required rather than view-narrowing.
+# DO NOT delete this on the grounds that oasgen "should" handle it. oasgen-provider#512
+# would make the Configuration generator refuse these five upstream, and when it ships this
+# exclusion comes out -- but as its OWN change, after the release carrying the refusal has
+# been adopted and verified. Diego parked #512 on 2026-11-12 and chose to adopt 0.61.0 while
+# keeping this, so the two mechanisms coexisting is the EXPECTED state and not a smell:
+# removing this one early re-opens the hazard, and removing it in the same change as the
+# pin move leaves a later failure with two candidate causes that cannot be separated.
+# We are the only consumer able to exercise the path at all (findby in 36 of 36 kinds,
+# configurationFields in 36 of 36), so a muddled result here is not recoverable elsewhere.
 VIEW_NARROWING_FINDBY_QUERY = ("offset", "limit", "filter", "sort", "projection")
 
 
