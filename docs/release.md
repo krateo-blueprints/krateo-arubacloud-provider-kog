@@ -116,24 +116,30 @@ patched OAS, every `requestFieldMapping.inPath` against the path parameters, eve
 
 ## Compatibility
 
-These manifests require **oasgen-provider >= 0.36.0**, which is also what CI
-validates (see [Usage](usage.md#prerequisites)). It is no longer a fork:
+These manifests require **oasgen-provider >= 0.36.0**. That is the FLOOR, not the pin:
+the pin is **0.63.1** and is what CI validates (see [Usage](usage.md#prerequisites)). The
+two were the same number when this section was written and have not been since; keeping
+them distinct matters because the floor explains what cannot be lowered, while the pin is
+what the evidence was gathered on. It is no longer a fork:
 rest-dynamic-controller and both charts live in the oasgen-provider monorepo, and the
 chart derives the RDC image tag from its own `appVersion`, so the two cannot drift
 apart.
 
-**This release raises the Kubernetes floor to 1.36.** Measured from the published
-charts rather than inferred:
+**The Kubernetes floor is 1.36.** Measured from the published charts rather than
+inferred, re-measured 2026-11-13 across the whole range the pin has travelled:
 
 | oasgen-provider | `kubeVersion` |
 |---|---|
-| 0.27.1 (the previous pin) | `>=1.33.0-0` |
+| 0.27.1 (a former pin) | `>=1.33.0-0` |
 | 0.34.0 | `>=1.36.0-0` |
-| 0.36.0 (the pin) | `>=1.36.0-0` |
+| 0.36.0 (**the floor**) | `>=1.36.0-0` |
 | 0.37.0 | `>=1.36.0-0` |
+| 0.61.0 (a former pin) | `>=1.36.0-0` |
+| **0.63.1 (the pin)** | `>=1.36.0-0` |
 
-The floor is unchanged from 0.34.0 to 0.37.0, so moving the pin up within that range
-costs nothing further in cluster version.
+So the floor has not moved since 0.34.0, and the pin reaching 0.63.1 costs nothing further
+in cluster version. The chart's `appVersion` at 0.63.1 is also `0.63.1`, which is what ties
+the rest-dynamic-controller image tag to the chart rather than letting the two drift.
 
 The floor rose in chart 0.28.0 (oasgen#178), because version-scoped watching needs a
 MutatingAdmissionPolicy that 1.33-1.35 do not serve. On an older cluster Helm refuses
