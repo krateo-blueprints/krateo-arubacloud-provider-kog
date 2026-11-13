@@ -36,7 +36,15 @@ Scope analysed: 11 specs, ~108 operations, **34 manageable resources** across th
 
 ## 0. Summary table
 
-> **Pin status (2026-11-13): 0.63.1.** Moved from 0.61.0 because 0.63.1 is the only tag
+> **Pin status (2026-11-13, later): 0.64.0.** Moved from 0.63.1 because 0.64.0 stops two of
+> our own kinds reporting a create that cannot happen: `LoadBalancer` and `AiKey` declare no
+> create verb, and before 0.64.0 the runtime recorded a Normal `CreatedExternalResource`
+> event — *"Successfully requested creation of external resource"* — once per poll, forever,
+> for a resource that does not exist and never will. Measured here on shipped 0.64.0: both
+> now report `Ready=False` / `Synced=False` with the cause in the message, and the vendor
+> collections stayed at 0, which the absent create verb requires. See the 0.64.0 appendix.
+>
+> Previously (2026-11-13): 0.63.1, moved from 0.61.0 because 0.63.1 is the only tag
 > outside the schema-latch span: on the Create path every tag from **0.45.0 through 0.63.0**
 > advanced `status.oasHash` without rendering, so the CRD keeps its old schema indefinitely
 > while the RestDefinition reports Ready, and choosing an earlier pin does not reduce
@@ -1708,3 +1716,90 @@ call path either.
   an upgrade crossing a version boundary *does* clear a latch, because `generatorChanged` is
   OR'd into the drift inputs and returns true when `generatorBuild` is empty. The annotated
   tag carries the wrong sentence permanently.
+
+
+## Appendix — the 0.63.1 → 0.64.0 pin move (2026-11-13)
+
+**Why this move fixes something we actually carry.** `LoadBalancer` (findby + get) and
+`AiKey` (no POST published) declare no create verb — both legitimate, because Aruba
+publishes no POST for either. Before 0.64.0, when findby did not match, the runtime called
+Create, found no create action, and **returned nil, which reports the create as
+SUCCEEDED**. It then recorded a Normal `CreatedExternalResource` event reading *"Successfully
+requested creation of external resource"*, once per poll, forever, for a resource that does
+not exist and never will. 0.64.0 turns that false success into an honest refusal.
+
+### The rows, measured on shipped 0.64.0
+
+Nobody else can produce these: per the maintainer, these two are the only consumer
+instances of the no-create shape anyone has. A CR was applied for each, naming a resource
+that does not exist upstream.
+
+```
+LoadBalancer/example-loadbalancer and AiKey/example-aikey, identically:
+  cond Ready=False  reason=Creating
+  cond Synced=False reason=ReconcileError
+       msg=create failed: no create action is declared for this resource:
+           no create verb, no dispatch verb and no createApiRef
+  event Normal/AbsenceInferredFromUnmatchedListing
+  event Warning/CannotCreateExternalResource
+
+vendor state: loadBalancers 0 -> 0,  aiKeys 0 -> 0   UNCHANGED
+```
+
+The experiment is **safe by construction**: neither kind declares a create verb, so no
+create request can be built. The absence of the verb *is* the safety property — and the
+0 → 0 collection counts measure it rather than assuming it.
+
+The message enumerates all three escapes — no create verb, no dispatch verb, no
+`createApiRef` — which is the same predicate `scripts/validate.py` encodes in
+`verify_create_absence_is_declared`. Pleasing to have the runtime state it rather than a
+consumer infer it.
+
+### What these rows found upstream
+
+The release notification said the reason would be `NoCreateVerbDeclared`. **It appears
+nowhere** in either CR. Reported, and the maintainer traced it: the runtime's own
+create-failure path calls `SetConditions(condition.Creating(), ...)` on `TypeReady`, and
+`SetConditions` upserts **by type**, so the provider's earlier write was replaced on every
+reconcile. The reason was **inert and shipped inert**. Removed after 0.64.0, along with the
+dead constant. Their own framing of the cause, kept because it generalises: *checking one
+path for an overwrite and not its sibling is the whole defect* — #636 had been restructured
+to avoid exactly that, one code path over.
+
+So this pin ships a version whose announced condition reason does not exist. The behaviour
+is right; only the reason string was fiction.
+
+### Both axes at 0.64.0
+
+```
+shape       36 rendered, 0 failures, 0 stamped `default: {}`, CONTROL 1
+            auth shape 36 checked / 0 mismatches / 0 not-checked
+            plumbing v1.60.0 (unchanged from 0.63.1 -- no jump to re-examine)
+reconcile   released 0.64.0 images x1 provider + x4 rdc, no overrides
+            4 created and observed, 4/4 drift corrected, 4/4 deleted, residue 0
+            58 attempts, 54 ok, 0 transport failures, 4 HTTP errors
+            PIN_VERIFY_RC=0
+```
+
+**The transport census is identical across 0.61.0, 0.63.1 and 0.64.0** — 58 / 54 / 0 / 4 on
+all three. A stability claim no single run supports.
+
+### Two limits of the instrument, stated rather than omitted
+
+- **The controller-readiness gate reported a timeout while the rows were being produced.**
+  It waited on Deployment names guessed as `arubacloud-network-loadbalancer-controller`
+  and `arubacloud-profile-aikey-controller`; both timed out after 420s, yet the CRs
+  reconciled and produced the conditions above. So the controllers ran under names the gate
+  did not know, and it printed "rows are not measured" while they were. The rows are real;
+  that gate was not measuring what it claimed.
+- **Event counts are unknown.** The `{.count}` jsonpath came back empty, so each event is
+  known to have fired at least once and no more than that.
+
+### Getting here cost two failed attempts, both environmental
+
+The first run died on `Quota 'SSD_TOTAL_GB' exceeded. Limit: 500.0 in region europe-west3`
+— a **regional** quota that node boot disks consume, which the per-zone cluster-count
+preflight does not see. It left a cluster at `status=ERROR` still holding its node quota.
+Both are now guarded: the regional headroom is measured before the create, and a failed
+create is deleted regardless of `KEEP`. Recorded because an environmental failure inside a
+version-verification run is exactly the thing that gets misfiled as a version verdict.
