@@ -58,6 +58,7 @@ GKE_PROJECT="${GKE_PROJECT:-operations-dev-krateo-io}"   # Diego's choice, 2026-
 GKE_ZONE="${GKE_ZONE:-europe-west3-a}"
 GKE_MACHINE="${GKE_MACHINE:-e2-standard-4}"
 GKE_NODES="${GKE_NODES:-2}"
+GKE_DISK_GB="${GKE_DISK_GB:-100}"   # GKE default boot disk; counts against SSD_TOTAL_GB
 # The chart needs Kubernetes 1.36 (see NODE_IMAGE above). On GKE the patch is SELECTED at run
 # time rather than pinned: a pinned patch silently vanishes from GKE's available list as
 # versions roll, while accepting whatever GKE defaults to is how you get a 1.35 cluster and a
@@ -298,9 +299,17 @@ cluster_create() {
         --kubeconfig "$PIN_KUBECONFIG" || die "kind create failed"
       ;;
     gke)
-      # GKE caps clusters per ZONE (3 on this project), and the zone is shared with every
-      # other session's throwaway clusters. Count first: the create otherwise runs for ~2
-      # minutes and then 403s with a message that reads like a permission problem.
+      # TWO limits bind here, and only one of them is about clusters.
+      #
+      # (a) GKE caps clusters per ZONE (3 on this project), and the zone is shared with
+      #     every other session's throwaway clusters. Count first: the create otherwise
+      #     runs for ~2 minutes and then 403s with a message that reads like a permission
+      #     problem.
+      # (b) SSD_TOTAL_GB is a REGIONAL quota, and node boot disks count against it. On
+      #     2026-11-13 a create passed the cluster-count check and then failed with
+      #     `Quota 'SSD_TOTAL_GB' exceeded. Limit: 500.0 in region europe-west3` --
+      #     AFTER the control plane existed, leaving a cluster in ERROR state still
+      #     holding quota. Zone capacity said yes; the region said no.
       local used
       used=$(gcloud container clusters list --project "$GKE_PROJECT" \
                --filter="location:${GKE_ZONE}" --format='value(name)' 2>/dev/null | grep -c . )
@@ -313,6 +322,31 @@ cluster_create() {
         die "${GKE_ZONE} is at the per-zone cluster limit (${used}/3) and the clusters there
   belong to other sessions. Set GKE_ZONE to a zone with room, or delete one of yours."
       fi
+      # (b) the regional disk quota, measured rather than assumed.
+      local region need have
+      region="${GKE_ZONE%-*}"
+      need=$(( GKE_NODES * GKE_DISK_GB ))
+      # `describe` has no --filter and its value() form emits every metric on ONE line
+      # joined by ';', so a per-row awk match can never fire -- the first version of this
+      # guard could not have refused anything. --flatten gives one row per quota.
+      have=$(gcloud compute regions describe "$region" --project "$GKE_PROJECT" \
+               --flatten='quotas[]' \
+               --format='csv[no-heading](quotas.metric,quotas.limit,quotas.usage)' 2>/dev/null \
+             | LC_ALL=C awk -F, '$1=="SSD_TOTAL_GB"{printf "%d", $2-$3}')
+      if [ -z "$have" ]; then
+        echo "    could not read SSD_TOTAL_GB for ${region}; proceeding, but a quota failure"
+        echo "    here will look like a cluster defect rather than a limit"
+      else
+        echo "    ${region} SSD_TOTAL_GB headroom ${have}GB, this cluster needs ${need}GB"
+        if [ "$have" -lt "$need" ]; then
+          die "regional SSD quota in ${region} has ${have}GB free and this cluster needs
+  ${need}GB (${GKE_NODES} nodes x ${GKE_DISK_GB}GB). The per-zone cluster count was fine;
+  the REGION is full. Pick a zone in another region, lower GKE_NODES or GKE_DISK_GB, or
+  wait for another session to tear down. Failing before the create, because a create that
+  fails this way leaves a cluster in ERROR state still holding quota."
+        fi
+      fi
+
       # Resolve the newest available patch of the REQUIRED minor, and refuse if it is gone
       # rather than letting GKE pick.
       local ver
@@ -323,12 +357,23 @@ cluster_create() {
   and the chart requires ${GKE_K8S_MINOR} (see NODE_IMAGE). Choose another zone, or raise
   GKE_K8S_MINOR once the chart supports a newer one."
       echo "    version ${ver}, ${GKE_NODES}x${GKE_MACHINE} in ${GKE_ZONE}"
-      gcloud container clusters create "$CLUSTER" \
-        --project "$GKE_PROJECT" --zone "$GKE_ZONE" \
-        --cluster-version "$ver" --num-nodes "$GKE_NODES" --machine-type "$GKE_MACHINE" \
-        --no-enable-autoupgrade --no-enable-autorepair \
-        --labels=owner=aruba-provider-kog,purpose=pin-verify \
-        || die "gcloud container clusters create failed"
+      if ! gcloud container clusters create "$CLUSTER" \
+             --project "$GKE_PROJECT" --zone "$GKE_ZONE" \
+             --cluster-version "$ver" --num-nodes "$GKE_NODES" --machine-type "$GKE_MACHINE" \
+             --no-enable-autoupgrade --no-enable-autorepair \
+             --labels=owner=aruba-provider-kog,purpose=pin-verify; then
+        # A FAILED create still leaves a cluster object -- in ERROR state, holding its
+        # node quota. Measured 2026-11-13: an SSD-quota failure left aruba-pin-0640 at
+        # status=ERROR with 2 nodes, and because the run had KEEP=1 nothing removed it.
+        # Delete it here regardless of KEEP: a half-built cluster has no debugging value
+        # beyond the error text already printed above, and leaving it starves the next
+        # run of the same quota.
+        if cluster_exists; then
+          echo "    create failed and a cluster object exists; deleting it regardless of KEEP=${KEEP}"
+          cluster_delete
+        fi
+        die "gcloud container clusters create failed"
+      fi
       # get-credentials writes to $KUBECONFIG, which is the ISOLATED file -- so the GKE
       # context lands in the same private file kind used, and ~/.kube/config is never touched.
       gke_credentials
