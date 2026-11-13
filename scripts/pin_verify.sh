@@ -19,7 +19,7 @@
 #   KEEP=0 scripts/pin_verify.sh     # delete the cluster afterwards
 set -uo pipefail
 
-PIN="${OASGEN_VERSION:-0.61.0}"              # 0.61.0 is the PIN; 0.36.0 is the FLOOR.
+PIN="${OASGEN_VERSION:-0.63.1}"              # 0.63.1 is the PIN; 0.36.0 is the FLOOR.
                                              # It SKIPS 0.53.0 and 0.54.0, both measured:
                                              # 0.53.0 stamps `default: {}` on 240 optional
                                              # object paths (238 of them on the

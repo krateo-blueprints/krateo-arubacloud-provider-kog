@@ -36,7 +36,18 @@ Scope analysed: 11 specs, ~108 operations, **34 manageable resources** across th
 
 ## 0. Summary table
 
-> **Pin status (2026-11-12): 0.61.0.** Moved from 0.54.1 deliberately without waiting for
+> **Pin status (2026-11-13): 0.63.1.** Moved from 0.61.0 because 0.63.1 is the only tag
+> outside the schema-latch span: on the Create path every tag from **0.45.0 through 0.63.0**
+> advanced `status.oasHash` without rendering, so the CRD keeps its old schema indefinitely
+> while the RestDefinition reports Ready, and choosing an earlier pin does not reduce
+> exposure. `scripts/latch_check.py` found **34 of 34 hashes agreeing** on the long-lived
+> cluster, so we had no latch to clear. 0.63.0's breaking `not` enforcement is a measured
+> no-op here (zero `not` nodes in all 13 documents; the release notes cite that census), and
+> the plumbing jump v1.33.0 → v1.60.0 does not reintroduce the 0.53.0 stamping hazard.
+> `VIEW_NARROWING_FINDBY_QUERY` is still kept — see the 0.54.1 → 0.61.0 appendix for why that
+> is a separate change.
+>
+> Previously (2026-11-12): 0.61.0, moved from 0.54.1 deliberately without waiting for
 > oasgen#512, which Diego parked: waiting no longer bought one clean pin move, it only grew
 > the gap. `VIEW_NARROWING_FINDBY_QUERY` is **kept** in this move and comes out later as its
 > own change, so a failure afterwards has one candidate cause rather than two.
@@ -1629,3 +1640,71 @@ cluster-to-cluster and still never touches disk.
   defect (the restart gate never fired and the apply erased what it wrote, issues 599+595) and
   0.61.0 fixes oasgen#576, where a failed instance list read as zero instances and the
   `restresources-still-exist` finalizer could be removed while instances existed.
+
+
+## Appendix — the 0.61.0 → 0.63.1 pin move (2026-11-13)
+
+**Why this move was not optional.** 0.63.1 fixes a permanent schema latch: on the Create
+path — taken when the generated controller's Deployment is absent — the reconciler advanced
+`status.oasHash` **without having rendered**. Every subsequent Observe then compares the live
+document against the already-advanced hash, finds no drift, and the CRD keeps its old schema
+indefinitely **while the RestDefinition reports Ready**. The affected span is every tag from
+**0.45.0 through 0.63.0**, so the 0.61.0 pin was inside it and moving *backwards* would not
+have helped.
+
+`scripts/check_oas_drift.py` cannot see this. It compares our vendored documents against
+upstream; the latch is a disagreement between the CRD and the document.
+
+### Did we have a latch? No — 34 of 34
+
+`scripts/latch_check.py` recomputes each stored hash from the cluster's own ConfigMaps.
+`compositeOASDigest`'s inputs are exactly the `oasPath` string and the document bytes, so the
+value is reproducible without any version information.
+
+```
+45-day-old cluster: definitions 34   AGREES 34   MISMATCH 0   not checkable 0
+```
+
+Confirmed a second way, independently: the fresh 0.63.1 cluster computed
+`network.json -> c270bd2dbb0a8c25…`, **identical** to the stored value on the 45-day-old
+0.52.0-era cluster. That also demonstrates empirically that the hash carries no version
+information — two clusters eleven releases apart agreeing on the same document.
+
+The evidence survived only because that cluster's oasgen controller sits at **0/0 replicas**:
+nothing had reconciled since 2026-10-29. A re-render stamps the current hash and would have
+cleared a latch before it could be observed — `generatorChanged` returns true unconditionally
+when `generatorBuild` is empty, which is the state of all 34 there.
+
+### Both axes at 0.63.1
+
+```
+shape       36 rendered, 0 failures, 0 stamped `default: {}`, CONTROL 1
+            auth shape 36 checked / 0 mismatches / 0 not-checked
+            plumbing v1.60.0 (up from v1.33.0 at 0.61.0)
+reconcile   released 0.63.1 images x1 provider + x4 rdc, no overrides
+            4 created and observed, 4/4 drift corrected
+            4/4 deleted, each verified 404 at the vendor, residue 0
+            58 attempts, 54 ok, 0 transport failures, 4 HTTP errors
+            auth-CRD 4/4 OK   PIN_VERIFY_RC=0
+```
+
+The **plumbing jump v1.33.0 → v1.60.0** is the largest since 0.53.0, which stamped
+`default: {}` on 240 optional object paths. The shape probe says it does not recur, and the
+control reading 1 is what makes that zero mean anything.
+
+The transport census is **identical to 0.61.0's** — 58 / 54 / 0 / 4 — so nothing moved in the
+call path either.
+
+### What this move does NOT cover
+
+- **0.63.0's breaking `not` enforcement is a no-op here, measured:** zero `not` nodes in all
+  13 documents, with a planted control proving the walker finds them. That census is what the
+  0.63.0 release notes cite as "six consumer corpora (96 documents): zero affected".
+- **`VIEW_NARROWING_FINDBY_QUERY` is still kept.** oasgen#512 remains parked; removing the
+  exclusion stays a separate change for the separability reason in the 0.54.1 → 0.61.0
+  appendix.
+- **A correction worth recording:** 0.63.1's release notes say the fix does not clear an
+  existing latch. That sentence is **wrong** and was corrected upstream after the tag was cut;
+  an upgrade crossing a version boundary *does* clear a latch, because `generatorChanged` is
+  OR'd into the drift inputs and returns true when `generatorBuild` is empty. The annotated
+  tag carries the wrong sentence permanently.
