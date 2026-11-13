@@ -186,9 +186,23 @@ def assert_limit_is_stored(limit):
     print(f"    ASSERTED findby.limit == {got!r} in the STORED Configuration")
 
 
-def run_arm(label, cr_name, vpc_name, expect_duplicate, settle=240):
+def run_arm(label, cr_name, vpc_name, expect_absence, settle=240):
+    """The defect is ABSENCE INFERRED plus a create ATTEMPTED, not the duplicate.
+
+    Measured 2026-11-13: the off-page arm fired AbsenceInferredFromUnmatchedListing twice
+    and then CannotCreateExternalResource with a 400 -- Aruba refused the create because
+    the resource it was being asked to make already exists. So on THIS vendor #486 is a
+    convergence failure: the CR can never become Ready, and the create endpoint is hit
+    once per reconcile forever. On a vendor that permits duplicate names, or mints its own
+    identifier and ignores the name, the same path would produce the duplicate the issue
+    describes.
+
+    The first version of this arm asserted `expect_duplicate=True`, so it reported a
+    successful observation as "#486's traced consequence did NOT reproduce" and exited 1.
+    An experiment whose expectation is wrong reports a real finding as a failure.
+    """
     print(f"\n--- ARM {label}: CR {cr_name} -> existing vpc {vpc_name}"
-          f" (expect duplicate: {expect_duplicate})")
+          f" (expect absence inferred: {expect_absence})")
     r = kubectl("apply", "-f", "-", stdin=cr_manifest(cr_name, vpc_name))
     if r.returncode != 0:
         failures.append(f"{label}: CR apply failed: {r.stderr.strip()[:200]}")
@@ -203,18 +217,39 @@ def run_arm(label, cr_name, vpc_name, expect_duplicate, settle=240):
         if dupes > 1:
             break
     absence = [e for e in evs if "AbsenceInferredFromUnmatchedListing" in e]
+    attempts = [e for e in evs if "CannotCreateExternalResource" in e]
     ids = [((i.get("metadata") or {}).get("id")) for i in by_name(list_vpcs()[1], vpc_name)]
     print(f"    upstream objects named {vpc_name}: {dupes}  ids={ids}")
-    print(f"    absence events on the CR: {len(absence)}")
+    print(f"    absence events: {len(absence)}   create attempts: {len(attempts)}")
     for e in evs[:4]:
         print(f"      event: {e[:150]}")
-    if expect_duplicate and dupes <= 1:
-        failures.append(f"{label}: expected a duplicate, upstream still has {dupes}. "
-                        f"#486's traced consequence did NOT reproduce.")
-    if (not expect_duplicate) and dupes > 1:
-        failures.append(f"{label}: CONTROL BROKEN -- a duplicate appeared for a vpc that "
-                        f"IS on the page, so the arms do not discriminate.")
-    print(f"    {label}: {'as predicted' if bool(dupes > 1) == expect_duplicate else 'NOT as predicted'}")
+
+    if expect_absence:
+        if not absence:
+            failures.append(f"{label}: no AbsenceInferredFromUnmatchedListing event. The "
+                            f"truncated findby did NOT infer absence, which refutes the "
+                            f"mechanism rather than merely its consequence.")
+        if not attempts and dupes <= 1:
+            failures.append(f"{label}: absence was inferred but NO create was attempted "
+                            f"and no duplicate exists, so the inference did not drive a "
+                            f"write. That makes #486 a performance bug, not a "
+                            f"correctness one.")
+        if dupes > 1:
+            print(f"    DUPLICATE CREATED: {dupes} upstream objects carry {vpc_name}. "
+                  f"This vendor permits duplicate names.")
+        elif attempts:
+            print(f"    CONVERGENCE FAILURE: absence inferred, create attempted, vendor "
+                  f"refused. The resource exists and the CR can never manage it.")
+    else:
+        if absence:
+            failures.append(f"{label}: CONTROL BROKEN -- {len(absence)} absence event(s) "
+                            f"on a vpc that IS on the page, so the arms do not "
+                            f"discriminate and the subject arm proves nothing.")
+        if dupes > 1:
+            failures.append(f"{label}: CONTROL BROKEN -- a duplicate appeared for an "
+                            f"on-page vpc.")
+        if not absence and dupes == 1:
+            print(f"    adopted cleanly, no absence inferred -- the control holds")
 
 
 def cleanup():
@@ -314,12 +349,12 @@ def main():
     assert_limit_is_stored(LIMIT)
 
     if offpage:
-        run_arm("OFF-PAGE", f"{PREFIX}-offpage", offpage[0], expect_duplicate=True)
+        run_arm("OFF-PAGE", f"{PREFIX}-offpage", offpage[0], expect_absence=True)
     else:
         failures.append("no probe VPC is off the 1-item page; the subject arm could not "
                         "be set up and its absence is not a negative result")
     if onpage:
-        run_arm("ON-PAGE", f"{PREFIX}-onpage", onpage[0], expect_duplicate=False)
+        run_arm("ON-PAGE", f"{PREFIX}-onpage", onpage[0], expect_absence=False)
     else:
         failures.append("no probe VPC is on the 1-item page; the CONTROL arm could not be "
                         "set up, so a duplicate in the other arm proves less")
@@ -331,8 +366,9 @@ def main():
         for f in failures:
             print("  -", f)
         return 1
-    print("BOTH ARMS AS PREDICTED: a truncated findby duplicated an existing resource at "
-          "first contact; the same CR against an on-page resource adopted it cleanly.")
+    print("BOTH ARMS AS PREDICTED: a truncated findby inferred absence for a resource "
+          "that exists and drove a create attempt at first contact; the same CR against "
+          "an on-page resource adopted it cleanly with no absence inferred.")
     return 0
 
 

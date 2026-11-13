@@ -74,3 +74,52 @@ discriminate and the subject result means nothing.
 Every VPC it creates is prefixed `b5probe`, including any duplicate the controller makes,
 and all of them are deleted with a residue check. The pre-existing default VPC is never
 touched. VPCs do not bill.
+
+## Result, measured 2026-11-13
+
+Released `0.62.0` images, disposable GKE, `limit=2` asserted present in the stored
+Configuration, two probe VPCs, first contact:
+
+```
+Vpc CRD served version: 'v1-0-0'     VpcConfiguration: 'v1alpha1'
+GET vpcs?limit=2 -> ['cloudburst-default', 'b5probe-a']
+  OFF the page: b5probe-b        ON the page: b5probe-a
+
+ARM OFF-PAGE  AbsenceInferredFromUnmatchedListing x2
+              "treated as absent because its findby listed successfully and no item
+               matched", and "2 times for the same spec generation"
+              CannotCreateExternalResource | unexpected status: 400
+              upstream objects named b5probe-b: 1   -> NO duplicate
+ARM ON-PAGE   absence events: 0    upstream objects: 1   -> adopted cleanly
+```
+
+**The mechanism is confirmed; the traced consequence is not.** A truncated findby *does*
+infer absence, and the inference *does* drive a create attempt — but Aruba answered **400**,
+because the resource it was being asked to create already exists.
+
+So on this vendor **#486 is a convergence failure, not a duplicate-resource bug.** The CR
+can never become Ready: findby cannot see the resource, the create is refused, and the
+cycle repeats every reconcile. The resource exists and is permanently unmanageable, and the
+create endpoint is hit once per poll.
+
+Whether it is worse than that is **vendor-dependent**: a vendor that permits duplicate
+names, or that mints its own identifier and ignores the name, would get the duplicate the
+issue describes. One vendor cannot settle that. What holds for all of them is *absence
+inferred, create attempted, outcome decided by whether the vendor refuses*.
+
+### What it cost to get one observation
+
+Four runs; three died in this probe rather than in the subject:
+
+| run | died of | caught by |
+|---|---|---|
+| 1 | string `"1"` for an integer field, then `sys.exit` leaked two VPCs | the stored-`limit` read-back |
+| 2 | dirty fixture from run 1's leak | `POST` returning 400 on an existing name |
+| 3 | hardcoded `v1alpha1`; the resource is served at `v1-0-0` | `kubectl apply` refusing the kind |
+| 4 | — | both arms discriminated |
+
+Every failure was loud. None produced a plausible number, which is the only reason a false
+result never went upstream. The arm's *expectation* was also wrong — it asserted a
+duplicate, so run 4 reported a real observation as a failure — and that is corrected: the
+pass condition is now absence-inferred plus create-attempted, with the duplicate recorded
+as a vendor-dependent outcome.
