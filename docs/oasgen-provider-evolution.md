@@ -1475,6 +1475,27 @@ oasgen-provider's 0.33.0 release note (amended in their #235 — point at the se
 on `main`, not the originally released text, which omitted this) records the
 behaviour we depend on:
 
+> **Do values actually travel down those paths? Measured 2026-11-12, read-only.**
+> `verify_status_fields_exist_in_response_schema` proves the path exists in the response
+> *schema* (88 declarations across 33 kinds, all present). It cannot show that anything
+> arrives. `scripts/status_field_census.py` reads live resources instead:
+>
+> ```
+> kinds with a parameterless findby and declared fields   23
+> of those, kinds with a resource to read                  7
+> identifier field present in all declared paths         7 of 7, zero gaps
+> ```
+>
+> **The error-path fields are reported as untestable, not as absent.** The dominant triple
+> across 33 kinds is `{metadata.id, status.error, status.failureReason}`, and the vendor
+> sends the latter two only when a resource has FAILED — so their absence on a healthy
+> resource is correct. Counting them as missing would have reported "2 of 3 never
+> populated" and read as a defect.
+>
+> **Still unmeasured, stated rather than omitted:** 16 kinds have no live resource to read
+> (most would be billable to create), and the error-path fields would need a resource
+> deliberately broken.
+
 * appending to `additionalStatusFields` was accepted and **silently did nothing**
   before #225, and `includedSpecFields` the same — which is why our
   `status.error` append needs the pin to move to take effect;
