@@ -41,10 +41,21 @@ jobs:
           # chart advances with the tag while the CD keeps naming an older, eventually
           # unpublished, version. This workflow publishes every chart on every tag, so stamping
           # the CD to the same tag is always valid. examples/ CDs are left as pinned fixtures.
+            #
+            # It also RECORDS the set it stamps, because this is the last moment the tree is
+            # pristine. The packaging step copies each CD into its chart directory so the
+            # archive is self-describing, and a later `find` then sees the original AND that
+            # copy. That is how 0.3.0 attached two byte-identical assets --
+            # compositiondefinition-compositions.yaml and
+            # compositiondefinition-aruba-network-environment.yaml -- for one object.
+            echo "CD_MANIFEST=${RUNNER_TEMP}/cd-manifest" >> "$GITHUB_ENV"
+            export CD_MANIFEST="${RUNNER_TEMP}/cd-manifest"
+            : > "${CD_MANIFEST}"
           find . -type f -name compositiondefinition.yaml \
                  -not -path '*/charts/*' -not -path '*/examples/*' -not -path '*/samples/*' -print0 \
             | while IFS= read -r -d '' cd; do
                 sed -i "s/CHART_VERSION/${VERSION}/g" "$cd"; echo "stamped $cd -> ${VERSION}"
+                  printf '%s\0' "$cd" >> "${CD_MANIFEST}"
               done
 
       - name: Log in to GHCR
@@ -201,8 +212,15 @@ jobs:
             d="$(dirname "$cd")"
             if [ "$d" = "." ]; then out="compositiondefinition.yaml"; else out="compositiondefinition-$(basename "$d").yaml"; fi
             cp "$cd" "$stage/$out"; assets+=("$stage/$out")
-          done < <(find . -type f -name compositiondefinition.yaml \
-                        -not -path '*/charts/*' -not -path '*/examples/*' -not -path '*/samples/*' -print0)
+            done < "${CD_MANIFEST}"
+            # An absent manifest is NOT "nothing to publish": it means the stamp step never
+            # recorded the set, and attaching no CD because a file went missing is the same
+            # silent-success shape this workflow guards against elsewhere.
+            [ -s "${CD_MANIFEST}" ] || {
+              echo "::error::${CD_MANIFEST} is absent or empty, so the pristine"
+              echo "::error::CompositionDefinition set was never recorded. Refusing to publish"
+              echo "::error::assets from a re-walk of a tree the packaging step has written to."
+              exit 1; }
           [ ${#assets[@]} -eq 0 ] && { echo "no CompositionDefinition to publish"; exit 0; }
           gh release view "${VERSION}" >/dev/null 2>&1 \
             || gh release create "${VERSION}" --title "${VERSION}" --notes "Apply the attached CompositionDefinition to register this version."
