@@ -131,6 +131,7 @@ def main():
     verify_maturity_counts_match(errors)
     verify_parity_page_names_every_kind(errors)
     verify_status_fields_exist_in_response_schema(errors)
+    verify_create_absence_is_declared(errors)
     charts = validate_charts(errors)
     validate_composition_generated(errors)
 
@@ -1302,6 +1303,110 @@ def verify_status_fields_exist_in_response_schema(errors):
     else:
         print("Checked %d additionalStatusFields declaration(s) against their response "
               "schema" % examined)
+
+def verify_create_absence_is_declared(errors):
+    """A definition that cannot create must be an EXPLICIT exception, not a surprise.
+
+    oasgen-provider#624: when the create builder finds no create action, rest-dynamic-
+    controller logs `API action create not found` and then `return nil` -- which the
+    runtime records as a SUCCESSFUL create. The external resource does not exist and
+    never will; there is no condition and no status field saying so, only a log line,
+    once per poll. A CR of such a kind reports a healthy reconcile forever.
+
+    Both of ours are legitimate -- Aruba publishes no POST for either -- so this does not
+    forbid the shape. It forbids acquiring it by ACCIDENT: a future regeneration that
+    drops a create verb, or a new document without a POST, fails here rather than
+    shipping a kind that silently cannot converge.
+
+    THE PREDICATE IS NOT "no create verb". The maintainer traced three escapes that each
+    return before the create builder is reached, so a kind is exposed only if it has NONE
+    of them, and all three are checked here:
+
+        exposed := no verb with action == "create"
+               AND no createApiRef
+               AND no verb with action == "dispatch"
+
+    `dispatch` is an ordinary value of the action enum (types.go:551), so it needs no
+    extra parsing -- it is in the same field as every other verb. A dispatch cannot be
+    half-declared either: a CEL rule at admission requires correlation, because a
+    dispatch that cannot be correlated would re-fire every reconcile while reporting
+    Ready, and `createDispatch` refuses to fire without one regardless.
+
+    Measured on this corpus: no `createApiRef` at all, no `dispatch` at all, and one
+    `updateApiRef` plus one `deleteApiRef` on a single kind that declares a real create
+    (CloudServer, whose update and delete go to Snowplow RESTActions). So all three
+    escapes are inert here today -- which is exactly why the check must encode them
+    anyway, since the first kind to use one would otherwise be reported as exposed when
+    the code path never reaches it.
+
+    The allowlist is self-checking in both directions. An unlisted kind that cannot create
+    is an error, AND a listed kind that CAN create is an error -- a stale exemption is how
+    a guard quietly stops guarding, and it would exempt the next kind to lose its create
+    verb under a comment about a different resource.
+    """
+    # kind -> why it legitimately cannot create
+    NO_CREATE_BY_DESIGN = {
+        "LoadBalancer": "network-provider.json publishes no POST for loadBalancers; the "
+                        "kind is observe-only (findby + get) with no write verb at all",
+        "AiKey":        "profile-provider.json publishes no POST for aiKeys; keys are "
+                        "created out of band and this kind adopts, updates and deletes",
+    }
+
+    lacking, having = {}, set()
+    parsed = 0
+    for f in sorted(glob.glob("restdefinitions/*/*.yaml")):
+        try:
+            d = yaml.safe_load(open(f)) or {}
+        except Exception as e:
+            errors.append("%s: cannot parse, so its verbs were NOT checked (%s)" % (f, e))
+            continue
+        if d.get("kind") != "RestDefinition":
+            continue
+        parsed += 1
+        res = (d.get("spec") or {}).get("resource") or {}
+        kind = res.get("kind") or f
+        acts = {str(v.get("action", "")).lower()
+                for v in (res.get("verbsDescription") or [])}
+        # Either escape means the create builder is never reached, so the silent-success
+        # path cannot fire: createApiRef delegates creation, and a dispatch verb returns
+        # earlier still. Both count as having a create.
+        if acts & {"create", "dispatch"} or "createApiRef" in yaml.safe_dump(d):
+            having.add(kind)
+        else:
+            lacking[kind] = (f, sorted(acts))
+
+    for kind, (f, acts) in sorted(lacking.items()):
+        if kind not in NO_CREATE_BY_DESIGN:
+            errors.append(
+                "%s (%s) cannot create -- no create verb, no createApiRef and no "
+                "dispatch verb -- and is not in NO_CREATE_BY_DESIGN. Per "
+                "oasgen-provider#624 a CR of this kind reports a SUCCESSFUL create "
+                "forever while nothing is created, with no condition saying so. Verbs "
+                "found: %s. If the vendor genuinely publishes no POST, add it to the "
+                "allowlist with the reason." % (kind, f, acts))
+
+    for kind in sorted(set(NO_CREATE_BY_DESIGN) - set(lacking)):
+        if kind in having:
+            errors.append(
+                "%s is listed in NO_CREATE_BY_DESIGN but CAN now create (a create verb "
+                "or a createApiRef). Remove the exemption -- a stale entry exempts the "
+                "next kind that loses its create verb under a comment about a different "
+                "resource." % kind)
+        else:
+            errors.append(
+                "%s is listed in NO_CREATE_BY_DESIGN but no definition of that kind was "
+                "found at all. Remove the entry or fix the name; an allowlist is a guard "
+                "only while every entry still applies." % kind)
+
+    if parsed == 0:
+        errors.append("verify_create_absence_is_declared parsed ZERO RestDefinitions. "
+                      "There were 36 on 2026-11-12, so zero means the walk broke rather "
+                      "than that the repository changed.")
+    else:
+        print("Checked `create` reachability across %d RestDefinitions "
+              "(%d exempt by design; createApiRef and dispatch count as create)"
+              % (parsed, len(lacking)))
+
 
 if __name__ == "__main__":
     main()
