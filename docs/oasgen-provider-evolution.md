@@ -332,6 +332,20 @@ can source it. Without both halves, `secretRef` cannot be wired from a pure OAS.
 
 ### B5 — `findby` reads only the first page, and Aruba caps the page at 50 (🟥)
 
+> **Measured 2026-11-13, first contact, released 0.62.0:** a truncated findby **does**
+> infer absence (`AbsenceInferredFromUnmatchedListing`, twice, "2 times for the same spec
+> generation") and **does** drive a create attempt — and Aruba refuses it with **400**
+> because the resource already exists. So here B5 is a **convergence failure**, not a
+> duplicate-resource bug: the CR never becomes Ready and the create endpoint is hit once
+> per reconcile forever. On a vendor that permits duplicate names it would be the
+> duplicate instead. Control: the same CR against an on-page resource adopted cleanly
+> with 0 absence events. See `tests/experimental/findby-pagination/`.
+>
+> Also measured: the hazard is **first-contact only**. All 36 kinds declare a `get` verb,
+> so once `status.metadata.id` exists observe uses `get` and never asks the collection
+> again (600s with a blinded findby on an addressable Vpc: no event, no error,
+> `Ready=Available`). Adoption is the window.
+
 Every one of our 36 RestDefinitions declares **no** `pagination` block, because
 there is nothing it could declare. That is not an omission; it is the only
 option the two sides leave.

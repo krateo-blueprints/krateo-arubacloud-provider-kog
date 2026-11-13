@@ -1,0 +1,376 @@
+#!/usr/bin/env python3
+"""Does a TRUNCATED findby make the controller create a duplicate at first contact?
+
+oasgen-provider#486. The maintainer traced it and cannot run it: his tests supply
+pagination config deliberately, so they never exercise the no-pagination path that
+`restclient.go:488` takes whenever `Pagination` is nil. This runs it.
+
+TWO ARMS ON ONE CLUSTER, one of which must fire and one of which must not:
+
+  OFF-PAGE   a CR at first contact with a VPC that EXISTS upstream but is not on the
+             1-item page findby reads. Expect: absence inferred, create attempted, a
+             SECOND VPC with the same name -- i.e. a duplicate.
+  ON-PAGE    a CR at first contact with the VPC that IS on that page. Expect: adopted,
+             no duplicate, no absence event. Same kind, same Configuration, same cluster.
+
+An arm that only fires is not evidence; a pair where one fires and one does not is.
+
+PREREQUISITES: a cluster built by scripts/pin_verify.sh with
+RESTDEFS_DIR=tests/experimental/findby-pagination/ and SKIP_CHAIN=1, so the ONLY Vpc
+definition the cluster has ever seen is the experimental one. configurationFields are
+immutable once a CRD is generated, so a cluster that saw the fleet definition first can
+never accept `limit` -- which is the whole reason this needs its own cluster.
+
+NOTHING BILLS. VPCs are free. Every VPC this creates is named with PREFIX and deleted at
+the end, including any duplicate the controller makes; the existing default VPC is never
+touched.
+"""
+import base64
+import json
+import os
+import subprocess
+import sys
+import time
+import urllib.request
+
+API = "https://api.arubacloud.com"
+PREFIX = "b5probe"
+PROJECT = os.environ["PROJECT"]
+CTX = os.environ["KUBE_CONTEXT"]
+NS = "default"
+GROUP = "arubacloud.ogen.krateo.io"
+VPC_VERSION = None     # discovered from the cluster, never hardcoded
+LOCATION = os.environ.get("LOCATION", "ITBG-Bergamo")
+VPCS = f"/projects/{PROJECT}/providers/Aruba.Network/vpcs"
+
+failures = []
+_created = False      # set once anything exists upstream that cleanup must remove
+
+
+def die(msg):
+    """Abort, but never while holding resources.
+
+    Run 1 called sys.exit() from inside the setup assertion, which skipped cleanup() and
+    left two probe VPCs upstream -- so run 2 found a dirty fixture and refused to start.
+    An abort path that leaks is worse than a failure, because the next run inherits it.
+    """
+    print(f"\nABORT: {msg}")
+    if _created:
+        cleanup()
+    sys.exit(1)
+
+
+def kubectl(*args, stdin=None):
+    return subprocess.run(["kubectl", "--context", CTX, *args],
+                          capture_output=True, text=True, input=stdin)
+
+
+def token():
+    r = kubectl("get", "secret", "arubacloud-token", "-n", NS,
+                "-o", "jsonpath={.data.token}")
+    if r.returncode != 0 or not r.stdout.strip():
+        sys.exit(f"cannot read arubacloud-token in {CTX}/{NS}: {r.stderr.strip()[:200]}")
+    return base64.b64decode(r.stdout).decode().strip()
+
+
+TOK = token()
+
+
+def api(method, path, body=None):
+    req = urllib.request.Request(
+        f"{API}{path}{'&' if '?' in path else '?'}api-version=1.0", method=method,
+        headers={"Authorization": f"Bearer {TOK}", "Content-Type": "application/json"},
+        data=json.dumps(body).encode() if body is not None else None)
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            raw = r.read()
+            return r.status, (json.loads(raw) if raw else None)
+    except urllib.error.HTTPError as e:
+        raw = e.read()
+        try:
+            return e.code, json.loads(raw)
+        except Exception:
+            return e.code, None
+    except Exception as e:
+        print(f"    transport error on {method} {path}: {type(e).__name__}")
+        return 0, None
+
+
+def served_version(kind):
+    """Ask the cluster which version the CRD actually serves.
+
+    Reused from scripts/ga_chain.py, whose docstring warns against exactly the mistake
+    run 3 made: the CRD version derives from the OAS `info.version`, so it is NOT
+    v1alpha1 (that is the Configuration's version) and not reliably v1-0-0 either --
+    metering declares "1.0", so AlertRule is served at v1-0. Run 3 hardcoded v1alpha1 and
+    both arms failed with `no matches for kind "Vpc"` AFTER creating two VPCs upstream.
+    """
+    r = kubectl("get", "crd", "-o",
+                "jsonpath={range .items[?(@.spec.names.kind=='" + kind + "')]}"
+                "{.spec.versions[0].name}{end}")
+    return r.stdout.strip() or None
+
+
+def vpc_body(name):
+    return {"metadata": {"name": name, "location": {"value": LOCATION}, "tags": []},
+            "properties": {"default": False, "preset": False}}
+
+
+def list_vpcs(query=""):
+    code, body = api("GET", VPCS + (f"?{query}" if query else ""))
+    items = (body or {}).get("values") if isinstance(body, dict) else None
+    return code, (items if isinstance(items, list) else [])
+
+
+def names_of(items):
+    return [((i.get("metadata") or {}).get("name")) for i in items]
+
+
+def by_name(items, name):
+    return [i for i in items if ((i.get("metadata") or {}).get("name")) == name]
+
+
+def cr_manifest(cr_name, vpc_name):
+    return json.dumps({
+        "apiVersion": f"{GROUP}/{VPC_VERSION}", "kind": "Vpc",
+        "metadata": {"name": cr_name, "namespace": NS,
+                     "annotations": {"krateo.io/connector-verbose": "true"}},
+        "spec": {"configurationRef": {"name": "vpc-config", "namespace": NS},
+                 "projectId": PROJECT,
+                 "metadata": {"name": vpc_name, "location": {"value": LOCATION},
+                              "tags": []},
+                 "properties": {"default": False, "preset": False}},
+    })
+
+
+def events_for(cr_name):
+    r = kubectl("get", "events", "-n", NS,
+                "--field-selector", f"involvedObject.name={cr_name}",
+                "-o", "jsonpath={range .items[*]}{.reason}|{.message}{'\\n'}{end}")
+    return [l for l in r.stdout.splitlines() if l.strip()]
+
+
+def assert_limit_is_stored(limit):
+    """Refuse to continue unless the narrowed `limit` is really in the stored object.
+
+    A Configuration patch of a PRUNED field exits 0 and stores nothing -- measured
+    2026-11-07 with `findby.offset` on the fleet definition, which printed a warning and
+    succeeded. Without this read-back the experiment would run an UNNARROWED findby, both
+    arms would adopt cleanly, and "no duplicate" would be reported as a result.
+
+    THREE OUTCOMES, REPORTED SEPARATELY, because the first version of this conflated them
+    and misdiagnosed its own run. `limit` is `type: integer` in the OAS, so the generated
+    CRD types it integer and a string value is REJECTED rather than pruned:
+
+      rc!=0 + "unknown field"    -> the CRD lacks the field: wrong definition installed
+      rc!=0 + "Invalid value"    -> the CRD HAS it, our value has the wrong type
+      rc==0 but read-back empty  -> silently pruned, the original hazard
+    """
+    r = kubectl("patch", "vpcconfiguration", "vpc-config", "-n", NS, "--type", "merge",
+                "-p", json.dumps({"spec": {"configuration": {"query": {"findby": {"limit": limit}}}}}))
+    err = (r.stderr or "").strip()
+    print(f"    patch rc={r.returncode} {err[:300]}")
+    got = kubectl("get", "vpcconfiguration", "vpc-config", "-n", NS,
+                  "-o", "jsonpath={.spec.configuration.query.findby.limit}").stdout.strip()
+    if got != str(limit):
+        if "unknown field" in err:
+            die("the CRD has no findby.limit field at all -- this cluster's "
+                     "Vpc CRD was generated WITHOUT the experimental definition. "
+                     "configurationFields are immutable, so it needs a fresh cluster.")
+        if "Invalid value" in err:
+            die("the CRD HAS findby.limit but rejected the value (%s). The "
+                     "experimental definition is installed correctly; the probe sent the "
+                     "wrong type. `limit` is `type: integer` in the OAS." % err[:200])
+        die("findby.limit read back as %r after a patch that exited %d. Silently "
+            "pruned -- a result from here would be meaningless." % (got, r.returncode))
+    print(f"    ASSERTED findby.limit == {got!r} in the STORED Configuration")
+
+
+def run_arm(label, cr_name, vpc_name, expect_absence, settle=240):
+    """The defect is ABSENCE INFERRED plus a create ATTEMPTED, not the duplicate.
+
+    Measured 2026-11-13: the off-page arm fired AbsenceInferredFromUnmatchedListing twice
+    and then CannotCreateExternalResource with a 400 -- Aruba refused the create because
+    the resource it was being asked to make already exists. So on THIS vendor #486 is a
+    convergence failure: the CR can never become Ready, and the create endpoint is hit
+    once per reconcile forever. On a vendor that permits duplicate names, or mints its own
+    identifier and ignores the name, the same path would produce the duplicate the issue
+    describes.
+
+    The first version of this arm asserted `expect_duplicate=True`, so it reported a
+    successful observation as "#486's traced consequence did NOT reproduce" and exited 1.
+    An experiment whose expectation is wrong reports a real finding as a failure.
+    """
+    print(f"\n--- ARM {label}: CR {cr_name} -> existing vpc {vpc_name}"
+          f" (expect absence inferred: {expect_absence})")
+    r = kubectl("apply", "-f", "-", stdin=cr_manifest(cr_name, vpc_name))
+    if r.returncode != 0:
+        failures.append(f"{label}: CR apply failed: {r.stderr.strip()[:200]}")
+        return
+    deadline = time.time() + settle
+    dupes, evs = 1, []
+    while time.time() < deadline:
+        time.sleep(15)
+        _, items = list_vpcs()
+        dupes = len(by_name(items, vpc_name))
+        evs = events_for(cr_name)
+        if dupes > 1:
+            break
+    absence = [e for e in evs if "AbsenceInferredFromUnmatchedListing" in e]
+    attempts = [e for e in evs if "CannotCreateExternalResource" in e]
+    ids = [((i.get("metadata") or {}).get("id")) for i in by_name(list_vpcs()[1], vpc_name)]
+    print(f"    upstream objects named {vpc_name}: {dupes}  ids={ids}")
+    print(f"    absence events: {len(absence)}   create attempts: {len(attempts)}")
+    for e in evs[:4]:
+        print(f"      event: {e[:150]}")
+
+    if expect_absence:
+        if not absence:
+            failures.append(f"{label}: no AbsenceInferredFromUnmatchedListing event. The "
+                            f"truncated findby did NOT infer absence, which refutes the "
+                            f"mechanism rather than merely its consequence.")
+        if not attempts and dupes <= 1:
+            failures.append(f"{label}: absence was inferred but NO create was attempted "
+                            f"and no duplicate exists, so the inference did not drive a "
+                            f"write. That makes #486 a performance bug, not a "
+                            f"correctness one.")
+        if dupes > 1:
+            print(f"    DUPLICATE CREATED: {dupes} upstream objects carry {vpc_name}. "
+                  f"This vendor permits duplicate names.")
+        elif attempts:
+            print(f"    CONVERGENCE FAILURE: absence inferred, create attempted, vendor "
+                  f"refused. The resource exists and the CR can never manage it.")
+    else:
+        if absence:
+            failures.append(f"{label}: CONTROL BROKEN -- {len(absence)} absence event(s) "
+                            f"on a vpc that IS on the page, so the arms do not "
+                            f"discriminate and the subject arm proves nothing.")
+        if dupes > 1:
+            failures.append(f"{label}: CONTROL BROKEN -- a duplicate appeared for an "
+                            f"on-page vpc.")
+        if not absence and dupes == 1:
+            print(f"    adopted cleanly, no absence inferred -- the control holds")
+
+
+def cleanup():
+    print("\n=== cleanup: deleting every probe CR and every probe VPC ===")
+    for cr in (f"{PREFIX}-offpage", f"{PREFIX}-onpage"):
+        kubectl("delete", f"vpc.{GROUP}", cr, "-n", NS, "--ignore-not-found",
+                "--timeout=120s")
+    time.sleep(20)
+    _, items = list_vpcs()
+    left = [i for i in items if str(names_of([i])[0] or "").startswith(PREFIX)]
+    for i in left:
+        md = i.get("metadata") or {}
+        code, _ = api("DELETE", f"{VPCS}/{md.get('id')}")
+        print(f"    DELETE {md.get('name')} ({md.get('id')}) -> {code}")
+    for _ in range(12):
+        time.sleep(15)
+        _, items = list_vpcs()
+        residue = [n for n in names_of(items) if str(n or "").startswith(PREFIX)]
+        if not residue:
+            print("    residue: 0 probe VPCs remain")
+            return
+    failures.append(f"CLEANUP: probe VPCs remain upstream: {residue}")
+
+
+def main():
+    global VPC_VERSION
+    print("=== preflight: is the cluster usable AT ALL? (before touching the vendor) ===")
+    VPC_VERSION = served_version("Vpc")
+    cfg_version = served_version("VpcConfiguration")
+    print(f"    Vpc CRD served version:              {VPC_VERSION!r}")
+    print(f"    VpcConfiguration CRD served version: {cfg_version!r}")
+    if not VPC_VERSION:
+        sys.exit("ABORT: no CRD serves kind Vpc in this cluster, so no CR can be applied. "
+                 "Nothing was created upstream. Did pin_verify finish generating it?")
+    if not cfg_version:
+        sys.exit("ABORT: no CRD serves kind VpcConfiguration, so the findby cannot be "
+                 "narrowed. Nothing was created upstream.")
+
+    print("\n=== preflight: what exists now ==="),
+    code, items = list_vpcs()
+    print(f"    GET vpcs -> {code}, {len(items)} vpc(s): {names_of(items)}")
+    if code != 200:
+        sys.exit("cannot list vpcs; aborting before creating anything")
+
+    stale = [n for n in names_of(items) if str(n or "").startswith(PREFIX)]
+    if stale:
+        print(f"\n=== reclaiming {len(stale)} leftover probe VPC(s) from an earlier run ===")
+        print(f"    {stale}  (only names starting {PREFIX!r} are ever touched)")
+        for i in [x for x in items if str(names_of([x])[0] or "").startswith(PREFIX)]:
+            md = i.get("metadata") or {}
+            c, _ = api("DELETE", f"{VPCS}/{md.get('id')}")
+            print(f"    DELETE {md.get('name')} -> {c}")
+        for _ in range(12):
+            time.sleep(15)
+            _, items = list_vpcs()
+            if not [n for n in names_of(items) if str(n or "").startswith(PREFIX)]:
+                print("    reclaimed; fixture is clean")
+                break
+        else:
+            sys.exit("could not reclaim leftover probe VPCs; refusing to run against a "
+                     "dirty fixture because an unexpected duplicate count would be "
+                     "unattributable")
+
+    print("\n=== creating two probe VPCs at the vendor (free, deleted at the end) ===")
+    global _created
+    for n in (f"{PREFIX}-a", f"{PREFIX}-b"):
+        _created = True
+        c, _ = api("POST", VPCS, vpc_body(n))
+        print(f"    POST {n} -> {c}")
+        if c not in (200, 201, 202):
+            die(f"could not create {n} (HTTP {c}); nothing further attempted")
+    time.sleep(20)
+
+    # LIMIT=2, not 1. Measured on the first run: limit=1 returns the pre-existing default
+    # VPC (the oldest -- this collection is oldest-first), which left BOTH probe VPCs off
+    # the page and no on-page probe resource for the control arm. The only on-page
+    # candidate would have been the region-unique default VPC, and pointing a CR at that
+    # risks modifying it. With limit=2 the page holds the default plus one probe VPC, so
+    # both arms land on resources this probe created and deletes.
+    LIMIT = 2
+    print(f"\n=== which VPCs does a {LIMIT}-item page return? (measured, not assumed) ===")
+    c, page = list_vpcs(f"limit={LIMIT}")
+    page_names = names_of(page)
+    print(f"    GET vpcs?limit={LIMIT} -> {c}, {len(page)} item(s): {page_names}")
+    if len(page) != LIMIT:
+        die(f"limit={LIMIT} returned {len(page)} items, so this vendor does not honour "
+            f"it downward here and the experiment cannot be set up")
+    _, allv = list_vpcs()
+    offpage = [n for n in names_of(allv)
+               if str(n or "").startswith(PREFIX) and n not in page_names]
+    onpage = [n for n in page_names if str(n or "").startswith(PREFIX)]
+    print(f"    probe VPCs OFF the page: {offpage}")
+    # the control arm must use a probe VPC, never the pre-existing default
+    print(f"    probe VPCs ON  the page: {onpage}")
+
+    print("\n=== narrowing the findby through the Configuration ===")
+    assert_limit_is_stored(LIMIT)
+
+    if offpage:
+        run_arm("OFF-PAGE", f"{PREFIX}-offpage", offpage[0], expect_absence=True)
+    else:
+        failures.append("no probe VPC is off the 1-item page; the subject arm could not "
+                        "be set up and its absence is not a negative result")
+    if onpage:
+        run_arm("ON-PAGE", f"{PREFIX}-onpage", onpage[0], expect_absence=False)
+    else:
+        failures.append("no probe VPC is on the 1-item page; the CONTROL arm could not be "
+                        "set up, so a duplicate in the other arm proves less")
+
+    cleanup()
+    print("\n" + "=" * 70)
+    if failures:
+        print(f"{len(failures)} PROBLEM(S):")
+        for f in failures:
+            print("  -", f)
+        return 1
+    print("BOTH ARMS AS PREDICTED: a truncated findby inferred absence for a resource "
+          "that exists and drove a create attempt at first contact; the same CR against "
+          "an on-page resource adopted it cleanly with no absence inferred.")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

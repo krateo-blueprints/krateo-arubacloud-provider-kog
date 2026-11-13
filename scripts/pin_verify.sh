@@ -225,6 +225,58 @@ export KUBECONFIG="${PIN_KUBECONFIG}"
 
 # The three cluster operations, one implementation per provider. Everything below speaks
 # only in terms of ${CTX}, so adding a provider means adding a case here and nothing else.
+# HOST LOAD GATE. Diego's decision on 2026-11-12, relayed to every session: do not start
+# a heavy job on the shared Mac until the 1-minute load average is under 8, and run one
+# heavy job per session. Sixteen sessions each running one job had the host near 27, and
+# earlier in the day it reached 148 and crashed the Docker VM.
+#
+# It is a WAIT, not a refusal, because "wait until it drops" is what was asked.
+#
+# Hard on the kind path and informational on gke, deliberately: a kind cluster IS the
+# local load, while a GKE run's local cost is one kubectl and a short credential read.
+# Blocking remote work on local load would push every session back onto kind, which is
+# the thing the directive exists to stop.
+#
+# The first field of `sysctl -n vm.loadavg` is the 1-minute average, and on this host it
+# is printed with a COMMA decimal separator ({ 50,82 29,19 23,40 }), so it has to be
+# normalised before any numeric comparison -- a plain string compare would read "50,82"
+# as smaller than "8".
+MAX_LOAD="${MAX_LOAD:-8}"
+LOAD_WAIT="${LOAD_WAIT:-900}"
+
+host_load1() {
+  # LC_ALL=C on BOTH awk calls, not just the gsub. The comma is replaced with a dot and
+  # then awk parses the result -- and in a comma locale awk reads "16.93" as 16, stopping
+  # at the dot. So the first version of this function truncated the load it had just
+  # normalised: the bug was inside the code whose own comment is about this exact hazard.
+  sysctl -n vm.loadavg 2>/dev/null | tr -d '{}' \
+    | LC_ALL=C awk '{gsub(/,/, ".", $1); print $1+0}'
+}
+
+wait_for_load() {
+  local l waited=0
+  l=$(host_load1)
+  if [ "$CLUSTER_PROVIDER" != "kind" ]; then
+    echo "    host 1-min load ${l} (gate ${MAX_LOAD}, not enforced: this run's compute is remote)"
+    return 0
+  fi
+  while :; do
+    l=$(host_load1)
+    if LC_ALL=C awk -v a="$l" -v b="$MAX_LOAD" 'BEGIN{exit !(a+0 < b+0)}'; then
+      echo "    host 1-min load ${l} < ${MAX_LOAD}, proceeding"
+      return 0
+    fi
+    if [ "$waited" -ge "$LOAD_WAIT" ]; then
+      die "host 1-min load is ${l}, still at or above ${MAX_LOAD} after ${waited}s.
+  Diego's rule is to wait rather than pile on. Raise MAX_LOAD only if you know the load
+  is not from containers, or run with CLUSTER_PROVIDER=gke so the compute is remote."
+    fi
+    echo "    host 1-min load ${l} >= ${MAX_LOAD}; waiting (${waited}s of ${LOAD_WAIT}s)"
+    sleep 30
+    waited=$((waited + 30))
+  done
+}
+
 cluster_exists() {
   case "$CLUSTER_PROVIDER" in
     kind) kind get clusters 2>/dev/null | grep -qx "$CLUSTER" ;;
@@ -348,6 +400,7 @@ if [ "$CLUSTER_PROVIDER" = "kind" ]; then
 else
   say "creating ${CLUSTER} on GKE in ${GKE_PROJECT}"
 fi
+wait_for_load
 if cluster_exists; then
   echo "    already exists, reusing"
   if [ "$CLUSTER_PROVIDER" = "gke" ]; then
