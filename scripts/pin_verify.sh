@@ -20,7 +20,16 @@
 set -uo pipefail
 
 PIN="${OASGEN_VERSION:-0.65.0}"              # 0.65.0 is the PIN; 0.36.0 is the FLOOR.
-                                             # It SKIPS 0.53.0 and 0.54.0, both measured:
+                                             # It SKIPS 0.66.0, 0.53.0 and 0.54.0, all measured.
+                                             # 0.66.0: #664 fixes our two no-create kinds and
+                                             # introduces a WRITE LOOP on them -- the create
+                                             # annotation is set and cleared ~5 times a second,
+                                             # per object, forever, and the CR's own status looks
+                                             # correct throughout (oasgen#674). The trigger is an
+                                             # OnDelete watch on that annotation, so clearing it
+                                             # fires another Create. Do not pin 0.66.0 while any
+                                             # composition contains a no-create-verb kind; oasgen
+                                             # fixes it forward in 0.67.0. Then:
                                              # 0.53.0 stamps `default: {}` on 240 optional
                                              # object paths (238 of them on the
                                              # Configuration CRD, exactly ONE
