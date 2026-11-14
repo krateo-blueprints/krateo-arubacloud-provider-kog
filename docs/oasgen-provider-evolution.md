@@ -36,6 +36,19 @@ Scope analysed: 11 specs, ~108 operations, **34 manageable resources** across th
 
 ## 0. Summary table
 
+> **0.66.0 is SKIPPED (2026-11-14), measured.** It is the release that finally makes
+> `LoadBalancer` and `AiKey` report honestly — `Ready=False` AND `Synced=False`, both carrying
+> `NoCreateVerbDeclared`, with no phantom `CreatedExternalResource` and no false
+> `external-create-succeeded`. It also introduces a **write loop** on exactly those two kinds:
+> `krateo.io/external-create-pending` is set and cleared about **five times a second, per object,
+> indefinitely**, while the CR's conditions stay correct the whole time — so nothing in the
+> resource shows it. Measured on released images: 2839 and 3918 watch deliveries in eleven
+> minutes, ~50/50 annotation present/absent, against a 3-minute resync; and the controller's own
+> log shows the passes are **Create**-typed (`event=create` 5, `observe` 0), one per write pair.
+> The trigger is an `OnDelete` watch registered on that annotation, so clearing it fires another
+> Create — see the 0.66.0 appendix and oasgen#674. Ours are the only known no-create-verb kinds,
+> so nobody else will hit this. oasgen fixes it forward in 0.67.0.
+>
 > **Pin status (2026-11-14): 0.65.0.** Moved from 0.64.0 after three axes on the shipped tag.
 > Nothing in the release required the move — #645, #646, #649, #644 and two indirect otel bumps —
 > so this is a routine currency move rather than a fix we needed, and it is recorded as such.
@@ -1918,3 +1931,71 @@ that moves plumbing or crdgen rather than merely the provider version.
 Identical to 0.61.0 and 0.64.0 on the same adoption chain. A number that has not moved across
 three minor versions is a stronger signal than any single green run, because it would catch a
 change that broke one call and fixed another.
+
+## Appendix — why 0.66.0 is skipped (2026-11-14)
+
+0.66.0 does the thing three releases had been working towards and breaks the same two kinds doing
+it. Both halves are measured on released images, on a cluster built for the run.
+
+### What it fixes
+
+`#664` adopts `ResultCreator`, so a create that was never requested stops reporting success. On
+`LoadBalancer` and `AiKey` — the only consumer instances of the no-`create`-verb shape anyone has:
+
+```
+Ready=False  reason=NoCreateVerbDeclared
+Synced=False reason=NoCreateVerbDeclared     <- the reason now survives on BOTH
+krateo.io/external-create-succeeded : ABSENT
+CreatedExternalResource             : 0 occurrences in the whole run
+vendor collections                  : loadBalancers 0 -> 0, aiKeys 0 -> 0
+```
+
+At 0.65.0 the same two read `Ready=False/Creating` + `Synced=False/ReconcileError`, because the
+runtime overwrote the provider's reason. The condition announced in 0.64.0's notes stops being
+fiction here.
+
+### What it breaks
+
+```
+watch deliveries in 11 minutes      LoadBalancer 2839      AiKey 3918
+annotation present / absent         1415 / 1424            1955 / 1963
+rate                                250-355 per minute per object, flat
+distinct condition states seen      one, plus (none) at create and Deleting at teardown
+Observe events (AbsenceInferred)    15:39, 15:41, 15:44, 15:47, 15:50 -- the 3-minute resync
+controller pass lines               "event":"create" x5,  "observe" x0
+create passes per second            ~2 (LoadBalancer), ~1.5 (AiKey) -- one per write PAIR
+```
+
+So the conditions are stable and correct while the annotation churns three orders of magnitude
+faster than the resync. The trigger is an `OnDelete` watch registered on
+`krateo.io/external-create-pending` (`unstructured-runtime` `builder/options.go:61`), which fires
+a **Create** event directly: clearing the annotation re-enters the create path, which sets it
+again. `#664` closed the cycle — the pre-0.64.0 branch returned an *error*, which took the
+workqueue's failure path and its exponential backoff, and `Requested:false` with a nil error
+means the pass succeeds, so the backoff that had bounded this is gone.
+
+A second consequence: `pending` is present with `succeeded` and `failed` both absent for roughly
+half of the cycle, so `meta.ExternalCreateIncomplete` returns true **intermittently** — which
+matters because checking once and seeing it absent is not evidence of being unaffected.
+
+### Two instrument corrections, kept because the numbers are unusable without them
+
+**A watch cannot distinguish a stable condition from one rewritten identically.** The apiserver
+no-ops a write that changes nothing, so a quiet watch is consistent with "no writes attempted"
+and "identical writes discarded". The conditions are measured stable; the *absence of rewrites*
+is not measured.
+
+**The log capture window was ~1 second, not the 120 it was written for.** `kubectl logs
+--since=1s` **without `-f`** is one-shot: it fetched a second of history and exited, so the
+`sleep 120` waited on nothing. Reported as "4 log lines in ~120s" it would have understated the
+defect by two orders of magnitude and read as an idle controller. What caught it was the
+per-second histogram showing **one** distinct second, which a 120-second capture cannot contain.
+The pass **type** — the decisive finding — does not depend on window length; the rate is a
+snapshot consistent with the independently measured write rate.
+
+### Why skipping rather than taking it
+
+0.66.0 also carries fixes confirmed on other consumers' vendors: `#668`'s rotation loss on a
+pending update and `#669`'s map-list latching. Those are real and we do not have them. But the
+write loop lands on two kinds we ship samples for and document, and the fix is one release away,
+so waiting costs less than taking a loop whose symptom is invisible in the CR.
