@@ -210,6 +210,108 @@ Two sharp edges, both load-bearing:
 > exercises the RBAC widening to the Secret's name, since the create could not have
 > succeeded without it.
 
+### The same pattern on an OPTIONAL field: `Kaas.clientSecret`
+
+`DatabaseUser.password` is required, so an unconditional resolver is correct for it. `Kaas` has
+the same exposure — `properties.identity.clientSecret` on `KaasIdentityDto` is an
+identity-provider client secret, and a body string becomes a spec field — but `identity` is
+`nullable` and **most Kaas resources have none**. That difference changes the construction:
+
+```yaml
+excludedSpecFields:
+- properties.identity.clientSecret
+verbsDescription:
+- action: create
+  method: POST
+  path: /projects/{projectId}/providers/Aruba.Container/kaas
+  fieldMapping:
+  - inBody: properties.identity.clientSecret
+    resolver:
+      type: secretRef
+      secretRef:
+        nameFromCustomResource: metadata.name
+        keyFromCustomResource: spec.properties.identity.clientId
+      when:
+        customResourceFieldPresent: spec.properties.identity.clientId
+```
+
+**The `when` guard is load-bearing, not defensive.** A resolver is unconditional unless guarded,
+and rest-dynamic-controller's `readStringPath` *errors* on an absent path — so without the guard
+every Kaas would need a Secret, including the majority that configure no identity provider. That
+would break the common case to protect the uncommon one. `when` is evaluated before the resolver
+runs, so a Kaas with no `identity` block skips the mapping entirely: no Secret is read and
+nothing is added to the request.
+
+To create a Kaas **with** an identity provider:
+
+```sh
+kubectl create secret generic example-kaas \
+  --from-literal="<the clientId>=<the client secret>"
+```
+
+The Secret is named after the CR and keyed by the `clientId` — the same both-paths-already-exist
+trick, with the clientId doing the job the username does for `DatabaseUser`. To create a Kaas
+**without** one, omit the `identity` block and no Secret is needed.
+
+#### Migrating an existing cluster
+
+`excludedSpecFields` is **immutable** — the RestDefinition CRD carries `rule="self == oldSelf"`
+on it. So applying this definition to a cluster that already has `arubacloud-container-kaas` is
+**refused by the apiserver**, verbatim:
+
+```
+The RestDefinition "arubacloud-container-kaas" is invalid: spec.resource.excludedSpecFields:
+Invalid value: ExcludedSpecFields are immutable, you cannot change them once the CRD has been
+generated
+```
+
+Measured 2026-11-14 on a throwaway cluster carrying only the `oasgen-provider-crds` chart — **no
+controller, so no CRD had been generated at all.** The rule is unconditional; its message states
+a condition that need not hold, which is worth knowing because it sends you looking for a
+generated CRD that may not exist. Reported upstream.
+
+The RestDefinition must therefore be deleted and recreated:
+
+```sh
+kubectl delete restdefinition arubacloud-container-kaas -n krateo-system
+kubectl apply -f restdefinitions/container/kaas.yaml
+```
+
+**With no live `Kaas` resources this is safe**: the generated CRD is recreated from the new
+definition. **With live `Kaas` resources it will block**, and that is a protection rather than a
+bug — the RestDefinition holds a `composition.krateo.io/restresources-still-exist-finalizer`
+while instances of its generated Kind exist, precisely so a delete cannot take the CRD out from
+under live resources. Getting through it means removing the `Kaas` resources first, **and
+deleting a `Kaas` CR destroys a real managed cluster at Aruba**. Do not force-remove the
+finalizer: that deletes the CRD and orphans the resources from the type that describes them.
+
+So: migrate before the fleet has Kaas resources, or plan the removal deliberately. A fresh
+install needs none of this.
+
+This constraint is not specific to this fix — **no shipped definition can ever gain an
+`excludedSpecFields` entry without a delete-and-recreate**, which makes it a structural property
+of the generation model rather than a property of `Kaas`.
+
+**It is also temporary and tracked.** oasgen
+[#666](https://github.com/krateo-platformops/oasgen-provider/issues/666) is decided: the rule
+becomes **append-only** — `oldSelf.all(f, f in self)` — so additions are accepted and only
+removals stay refused, with the prune made loud on a durable channel (a `generation` entry in
+`status.schemaWarnings` naming the field and the live-CR count, plus a Warning Event). Once that
+ships, this definition applies directly to an existing cluster and the runbook above is
+unnecessary. It is filed and decided but **not yet built**, so until then the above is the only
+route.
+
+A version-bump path was considered and rejected for this case specifically: bumping the served
+version would leave the credential readable at the old version until that version is dropped, so
+the remedy would be deferred rather than applied — which for a plaintext secret is the wrong
+trade.
+
+> **NOT verified live.** Unlike the `DatabaseUser` block above, this has no live run behind it:
+> exercising it means creating a Kaas, which bills. What IS verified is offline — the regenerated
+> CRD carries no `clientSecret` property, the resolver and guard are declared as shown, and
+> `scripts/validate.py` passes. The runtime behaviour of the guard on a Kaas *without* an
+> identity block, and of the resolver on one *with* it, are both unmeasured here.
+
 ## Verbose connectors print the bearer token, below 0.26.1
 
 Every sample in `samples/` carries:
