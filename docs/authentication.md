@@ -255,10 +255,22 @@ trick, with the clientId doing the job the username does for `DatabaseUser`. To 
 
 #### Migrating an existing cluster
 
-`excludedSpecFields` is **immutable once the CRD has been generated** — the RestDefinition CRD
-carries `rule="self == oldSelf"` on it. So applying this definition to a cluster that already has
-`arubacloud-container-kaas` is **refused by the apiserver**, and the RestDefinition must be
-deleted and recreated:
+`excludedSpecFields` is **immutable** — the RestDefinition CRD carries `rule="self == oldSelf"`
+on it. So applying this definition to a cluster that already has `arubacloud-container-kaas` is
+**refused by the apiserver**, verbatim:
+
+```
+The RestDefinition "arubacloud-container-kaas" is invalid: spec.resource.excludedSpecFields:
+Invalid value: ExcludedSpecFields are immutable, you cannot change them once the CRD has been
+generated
+```
+
+Measured 2026-11-14 on a throwaway cluster carrying only the `oasgen-provider-crds` chart — **no
+controller, so no CRD had been generated at all.** The rule is unconditional; its message states
+a condition that need not hold, which is worth knowing because it sends you looking for a
+generated CRD that may not exist. Reported upstream.
+
+The RestDefinition must therefore be deleted and recreated:
 
 ```sh
 kubectl delete restdefinition arubacloud-container-kaas -n krateo-system
