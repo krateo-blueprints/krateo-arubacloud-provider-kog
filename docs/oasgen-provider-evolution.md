@@ -36,7 +36,18 @@ Scope analysed: 11 specs, ~108 operations, **34 manageable resources** across th
 
 ## 0. Summary table
 
-> **Pin status (2026-11-13, later): 0.64.0.** Moved from 0.63.1 because 0.64.0 stops two of
+> **Pin status (2026-11-14): 0.65.0.** Moved from 0.64.0 after three axes on the shipped tag.
+> Nothing in the release required the move — #645, #646, #649, #644 and two indirect otel bumps —
+> so this is a routine currency move rather than a fix we needed, and it is recorded as such.
+> **Shape:** 36 rendered / 0 failures / 0 stamped `default: {}` with the control at 1.
+> **Reconcile** on released images with all 36 definitions applied: auth shape 36 / 0, the free
+> adoption chain green (adopted, converged, drift corrected, delete verified 404, residue 0), and
+> a transport census of 19 / 18 / 0 / 1 **identical to 0.61.0 and 0.64.0** on the same chain.
+> **Upgrade**, which no earlier pin move measured: the served-version set after an in-place
+> 0.64.0 → 0.65.0 upgrade is a superset of the set before it, 0 kinds lost a version, and all 36
+> CRD JSONs were byte-identical. See the 0.65.0 appendix for what that run does *not* establish.
+>
+> Previously (2026-11-13, later): 0.64.0. Moved from 0.63.1 because 0.64.0 stops two of
 > our own kinds reporting a create that cannot happen: `LoadBalancer` and `AiKey` declare no
 > create verb, and before 0.64.0 the runtime recorded a Normal `CreatedExternalResource`
 > event — *"Successfully requested creation of external resource"* — once per poll, forever,
@@ -1803,3 +1814,107 @@ preflight does not see. It left a cluster at `status=ERROR` still holding its no
 Both are now guarded: the regional headroom is measured before the create, and a failed
 create is deleted regardless of `KEEP`. Recorded because an environmental failure inside a
 version-verification run is exactly the thing that gets misfiled as a version verdict.
+
+## Appendix — the 0.64.0 → 0.65.0 pin move (2026-11-14)
+
+Nothing in 0.65.0 fixes a defect this fleet has. The merged set is #644 (marking arms that are
+permanently the only coverage), #645 (removing the inert `NoCreateVerbDeclared` condition), #646
+(`status.resolvedResolversDigest`, gated on an update verb carrying a `secretRef`), #649 (the
+controller half of rotation detection) and two indirect otel bumps. So this is a currency move,
+and the interesting part is not the verdict but three predictions staked **before** the runs.
+
+### Three falsifiable predictions, three corpora, one release
+
+`#646` adds a status field gated on `hasUpdatableSecretRefResolver`. Three KOG fleets staked a
+number in advance:
+
+| corpus | prediction | what it tests |
+|---|---|---|
+| **ours** | the field on **0 of 36** CRDs | the gate's SCOPE |
+| azuredevops | exactly **4 of 25**, named kinds | that it counts correctly at scale |
+| openstack-ironic | **must appear** on their node CRD | that the positive case exists |
+
+Ours is the discriminating one, and only because of an awkward shape: `DatabaseUser` carries a
+`secretRef` with **no update verb**. Under the documented update-verb gate it gets nothing; under
+a looser any-`secretRef` reading it would gain the field. So our single number separates two
+readings that no other corpus can — azuredevops's 21 non-`secretRef` kinds answer the same either
+way. Measured: **0 of 36**, so the gate is the update-verb one as documented.
+
+### What the detector control cost, and why it is in the record
+
+The first run of that check had a control proving the **corpus was queried** — 36 managed CRDs
+read — and no control proving the **detector worked**. For a prediction whose expected value is
+*absence* that is the wrong way round: a detector with a typo returns 0 and **confirms** the
+prediction, where a positive prediction would fail loudly. The gap was pointed out after that
+cluster had been torn down, so the control moved into the upgrade run, where the same code path
+had to find `observedGeneration` and `conditions` on all 36:
+
+```
+detector at 0.64.0   observedGeneration 36/36   conditions 36/36   digest 0   CONTROL PASSED
+detector at 0.65.0   observedGeneration 36/36   conditions 36/36   digest 0   CONTROL PASSED
+```
+
+Until those read 36, the zero was recorded as *"the detector saw nothing"* rather than *"the field
+is absent"*. The rule that came out of it: **take the control reading in the same query as the
+measurement, because the resource may not exist later.**
+
+### Blast radius of the `default: {}` suppression: 2 of 36
+
+`TestFleetParentDefaultStamping` has always reported 0 stamped paths with a control at 1, which
+shows the suppression works but not across how many shapes. `TestFleetParentDefaultBlastRadius`
+(added here) answers that by re-rendering each definition's already-rendered spec schema through
+`crdgen` with `NoParentDefaults` **unset** and counting the stamps crdgen itself produces:
+
+```
+definitions examined 36   not checked 0
+kinds with >= 1 eligible parent: 2     SecurityGroup 1, Vpc 1
+TOTAL eligible parents (blast radius): 2
+```
+
+So if the toggle ever regresses, exactly `Vpc` and `SecurityGroup` would start showing a
+`properties: {}` their authors never set — and only `Vpc` has resources in the wild, being the
+kind the free chains create. A regressed stamp is irreversible per CR: the apiserver applies the
+default on reads from etcd.
+
+**A first attempt counted this statically from the OAS documents and returned 0** — contradicted
+by `Vpc`, which the probe's own control proves eligible. The walk required an explicit
+`type: object` on the parent, which these documents omit on a `$ref`'d object and the renderer
+supplies. It was discarded rather than patched, and the counterfactual is the reason: patched into
+agreement about `Vpc`, it would still have missed `SecurityGroup`, reporting **1 of 36 with a
+green control** — worse than the original error, because the agreement is what gets cited.
+
+### The upgrade path, which no earlier pin move measured
+
+Every pin move before this one built a fresh cluster, so every result described a clean install
+and none described what a user upgrading actually gets. Measured in place, 0.64.0 → 0.65.0, all
+36 definitions, released charts, regeneration knob at its default:
+
+```
+served-version set after is a SUPERSET of the set before : HELD
+  kinds that disappeared entirely   0
+  kinds that lost a served version  0
+  kinds whose storage version moved 0
+  CRD JSON byte-identical before vs after   36 of 36
+```
+
+**What this run does not establish**: whether the re-render ran at all. Both tags ship plumbing
+v1.60.0, so the rendered output is identical and the applies are no-ops — and a no-op apply does
+not bump `resourceVersion`, which is what the instrument watched. The field that records the
+decision is `status.generatorBuild` on the RestDefinition; this run snapshotted the CRDs the
+decision *affects* rather than the objects that *record* it. Effect measured and nil; occurrence
+unmeasured. The live counter in that run also read `-1` for all 40 ticks — environment variables
+passed *after* `python3 -c` instead of before it — so the superset assertion was recovered offline
+from the saved snapshots rather than computed in the run.
+
+The dangerous case is therefore an upgrade whose generator output **differs**, which means one
+that moves plumbing or crdgen rather than merely the provider version.
+
+### Transport census, fourth consecutive tag
+
+```
+19 API call attempts, 18 ok, 0 transport failures, 1 HTTP error
+```
+
+Identical to 0.61.0 and 0.64.0 on the same adoption chain. A number that has not moved across
+three minor versions is a stronger signal than any single green run, because it would catch a
+change that broke one call and fixed another.
