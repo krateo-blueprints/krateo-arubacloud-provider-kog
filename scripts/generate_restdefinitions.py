@@ -83,7 +83,12 @@ from providers import PROVIDERS  # one list; see scripts/providers.py
 #   idField      - natural key field in the CR spec (identifier)
 #   statusId     - JSONPath in status holding the server id ("" = none)
 #   metaWrap     - True if the create body wraps name in a metadata object
-#   secretFields - body fields to source from a Kubernetes Secret via secretRef
+#   secretFields - body fields to source from a Kubernetes Secret via secretRef.
+#                  Optional `when` makes the mapping conditional: with it the whole
+#                  mapping is SKIPPED when that CR path is absent or null, which is
+#                  required for a secret field the vendor treats as optional -- the
+#                  resolver errors on a missing path, so an unconditional mapping
+#                  would make the field mandatory for every CR of the kind.
 #   metaIdent    - identifier for a metadata-wrapped resource, when metadata.name
 #                  is not usable (e.g. the server assigns the name itself)
 #   compareScope - drift comparison scope, when the default would never converge
@@ -271,6 +276,34 @@ OVERRIDES = {
               "Job requires a CloudServer to target -- created out of band by "
               "scripts/ga_job_probe.py, since a RestDefinition cannot create one.")),
     "container/kaas": dict(
+        # `properties.identity.clientSecret` is an identity-provider client secret and was
+        # PLAINTEXT IN THE CR SPEC: present on KaasIdentityDto, excluded from nothing, with no
+        # resolver -- so its value reached etcd, `kubectl get kaas -o yaml`, and any Composition
+        # values committed to git. Found 2026-11-14 by auditing all 13 OAS documents for
+        # secret-shaped property names and resolving every create/update request body to see which
+        # reach a CR spec: 1 hit in 36 definitions, with 0 unresolved paths.
+        #
+        # `when` IS LOAD-BEARING, not defensive. `identity` is `nullable: true` and not required,
+        # so most Kaas resources never carry one -- and rest-dynamic-controller's readStringPath
+        # ERRORS on an absent path (resolver.go:70-77) with the resolver otherwise unconditional.
+        # An unguarded mapping would therefore make a Secret mandatory for EVERY Kaas, breaking
+        # the common case to protect the uncommon one. The guard is evaluated before the resolver
+        # switch (resolver.go:58, oasgen#524), so a Kaas with no identity skips the mapping
+        # entirely: no Secret is read and nothing is written to the request.
+        #
+        # The Secret is named after the CR and keyed by the clientId, both read from the CR, which
+        # is what avoids adding a *SecretRef field the source OAS does not declare -- the OAS is
+        # not ours to change. Same construction as database/users.
+        #
+        # NOT HIT BY oasgen#663 (a secretRef inside an object the vendor echoes back cannot
+        # converge when the strip leaves the object empty): KaasIdentityDto carries clientId AND
+        # clientSecret, only the latter is excluded, so clientId always survives the strip and the
+        # object is never empty. A CR cannot supply identity carrying only the secret either,
+        # since the field is no longer in the spec.
+        secretFields=[dict(inBody="properties.identity.clientSecret",
+                           nameFrom="metadata.name",
+                           keyFrom="spec.properties.identity.clientId",
+                           when="spec.properties.identity.clientId")],
         # Kaas could never reach Ready, and the cause is in Aruba's spec, not ours:
         # the node pool's `instance` and `dataCenter` are STRINGS in
         # NodePoolsDto (what create and update send) and OBJECTS in
@@ -312,7 +345,14 @@ OVERRIDES = {
               "only nodePools. A responseTransform on the get verb folds each object "
               "back to its .name before the comparison runs. nodeCidr (returned as "
               "`nodecidr`) and securityGroup.name (returned as `uri`) need no "
-              "handling: those keys are absent from the response and are skipped.")),
+              "handling: those keys are absent from the response and are skipped. "
+              "SEPARATELY: properties.identity.clientSecret is dropped from the spec and "
+              "sourced from a Secret at create time via the secretRef resolver, because it "
+              "was otherwise a plaintext credential in the CR. The Secret is named after "
+              "the CR and keyed by the clientId, both read from the CR itself. The mapping "
+              "is GUARDED on clientId being present: identity is nullable and most Kaas "
+              "resources have none, and an unguarded resolver errors on the absent path, "
+              "which would make a Secret mandatory for every Kaas.")),
     "container/registries": dict(
         # Same defect as database/dbaas, found the same way: the CR reported Ready
         # while Aruba still had the registry at status.state = InCreation, and every
@@ -909,13 +949,22 @@ def render(r):
         # dropped from the CRD entirely, so there is no plaintext-in-spec form of it
         # left to use by mistake -- the resolver is the only way to supply it.
         for sf in ov.get("secretFields", []):
+            resolver = {
+                "type": "secretRef",
+                "secretRef": {"nameFromCustomResource": sf["nameFrom"],
+                              "keyFromCustomResource": sf["keyFrom"]},
+            }
+            # A resolver is UNCONDITIONAL unless guarded, and rest-dynamic-controller's
+            # readStringPath ERRORS on an absent path (resolver.go:70-77), so an unguarded
+            # mapping on an optional field makes that field mandatory for every CR of the
+            # kind -- breaking the common case to protect the uncommon one. `when` is
+            # evaluated before the resolver switch (resolver.go:58, oasgen#524) and skips
+            # the whole mapping when the path is absent or explicitly null.
+            if sf.get("when"):
+                resolver["when"] = {"customResourceFieldPresent": sf["when"]}
             create.setdefault("fieldMapping", []).append({
                 "inBody": sf["inBody"],
-                "resolver": {
-                    "type": "secretRef",
-                    "secretRef": {"nameFromCustomResource": sf["nameFrom"],
-                                  "keyFromCustomResource": sf["keyFrom"]},
-                },
+                "resolver": resolver,
             })
             excluded.add(sf["inBody"])
         verbs.append(create)

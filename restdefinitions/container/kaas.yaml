@@ -1,5 +1,5 @@
 # Aruba Cloud Kaas (container provider) - generated, no proxy.
-# Kaas reads return a different shape than its writes accept: nodePools[].instance and nodePools[].dataCenter are strings in NodePoolsDto and objects in NodePoolsResponseDto. RDC compares the CR's keys against the response, so those two are permanent drift, and no compareScope avoids them because KaasUpdatePropertiesDto declares only nodePools. A responseTransform on the get verb folds each object back to its .name before the comparison runs. nodeCidr (returned as `nodecidr`) and securityGroup.name (returned as `uri`) need no handling: those keys are absent from the response and are skipped.
+# Kaas reads return a different shape than its writes accept: nodePools[].instance and nodePools[].dataCenter are strings in NodePoolsDto and objects in NodePoolsResponseDto. RDC compares the CR's keys against the response, so those two are permanent drift, and no compareScope avoids them because KaasUpdatePropertiesDto declares only nodePools. A responseTransform on the get verb folds each object back to its .name before the comparison runs. nodeCidr (returned as `nodecidr`) and securityGroup.name (returned as `uri`) need no handling: those keys are absent from the response and are skipped. SEPARATELY: properties.identity.clientSecret is dropped from the spec and sourced from a Secret at create time via the secretRef resolver, because it was otherwise a plaintext credential in the CR. The Secret is named after the CR and keyed by the clientId, both read from the CR itself. The mapping is GUARDED on clientId being present: identity is nullable and most Kaas resources have none, and an unguarded resolver errors on the absent path, which would make a Secret mandatory for every Kaas.
 apiVersion: ogen.krateo.io/v1alpha1
 kind: RestDefinition
 metadata:
@@ -22,6 +22,7 @@ spec:
     - limit
     - offset
     - projection
+    - properties.identity.clientSecret
     - sort
     verbsDescription:
     - action: findby
@@ -41,6 +42,15 @@ spec:
     - action: create
       method: POST
       path: /projects/{projectId}/providers/Aruba.Container/kaas
+      fieldMapping:
+      - inBody: properties.identity.clientSecret
+        resolver:
+          type: secretRef
+          secretRef:
+            nameFromCustomResource: metadata.name
+            keyFromCustomResource: spec.properties.identity.clientId
+          when:
+            customResourceFieldPresent: spec.properties.identity.clientId
     - action: update
       method: PUT
       path: /projects/{projectId}/providers/Aruba.Container/kaas/{id}

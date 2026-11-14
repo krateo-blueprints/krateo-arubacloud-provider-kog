@@ -34,9 +34,16 @@ spec:
       maxCumulativeVolumeSize: 0
     billingPlan:
       billingPeriod: REPLACE
+    # clientSecret is NOT settable here: it is excluded from the spec and sourced from a
+    # Secret in the CR's own namespace, named after the CR and keyed by this clientId:
+    #
+    #   kubectl create secret generic example-kaas \
+    #     --from-literal="<clientId>=<the client secret>"
+    #
+    # Omit the whole `identity` block if this cluster has no identity provider -- the
+    # resolver is guarded on clientId, so no Secret is read and nothing is sent.
     identity:
       clientId: REPLACE
-      clientSecret: REPLACE
     autoscalerProfile: {}
     apiServerAccessProfile:
       authorizedIpRanges: []
