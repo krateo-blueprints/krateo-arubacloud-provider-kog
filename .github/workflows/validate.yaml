@@ -56,7 +56,7 @@ env:
   #   0.26.1  #166  credential headers redacted in logs
   #   0.28.0  #178  raises the chart floor to Kubernetes 1.36, which forces the node
   #                 image up in the same breath -- taken on purpose, see node_image
-  OASGEN_VERSION: "0.64.0"
+  OASGEN_VERSION: "0.65.0"
 
 jobs:
   validate:

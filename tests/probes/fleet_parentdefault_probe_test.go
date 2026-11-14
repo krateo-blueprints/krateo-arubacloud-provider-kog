@@ -355,8 +355,8 @@ func loadOAS(repo, file string, cache map[string]oas2jsonschema.OASDocument) (oa
 // EXACTLY the auth method its OAS document declares -- by EQUALITY, not membership, which
 // is openstack-nova-operator-kog's rule and the load-bearing idea here:
 //
-//     got == ["apiKey"]     a completeness assertion
-//     "apiKey" in got       passes on a CRD that ALSO carries bearer
+//	got == ["apiKey"]     a completeness assertion
+//	"apiKey" in got       passes on a CRD that ALSO carries bearer
 //
 // This is the OFFLINE half of scripts/assert_auth_crds.py. It covers all 36 kinds with no
 // cluster, no credentials and no vendor API, because it reads the generator's own output.
@@ -526,4 +526,166 @@ func authMethods(crd any) ([]string, error) {
 	}
 	sort.Strings(out)
 	return out, nil
+}
+
+// TestFleetParentDefaultBlastRadius counts how many eligible parents the fleet HAS, which is a
+// different question from whether the suppression works.
+//
+// WHY BOTH QUESTIONS EXIST. TestFleetParentDefaultStamping reports 0 stamped paths with
+// NoParentDefaults set, and its control re-renders the real Vpc spec schema with the flag UNSET
+// and gets 1 -- so the eligible shape is present and the 0 is the suppression working, not the
+// shape's absence. That is CORRECTNESS, and it is settled. What it does not say is across how
+// many shapes the suppression has been exercised. That matters because the stamp is
+// IRREVERSIBLE once a CR has been read through it: the apiserver applies the default on reads
+// from etcd, so an existing CR shows a field its author never set. If the toggle ever regresses
+// -- a plumbing bump, a default change, a flag dropped in a refactor -- the damage is
+// proportional to N. Knowing N turns "a risk exists" into "a risk affecting N kinds".
+//
+// HOW IT COUNTS, which is the only sound part of the design: it re-renders each definition's
+// ALREADY-RENDERED spec schema through crdgen with the flag unset, and counts the stamps crdgen
+// itself produces. It does not reimplement crdgen's eligibility rules.
+//
+// A STATIC WALK OVER THE OAS DOCUMENTS CANNOT DO THIS, and I tried. Counting optional object
+// properties with a defaulted descendant straight from the vendored documents returned 0
+// eligible parents across all 36 -- a number contradicted by Vpc, which the control proves
+// eligible. The cause: that walk required an explicit `type: object` on the parent, and these
+// documents omit `type` on a $ref'd object while the renderer supplies it. A second instrument
+// that almost agrees is worse than one honest gap, because the agreement is what gets cited.
+//
+// THE CONTROL IS A SUPERSET, DELIBERATELY. Vpc is known eligible, so this test's total MUST be
+// >= 1 and Vpc's own count MUST be >= 1. A zero here is therefore arithmetically impossible
+// rather than merely surprising -- which is the only reason the static walk's false 0 was
+// caught at all.
+func TestFleetParentDefaultBlastRadius(t *testing.T) {
+	repo := os.Getenv("ARUBA_REPO")
+	if repo == "" {
+		t.Fatal("set ARUBA_REPO to the aruba-provider-kog checkout")
+	}
+	t.Logf("# instrument: TestFleetParentDefaultBlastRadius, stamps with NoParentDefaults UNSET")
+
+	files, err := restDefinitionFiles(repo)
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+	if len(files) == 0 {
+		t.Fatal("found 0 RestDefinitions -- the walk is broken, not the repo clean")
+	}
+	parsed := map[string]oas2jsonschema.OASDocument{}
+	perKind := map[string]int{}
+	examined, notChecked, total := 0, 0, 0
+
+	for _, f := range files {
+		cr, ok := loadRestDefinition(t, f)
+		if !ok {
+			continue
+		}
+		baseFile, err := providerOf(cr.Spec.OASPath)
+		if err != nil {
+			t.Fatalf("%s: %v", f, err)
+		}
+		base, err := loadOAS(repo, baseFile, parsed)
+		if err != nil {
+			t.Fatalf("%s: %v", f, err)
+		}
+		byVerb := map[string]oas2jsonschema.OASDocument{}
+		for _, vb := range cr.Spec.Resource.VerbsDescription {
+			if vb.OASPath == "" {
+				continue
+			}
+			vf, verr := providerOf(vb.OASPath)
+			if verr != nil {
+				t.Fatalf("%s verb %s: %v", f, vb.Action, verr)
+			}
+			d, derr := loadOAS(repo, vf, parsed)
+			if derr != nil {
+				t.Fatalf("%s verb %s: %v", f, vb.Action, derr)
+			}
+			byVerb[vb.Action] = d
+		}
+
+		res, err := render.CRDs(context.Background(), cr, render.TargetGVK(cr, base),
+			oas2jsonschema.NewDocumentSetWithOverrides(base, byVerb), render.HasSecuritySchemes(base))
+		if err != nil {
+			t.Logf("NOT CHECKED %-26s render failed: %v", cr.Spec.Resource.Kind, err)
+			notChecked++
+			continue
+		}
+		if res.CRD == nil {
+			t.Logf("NOT CHECKED %-26s render produced no CRD", cr.Spec.Resource.Kind)
+			notChecked++
+			continue
+		}
+
+		counted := false
+		for _, v := range res.CRD.Spec.Versions {
+			if v.Schema == nil || v.Schema.OpenAPIV3Schema == nil {
+				continue
+			}
+			spec, found := v.Schema.OpenAPIV3Schema.Properties["spec"]
+			if !found {
+				break
+			}
+			b, merr := json.Marshal(spec)
+			if merr != nil {
+				t.Logf("NOT CHECKED %-26s marshalling spec: %v", cr.Spec.Resource.Kind, merr)
+				break
+			}
+			out, warns, gerr := crdgen.GenerateWithWarnings(crdgen.Options{
+				Group: "blast.example.com", Version: "v1alpha1", Kind: "Blast",
+				SpecSchema: b, Managed: true,
+			})
+			if gerr != nil {
+				t.Logf("NOT CHECKED %-26s re-render failed: %v (warnings %v)", cr.Spec.Resource.Kind, gerr, warns)
+				break
+			}
+			// YAML, not JSON: GenerateWithWarnings returns a manifest with a leading document
+			// separator, and json.Unmarshal failing here is what once made a dead control read
+			// as a clean fleet.
+			var cm any
+			if yerr := yaml.Unmarshal(out, &cm); yerr != nil {
+				t.Logf("NOT CHECKED %-26s unmarshal: %v", cr.Spec.Resource.Kind, yerr)
+				break
+			}
+			var stamps []string
+			stampedPaths(cm, cr.Spec.Resource.Kind, &stamps)
+			if len(stamps) > 0 {
+				perKind[cr.Spec.Resource.Kind] = len(stamps)
+				total += len(stamps)
+			}
+			counted = true
+			break
+		}
+		if counted {
+			examined++
+		} else {
+			notChecked++
+		}
+	}
+
+	t.Logf("definitions examined              : %d", examined)
+	t.Logf("not checked                       : %d", notChecked)
+	t.Logf("kinds with >= 1 eligible parent   : %d", len(perKind))
+	for _, k := range sortedKeys(perKind) {
+		t.Logf("    %-26s %d", k, perKind[k])
+	}
+	t.Logf("TOTAL eligible parents (blast radius): %d", total)
+
+	if total == 0 {
+		t.Fatal("CONTROL FAILED: 0 eligible parents fleet-wide, yet Vpc is known eligible " +
+			"(VpcPropertiesDto.default carries `default: true`). The instrument cannot see a stamp, " +
+			"so this zero means 'cannot see' and not 'none present'.")
+	}
+	if perKind["Vpc"] == 0 {
+		t.Fatal("CONTROL FAILED: Vpc reports 0 eligible parents. It is the known-eligible shape, " +
+			"so any fleet count taken by this instrument is uninterpretable.")
+	}
+}
+
+func sortedKeys(m map[string]int) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
 }

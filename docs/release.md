@@ -117,7 +117,7 @@ patched OAS, every `requestFieldMapping.inPath` against the path parameters, eve
 ## Compatibility
 
 These manifests require **oasgen-provider >= 0.36.0**. That is the FLOOR, not the pin:
-the pin is **0.64.0** and is what CI validates (see [Usage](usage.md#prerequisites)). The
+the pin is **0.65.0** and is what CI validates (see [Usage](usage.md#prerequisites)). The
 two were the same number when this section was written and have not been since; keeping
 them distinct matters because the floor explains what cannot be lowered, while the pin is
 what the evidence was gathered on. It is no longer a fork:
@@ -136,11 +136,51 @@ inferred, re-measured 2026-11-13 across the whole range the pin has travelled:
 | 0.37.0 | `>=1.36.0-0` |
 | 0.61.0 (a former pin) | `>=1.36.0-0` |
 | 0.63.1 (a former pin) | `>=1.36.0-0` |
-| **0.64.0 (the pin)** | `>=1.36.0-0` |
+| 0.64.0 (a former pin) | `>=1.36.0-0` |
+| **0.65.0 (the pin)** | `>=1.36.0-0` |
 
-So the floor has not moved since 0.34.0, and the pin reaching 0.64.0 costs nothing further
-in cluster version. The chart's `appVersion` at 0.64.0 is also `0.64.0` (re-measured, as is every row above), which is what ties
-the rest-dynamic-controller image tag to the chart rather than letting the two drift.
+So the floor has not moved since 0.34.0, and the pin reaching 0.65.0 costs nothing further
+in cluster version. The chart's `appVersion` at 0.65.0 is also `0.65.0` (re-measured 2026-11-14 from
+the published chart, as is every row above), which is what ties the rest-dynamic-controller image tag
+to the chart rather than letting the two drift.
+
+### What a provider UPGRADE does to 36 CRDs, which a fresh-cluster harness cannot see
+
+A provider upgrade re-renders **every** managed RestDefinition's CRD on its first reconcile after
+the upgrade: `generatorChanged` is OR'd with the content hashes in `restdefinition.go` and the
+regeneration default is true. For this fleet that is **36 CRD applies in one burst**, not a no-op.
+`OASGEN_PROVIDER_REGENERATE_ON_UPGRADE=false` suppresses only the render; Deploy still delivers the
+new controller image. And it suppresses only that one clause — a `spec.resource` change moves
+`resourceHash`, a separate clause of the same OR, and regenerates regardless of the knob.
+The mechanism was reported by the openstack-ironic-operator-kog session, which hit it on 7
+definitions; the 36-apply figure is ours.
+
+**A fresh-cluster-per-run harness measures a clean install and says nothing about this path.**
+The specific risk it cannot see: a regeneration that unserves a CRD version something still pins.
+
+`generatorChanged` is **directional** (`restdefinition.go:196`): it fires only when this build's
+MAJOR.MINOR.PATCH is *greater* than the one recorded in `status.generatorBuild`, so a rollback
+leaves the newer schema in place rather than reverting it — and an unparseable stamp fails closed.
+An empty `Build` is deliberately inert; an empty *stored* value regenerates once, which is the
+activation path every existing cluster takes.
+
+**Measured on the 0.64.0 → 0.65.0 upgrade (2026-11-14), all 36 definitions, released charts:**
+
+```
+served-version set after the upgrade is a SUPERSET of the set before : HELD
+  kinds that disappeared entirely   0
+  kinds that lost a served version  0
+  kinds whose storage version moved 0
+  CRD JSON byte-identical before vs after  36 of 36
+```
+
+So this particular upgrade changed nothing observable in any CRD. Both tags ship **plumbing
+v1.60.0**, so the rendered output is identical and the applies are no-ops. **What the run does NOT
+establish is whether the re-render ran at all**: a no-op apply does not bump `resourceVersion`, and
+the field that records the decision is `status.generatorBuild` on the RestDefinition, which this
+run snapshotted the CRDs *affected by* rather than the objects that *record* it. So: effect
+measured and nil; occurrence unmeasured. The dangerous case remains an upgrade whose generator
+output differs — which is an upgrade that moves plumbing or crdgen, not merely the provider.
 
 The floor rose in chart 0.28.0 (oasgen#178), because version-scoped watching needs a
 MutatingAdmissionPolicy that 1.33-1.35 do not serve. On an older cluster Helm refuses
