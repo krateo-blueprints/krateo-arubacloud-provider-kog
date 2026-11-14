@@ -58,6 +58,19 @@ That last row is the one to watch: an `info.version` bump upstream renames the s
 CRD version and orphans existing CRs. `.github/workflows/oas-drift.yaml` exists to catch
 it before a user does.
 
+**A generated CRD can also break for a reason of OUR making, which that row did not
+anticipate.** Adding an entry to `excludedSpecFields` removes a property from the generated
+spec: a manifest that set it is rejected, and whatever live CRs held there is pruned and not
+recoverable. `Kaas.clientSecret` in 0.4.0 is the first instance — a plaintext credential, so the
+pruning *is* the remedy, which is what made it worth doing rather than a regression.
+
+It is **not** treated as a major bump, deliberately: the repository is pre-1.0 (see below), where
+a minor may carry a breaking change, and reserving major for `info.version` keeps that signal
+meaning one specific thing. What the release notes must do instead is say so explicitly — a user
+upgrading cannot discover a removed spec property from a version number. The migration is in
+[Authentication](authentication.md), including the measured apiserver refusal and why the
+delete-and-recreate blocks while instances are live.
+
 ### Pre-1.0
 
 The provider is **pre-1.0 and will stay there until the GA core is closed**. At the time
