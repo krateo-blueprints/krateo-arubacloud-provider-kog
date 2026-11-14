@@ -23,7 +23,7 @@ timestamp: 2026-09-28T00:00:00Z
 
 ## Kaas
 
-> Kaas reads return a different shape than its writes accept: nodePools[].instance and nodePools[].dataCenter are strings in NodePoolsDto and objects in NodePoolsResponseDto. RDC compares the CR's keys against the response, so those two are permanent drift, and no compareScope avoids them because KaasUpdatePropertiesDto declares only nodePools. A responseTransform on the get verb folds each object back to its .name before the comparison runs. nodeCidr (returned as `nodecidr`) and securityGroup.name (returned as `uri`) need no handling: those keys are absent from the response and are skipped.
+> Kaas reads return a different shape than its writes accept: nodePools[].instance and nodePools[].dataCenter are strings in NodePoolsDto and objects in NodePoolsResponseDto. RDC compares the CR's keys against the response, so those two are permanent drift, and no compareScope avoids them because KaasUpdatePropertiesDto declares only nodePools. A responseTransform on the get verb folds each object back to its .name before the comparison runs. nodeCidr (returned as `nodecidr`) and securityGroup.name (returned as `uri`) need no handling: those keys are absent from the response and are skipped. SEPARATELY: properties.identity.clientSecret is dropped from the spec and sourced from a Secret at create time via the secretRef resolver, because it was otherwise a plaintext credential in the CR. The Secret is named after the CR and keyed by the clientId, both read from the CR itself. The mapping is GUARDED on clientId being present: identity is nullable and most Kaas resources have none, and an unguarded resolver errors on the absent path, which would make a Secret mandatory for every Kaas.
 
 | Verb | Method | Path |
 |------|--------|------|
@@ -33,7 +33,7 @@ timestamp: 2026-09-28T00:00:00Z
 | update | PUT | `/projects/{projectId}/providers/Aruba.Container/kaas/{id}` |
 | delete | DELETE | `/projects/{projectId}/providers/Aruba.Container/kaas/{id}` |
 
-status fields: `metadata.id, status.failureReason, status.error` · excluded from spec: `filter, id, limit, offset, projection, sort`
+status fields: `metadata.id, status.failureReason, status.error` · excluded from spec: `filter, id, limit, offset, projection, properties.identity.clientSecret, sort`
 
 Configuration query params: `api-version, ignoreDeletedStatus`
 
