@@ -1335,6 +1335,27 @@ def make_cr(spec, prov, doc, apiver):
         # After the mechanical body, never before: an override corrects a value the
         # generator produced, so it has to be able to see that the value is there.
         apply_sample_overrides(kind, spec_body, spec, props)
+        # NESTED exclusions, and LAST. The check above compares a body property NAME
+        # against the exclusion list, so a dotted path like
+        # `properties.identity.clientSecret` matches nothing and its whole subtree is
+        # emitted -- exactly the `unknown field` defect described above, one level
+        # deeper: the earlier fix was applied to top-level names and not carried to
+        # nested paths. Kaas.clientSecret is the live case.
+        #
+        # AFTER the overrides, not before, because an exclusion is absolute: the field
+        # does not exist in the generated CRD at all, so nothing an override wrote into
+        # it may survive. Pruning first would let an override put it back.
+        for ex in sorted(excluded):
+            if "." not in ex:
+                continue
+            segs = ex.split(".")
+            node = spec_body
+            for seg in segs[:-1]:
+                node = node.get(seg) if isinstance(node, dict) else None
+                if node is None:
+                    break
+            if isinstance(node, dict):
+                node.pop(segs[-1], None)
     else:  # read-only
         for v in res["verbsDescription"]:
             for pp in path_params(v["path"]):
