@@ -85,11 +85,15 @@ print(f"  kinds with a parameterless findby and declared fields: {len(kinds)}\n"
 hdr = f"  {'kind':<20} {'items':>5}  {'id-ish present':<16} {'error-path fields':<22}"
 print(hdr); print("  " + "-" * (len(hdr) - 2))
 pop = ident_ok = ident_missing = 0
+errored = []
+codes = {}
 for kind, (path, fields) in sorted(kinds.items()):
     code, body = get(path)
     items = body.get("values") if isinstance(body, dict) else None
     if code != 200 or not isinstance(items, list):
         print(f"  {kind:<20} {'-':>5}  HTTP {code}")
+        errored.append(kind)
+        codes[code] = codes.get(code, 0) + 1
         continue
     if not items:
         print(f"  {kind:<20} {0:>5}  (no resource to read)")
@@ -104,5 +108,29 @@ for kind, (path, fields) in sorted(kinds.items()):
     print(f"  {kind:<20} {len(items):>5}  {('%d/%d %s' % (len(got), len(ident), 'OK' if ok else 'MISSING')):<16} "
           f"{(', '.join(err) + ' (untestable: needs a FAILED resource)') if err else '(none declared)'}")
 
-print(f"\n  populated kinds read: {pop}")
+# A SUMMARY IS ONLY PRINTED IF SOMETHING WAS ACTUALLY ASKED AND ANSWERED.
+#
+# 2026-11-14 this printed "populated kinds read: 0 / identifier fields all present: 0 / with a
+# gap: 0" after every one of 23 collections answered HTTP 401 on a stale token. The rows were
+# honest and the summary was not: three zeros read as "nothing is populated anywhere", which is a
+# statement about the fleet, when the truth was that the instrument never got an answer. The 401
+# rows were above it and the summary is what gets quoted.
+#
+# So: if EVERY kind errored, there is no result -- exit non-zero and say which codes came back.
+# If some did, say how many were unreadable beside the ones that were, so the denominator travels
+# with the number.
+print()
+if errored and not pop:
+    print(f"  NOT MEASURED: all {len(errored)} collections failed -- "
+          + ", ".join(f"HTTP {c} x{n}" for c, n in sorted(codes.items())))
+    if 401 in codes:
+        print("  A 401 on every collection is a STALE TOKEN, not a vendor outage. The Secret is")
+        print("  minted by ESO, which cannot refresh while its cluster is stopped, so a token read")
+        print("  moments after starting a long-stopped cluster is usually expired. Wait for ESO to")
+        print("  re-mint and probe ONE collection for a 200 before trusting any zero below.")
+    sys.exit(2)
+print(f"  collections read: {pop} of {len(kinds)}"
+      + (f"   unreadable: {len(errored)} ({', '.join(f'HTTP {c} x{n}' for c, n in sorted(codes.items()))})" if errored else ""))
 print(f"  identifier fields all present: {ident_ok}    with a gap: {ident_missing}")
+if errored:
+    print(f"  the numbers above describe the {pop} readable collections only, NOT the fleet.")
