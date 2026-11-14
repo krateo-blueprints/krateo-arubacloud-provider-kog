@@ -280,6 +280,20 @@ This constraint is not specific to this fix — **no shipped definition can ever
 `excludedSpecFields` entry without a delete-and-recreate**, which makes it a structural property
 of the generation model rather than a property of `Kaas`.
 
+**It is also temporary and tracked.** oasgen
+[#666](https://github.com/krateo-platformops/oasgen-provider/issues/666) is decided: the rule
+becomes **append-only** — `oldSelf.all(f, f in self)` — so additions are accepted and only
+removals stay refused, with the prune made loud on a durable channel (a `generation` entry in
+`status.schemaWarnings` naming the field and the live-CR count, plus a Warning Event). Once that
+ships, this definition applies directly to an existing cluster and the runbook above is
+unnecessary. It is filed and decided but **not yet built**, so until then the above is the only
+route.
+
+A version-bump path was considered and rejected for this case specifically: bumping the served
+version would leave the credential readable at the old version until that version is dropped, so
+the remedy would be deferred rather than applied — which for a plaintext secret is the wrong
+trade.
+
 > **NOT verified live.** Unlike the `DatabaseUser` block above, this has no live run behind it:
 > exercising it means creating a Kaas, which bills. What IS verified is offline — the regenerated
 > CRD carries no `clientSecret` property, the resolver and guard are declared as shown, and
