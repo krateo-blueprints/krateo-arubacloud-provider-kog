@@ -253,6 +253,33 @@ The Secret is named after the CR and keyed by the `clientId` — the same both-p
 trick, with the clientId doing the job the username does for `DatabaseUser`. To create a Kaas
 **without** one, omit the `identity` block and no Secret is needed.
 
+#### Migrating an existing cluster
+
+`excludedSpecFields` is **immutable once the CRD has been generated** — the RestDefinition CRD
+carries `rule="self == oldSelf"` on it. So applying this definition to a cluster that already has
+`arubacloud-container-kaas` is **refused by the apiserver**, and the RestDefinition must be
+deleted and recreated:
+
+```sh
+kubectl delete restdefinition arubacloud-container-kaas -n krateo-system
+kubectl apply -f restdefinitions/container/kaas.yaml
+```
+
+**With no live `Kaas` resources this is safe**: the generated CRD is recreated from the new
+definition. **With live `Kaas` resources it will block**, and that is a protection rather than a
+bug — the RestDefinition holds a `composition.krateo.io/restresources-still-exist-finalizer`
+while instances of its generated Kind exist, precisely so a delete cannot take the CRD out from
+under live resources. Getting through it means removing the `Kaas` resources first, **and
+deleting a `Kaas` CR destroys a real managed cluster at Aruba**. Do not force-remove the
+finalizer: that deletes the CRD and orphans the resources from the type that describes them.
+
+So: migrate before the fleet has Kaas resources, or plan the removal deliberately. A fresh
+install needs none of this.
+
+This constraint is not specific to this fix — **no shipped definition can ever gain an
+`excludedSpecFields` entry without a delete-and-recreate**, which makes it a structural property
+of the generation model rather than a property of `Kaas`.
+
 > **NOT verified live.** Unlike the `DatabaseUser` block above, this has no live run behind it:
 > exercising it means creating a Kaas, which bills. What IS verified is offline — the regenerated
 > CRD carries no `clientSecret` property, the resolver and guard are declared as shown, and
