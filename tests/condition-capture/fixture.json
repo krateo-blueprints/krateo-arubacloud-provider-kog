@@ -1,0 +1,5842 @@
+{
+ "provenance": {
+  "fixture": "synthetic"
+ },
+ "samples": [
+  {
+   "t": 1795860000.0,
+   "compositions": [
+    {
+     "composition": "comps.composition.krateo.io/ns/chain",
+     "parent": {
+      "name": "chain",
+      "ready": {
+       "status": "True",
+       "reason": "Available",
+       "message": "",
+       "lastTransitionTime": "2026-11-28T10:00:00Z"
+      },
+      "unevaluatedChildren": {
+       "noReadyCondition": 0
+      },
+      "managedChildrenCount": 4,
+      "generation": 1,
+      "observedGeneration": 1,
+      "resourceVersion": "100",
+      "writtenBy": {
+       "version": "2.13.140"
+      }
+     },
+     "children": {
+      "vpcs.network.arubacloud.com/ns/vpc-prop": {
+       "kind": "X",
+       "name": "vpc-prop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1000"
+      },
+      "vpcs.network.arubacloud.com/ns/subnet-notsampled": {
+       "kind": "X",
+       "name": "subnet-notsampled",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1000"
+      },
+      "vpcs.network.arubacloud.com/ns/sg-notprop": {
+       "kind": "X",
+       "name": "sg-notprop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1000"
+      },
+      "vpcs.network.arubacloud.com/ns/lb-syncedonly": {
+       "kind": "X",
+       "name": "lb-syncedonly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1000"
+      },
+      "vpcs.network.arubacloud.com/ns/db-reasononly": {
+       "kind": "X",
+       "name": "db-reasononly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1000"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "t": 1795860010.0,
+   "compositions": [
+    {
+     "composition": "comps.composition.krateo.io/ns/chain",
+     "parent": {
+      "name": "chain",
+      "ready": {
+       "status": "True",
+       "reason": "Available",
+       "message": "",
+       "lastTransitionTime": "2026-11-28T10:00:00Z"
+      },
+      "unevaluatedChildren": {
+       "noReadyCondition": 0
+      },
+      "managedChildrenCount": 4,
+      "generation": 1,
+      "observedGeneration": 1,
+      "resourceVersion": "100",
+      "writtenBy": {
+       "version": "2.13.140"
+      }
+     },
+     "children": {
+      "vpcs.network.arubacloud.com/ns/vpc-prop": {
+       "kind": "X",
+       "name": "vpc-prop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1000"
+      },
+      "vpcs.network.arubacloud.com/ns/subnet-notsampled": {
+       "kind": "X",
+       "name": "subnet-notsampled",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1000"
+      },
+      "vpcs.network.arubacloud.com/ns/sg-notprop": {
+       "kind": "X",
+       "name": "sg-notprop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1000"
+      },
+      "vpcs.network.arubacloud.com/ns/lb-syncedonly": {
+       "kind": "X",
+       "name": "lb-syncedonly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1000"
+      },
+      "vpcs.network.arubacloud.com/ns/db-reasononly": {
+       "kind": "X",
+       "name": "db-reasononly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1000"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "t": 1795860020.0,
+   "compositions": [
+    {
+     "composition": "comps.composition.krateo.io/ns/chain",
+     "parent": {
+      "name": "chain",
+      "ready": {
+       "status": "True",
+       "reason": "Available",
+       "message": "",
+       "lastTransitionTime": "2026-11-28T10:00:00Z"
+      },
+      "unevaluatedChildren": {
+       "noReadyCondition": 0
+      },
+      "managedChildrenCount": 4,
+      "generation": 1,
+      "observedGeneration": 1,
+      "resourceVersion": "100",
+      "writtenBy": {
+       "version": "2.13.140"
+      }
+     },
+     "children": {
+      "vpcs.network.arubacloud.com/ns/vpc-prop": {
+       "kind": "X",
+       "name": "vpc-prop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1000"
+      },
+      "vpcs.network.arubacloud.com/ns/subnet-notsampled": {
+       "kind": "X",
+       "name": "subnet-notsampled",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1000"
+      },
+      "vpcs.network.arubacloud.com/ns/sg-notprop": {
+       "kind": "X",
+       "name": "sg-notprop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1000"
+      },
+      "vpcs.network.arubacloud.com/ns/lb-syncedonly": {
+       "kind": "X",
+       "name": "lb-syncedonly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1000"
+      },
+      "vpcs.network.arubacloud.com/ns/db-reasononly": {
+       "kind": "X",
+       "name": "db-reasononly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1000"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "t": 1795860030.0,
+   "compositions": [
+    {
+     "composition": "comps.composition.krateo.io/ns/chain",
+     "parent": {
+      "name": "chain",
+      "ready": {
+       "status": "True",
+       "reason": "Available",
+       "message": "",
+       "lastTransitionTime": "2026-11-28T10:00:00Z"
+      },
+      "unevaluatedChildren": {
+       "noReadyCondition": 0
+      },
+      "managedChildrenCount": 4,
+      "generation": 1,
+      "observedGeneration": 1,
+      "resourceVersion": "100",
+      "writtenBy": {
+       "version": "2.13.140"
+      }
+     },
+     "children": {
+      "vpcs.network.arubacloud.com/ns/vpc-prop": {
+       "kind": "X",
+       "name": "vpc-prop",
+       "ready": {
+        "status": "False",
+        "reason": "Creating",
+        "message": "creating",
+        "lastTransitionTime": "2026-11-28T10:00:25Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1001"
+      },
+      "vpcs.network.arubacloud.com/ns/subnet-notsampled": {
+       "kind": "X",
+       "name": "subnet-notsampled",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1001"
+      },
+      "vpcs.network.arubacloud.com/ns/sg-notprop": {
+       "kind": "X",
+       "name": "sg-notprop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1001"
+      },
+      "vpcs.network.arubacloud.com/ns/lb-syncedonly": {
+       "kind": "X",
+       "name": "lb-syncedonly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1001"
+      },
+      "vpcs.network.arubacloud.com/ns/db-reasononly": {
+       "kind": "X",
+       "name": "db-reasononly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1001"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "t": 1795860040.0,
+   "compositions": [
+    {
+     "composition": "comps.composition.krateo.io/ns/chain",
+     "parent": {
+      "name": "chain",
+      "ready": {
+       "status": "True",
+       "reason": "Available",
+       "message": "",
+       "lastTransitionTime": "2026-11-28T10:00:00Z"
+      },
+      "unevaluatedChildren": {
+       "noReadyCondition": 0
+      },
+      "managedChildrenCount": 4,
+      "generation": 1,
+      "observedGeneration": 1,
+      "resourceVersion": "100",
+      "writtenBy": {
+       "version": "2.13.140"
+      }
+     },
+     "children": {
+      "vpcs.network.arubacloud.com/ns/vpc-prop": {
+       "kind": "X",
+       "name": "vpc-prop",
+       "ready": {
+        "status": "False",
+        "reason": "Creating",
+        "message": "creating",
+        "lastTransitionTime": "2026-11-28T10:00:25Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1001"
+      },
+      "vpcs.network.arubacloud.com/ns/subnet-notsampled": {
+       "kind": "X",
+       "name": "subnet-notsampled",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1001"
+      },
+      "vpcs.network.arubacloud.com/ns/sg-notprop": {
+       "kind": "X",
+       "name": "sg-notprop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1001"
+      },
+      "vpcs.network.arubacloud.com/ns/lb-syncedonly": {
+       "kind": "X",
+       "name": "lb-syncedonly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1001"
+      },
+      "vpcs.network.arubacloud.com/ns/db-reasononly": {
+       "kind": "X",
+       "name": "db-reasononly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1001"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "t": 1795860050.0,
+   "compositions": [
+    {
+     "composition": "comps.composition.krateo.io/ns/chain",
+     "parent": {
+      "name": "chain",
+      "ready": {
+       "status": "True",
+       "reason": "Available",
+       "message": "",
+       "lastTransitionTime": "2026-11-28T10:00:00Z"
+      },
+      "unevaluatedChildren": {
+       "noReadyCondition": 0
+      },
+      "managedChildrenCount": 4,
+      "generation": 1,
+      "observedGeneration": 1,
+      "resourceVersion": "100",
+      "writtenBy": {
+       "version": "2.13.140"
+      }
+     },
+     "children": {
+      "vpcs.network.arubacloud.com/ns/vpc-prop": {
+       "kind": "X",
+       "name": "vpc-prop",
+       "ready": {
+        "status": "False",
+        "reason": "Creating",
+        "message": "creating",
+        "lastTransitionTime": "2026-11-28T10:00:25Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1001"
+      },
+      "vpcs.network.arubacloud.com/ns/subnet-notsampled": {
+       "kind": "X",
+       "name": "subnet-notsampled",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1001"
+      },
+      "vpcs.network.arubacloud.com/ns/sg-notprop": {
+       "kind": "X",
+       "name": "sg-notprop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1001"
+      },
+      "vpcs.network.arubacloud.com/ns/lb-syncedonly": {
+       "kind": "X",
+       "name": "lb-syncedonly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "False",
+        "reason": "ReconcileError",
+        "message": "put refused",
+        "lastTransitionTime": "2026-11-28T10:00:45Z"
+       },
+       "resourceVersion": "1001"
+      },
+      "vpcs.network.arubacloud.com/ns/db-reasononly": {
+       "kind": "X",
+       "name": "db-reasononly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1001"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "t": 1795860060.0,
+   "compositions": [
+    {
+     "composition": "comps.composition.krateo.io/ns/chain",
+     "parent": {
+      "name": "chain",
+      "ready": {
+       "status": "False",
+       "reason": "Creating",
+       "message": "1 of 4 managed children are not ready: vpc-prop",
+       "lastTransitionTime": "2026-11-28T10:01:00Z"
+      },
+      "unevaluatedChildren": {
+       "noReadyCondition": 0
+      },
+      "managedChildrenCount": 4,
+      "generation": 1,
+      "observedGeneration": 1,
+      "resourceVersion": "101",
+      "writtenBy": {
+       "version": "2.13.140"
+      }
+     },
+     "children": {
+      "vpcs.network.arubacloud.com/ns/vpc-prop": {
+       "kind": "X",
+       "name": "vpc-prop",
+       "ready": {
+        "status": "False",
+        "reason": "Creating",
+        "message": "creating",
+        "lastTransitionTime": "2026-11-28T10:00:25Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1002"
+      },
+      "vpcs.network.arubacloud.com/ns/subnet-notsampled": {
+       "kind": "X",
+       "name": "subnet-notsampled",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1002"
+      },
+      "vpcs.network.arubacloud.com/ns/sg-notprop": {
+       "kind": "X",
+       "name": "sg-notprop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1002"
+      },
+      "vpcs.network.arubacloud.com/ns/lb-syncedonly": {
+       "kind": "X",
+       "name": "lb-syncedonly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "False",
+        "reason": "ReconcileError",
+        "message": "put refused",
+        "lastTransitionTime": "2026-11-28T10:00:45Z"
+       },
+       "resourceVersion": "1002"
+      },
+      "vpcs.network.arubacloud.com/ns/db-reasononly": {
+       "kind": "X",
+       "name": "db-reasononly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1002"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "t": 1795860070.0,
+   "compositions": [
+    {
+     "composition": "comps.composition.krateo.io/ns/chain",
+     "parent": {
+      "name": "chain",
+      "ready": {
+       "status": "False",
+       "reason": "Creating",
+       "message": "1 of 4 managed children are not ready: vpc-prop",
+       "lastTransitionTime": "2026-11-28T10:01:00Z"
+      },
+      "unevaluatedChildren": {
+       "noReadyCondition": 0
+      },
+      "managedChildrenCount": 4,
+      "generation": 1,
+      "observedGeneration": 1,
+      "resourceVersion": "101",
+      "writtenBy": {
+       "version": "2.13.140"
+      }
+     },
+     "children": {
+      "vpcs.network.arubacloud.com/ns/vpc-prop": {
+       "kind": "X",
+       "name": "vpc-prop",
+       "ready": {
+        "status": "False",
+        "reason": "Creating",
+        "message": "creating",
+        "lastTransitionTime": "2026-11-28T10:00:25Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1002"
+      },
+      "vpcs.network.arubacloud.com/ns/subnet-notsampled": {
+       "kind": "X",
+       "name": "subnet-notsampled",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1002"
+      },
+      "vpcs.network.arubacloud.com/ns/sg-notprop": {
+       "kind": "X",
+       "name": "sg-notprop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1002"
+      },
+      "vpcs.network.arubacloud.com/ns/lb-syncedonly": {
+       "kind": "X",
+       "name": "lb-syncedonly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "False",
+        "reason": "ReconcileError",
+        "message": "put refused",
+        "lastTransitionTime": "2026-11-28T10:00:45Z"
+       },
+       "resourceVersion": "1002"
+      },
+      "vpcs.network.arubacloud.com/ns/db-reasononly": {
+       "kind": "X",
+       "name": "db-reasononly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1002"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "t": 1795860080.0,
+   "compositions": [
+    {
+     "composition": "comps.composition.krateo.io/ns/chain",
+     "parent": {
+      "name": "chain",
+      "ready": {
+       "status": "False",
+       "reason": "Creating",
+       "message": "1 of 4 managed children are not ready: vpc-prop",
+       "lastTransitionTime": "2026-11-28T10:01:00Z"
+      },
+      "unevaluatedChildren": {
+       "noReadyCondition": 0
+      },
+      "managedChildrenCount": 4,
+      "generation": 1,
+      "observedGeneration": 1,
+      "resourceVersion": "101",
+      "writtenBy": {
+       "version": "2.13.140"
+      }
+     },
+     "children": {
+      "vpcs.network.arubacloud.com/ns/vpc-prop": {
+       "kind": "X",
+       "name": "vpc-prop",
+       "ready": {
+        "status": "False",
+        "reason": "Creating",
+        "message": "creating",
+        "lastTransitionTime": "2026-11-28T10:00:25Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1002"
+      },
+      "vpcs.network.arubacloud.com/ns/subnet-notsampled": {
+       "kind": "X",
+       "name": "subnet-notsampled",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1002"
+      },
+      "vpcs.network.arubacloud.com/ns/sg-notprop": {
+       "kind": "X",
+       "name": "sg-notprop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1002"
+      },
+      "vpcs.network.arubacloud.com/ns/lb-syncedonly": {
+       "kind": "X",
+       "name": "lb-syncedonly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "False",
+        "reason": "ReconcileError",
+        "message": "put refused",
+        "lastTransitionTime": "2026-11-28T10:00:45Z"
+       },
+       "resourceVersion": "1002"
+      },
+      "vpcs.network.arubacloud.com/ns/db-reasononly": {
+       "kind": "X",
+       "name": "db-reasononly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1002"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "t": 1795860090.0,
+   "compositions": [
+    {
+     "composition": "comps.composition.krateo.io/ns/chain",
+     "parent": {
+      "name": "chain",
+      "ready": {
+       "status": "False",
+       "reason": "Creating",
+       "message": "1 of 4 managed children are not ready: vpc-prop",
+       "lastTransitionTime": "2026-11-28T10:01:00Z"
+      },
+      "unevaluatedChildren": {
+       "noReadyCondition": 0
+      },
+      "managedChildrenCount": 4,
+      "generation": 1,
+      "observedGeneration": 1,
+      "resourceVersion": "101",
+      "writtenBy": {
+       "version": "2.13.140"
+      }
+     },
+     "children": {
+      "vpcs.network.arubacloud.com/ns/vpc-prop": {
+       "kind": "X",
+       "name": "vpc-prop",
+       "ready": {
+        "status": "False",
+        "reason": "Creating",
+        "message": "creating",
+        "lastTransitionTime": "2026-11-28T10:00:25Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1003"
+      },
+      "vpcs.network.arubacloud.com/ns/subnet-notsampled": {
+       "kind": "X",
+       "name": "subnet-notsampled",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1003"
+      },
+      "vpcs.network.arubacloud.com/ns/sg-notprop": {
+       "kind": "X",
+       "name": "sg-notprop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1003"
+      },
+      "vpcs.network.arubacloud.com/ns/lb-syncedonly": {
+       "kind": "X",
+       "name": "lb-syncedonly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "False",
+        "reason": "ReconcileError",
+        "message": "put refused",
+        "lastTransitionTime": "2026-11-28T10:00:45Z"
+       },
+       "resourceVersion": "1003"
+      },
+      "vpcs.network.arubacloud.com/ns/db-reasononly": {
+       "kind": "X",
+       "name": "db-reasononly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1003"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "t": 1795860100.0,
+   "compositions": [
+    {
+     "composition": "comps.composition.krateo.io/ns/chain",
+     "parent": {
+      "name": "chain",
+      "ready": {
+       "status": "False",
+       "reason": "Creating",
+       "message": "1 of 4 managed children are not ready: vpc-prop",
+       "lastTransitionTime": "2026-11-28T10:01:00Z"
+      },
+      "unevaluatedChildren": {
+       "noReadyCondition": 0
+      },
+      "managedChildrenCount": 4,
+      "generation": 1,
+      "observedGeneration": 1,
+      "resourceVersion": "101",
+      "writtenBy": {
+       "version": "2.13.140"
+      }
+     },
+     "children": {
+      "vpcs.network.arubacloud.com/ns/vpc-prop": {
+       "kind": "X",
+       "name": "vpc-prop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1003"
+      },
+      "vpcs.network.arubacloud.com/ns/subnet-notsampled": {
+       "kind": "X",
+       "name": "subnet-notsampled",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1003"
+      },
+      "vpcs.network.arubacloud.com/ns/sg-notprop": {
+       "kind": "X",
+       "name": "sg-notprop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1003"
+      },
+      "vpcs.network.arubacloud.com/ns/lb-syncedonly": {
+       "kind": "X",
+       "name": "lb-syncedonly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "resourceVersion": "1003"
+      },
+      "vpcs.network.arubacloud.com/ns/db-reasononly": {
+       "kind": "X",
+       "name": "db-reasononly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1003"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "t": 1795860110.0,
+   "compositions": [
+    {
+     "composition": "comps.composition.krateo.io/ns/chain",
+     "parent": {
+      "name": "chain",
+      "ready": {
+       "status": "False",
+       "reason": "Creating",
+       "message": "1 of 4 managed children are not ready: vpc-prop",
+       "lastTransitionTime": "2026-11-28T10:01:00Z"
+      },
+      "unevaluatedChildren": {
+       "noReadyCondition": 0
+      },
+      "managedChildrenCount": 4,
+      "generation": 1,
+      "observedGeneration": 1,
+      "resourceVersion": "101",
+      "writtenBy": {
+       "version": "2.13.140"
+      }
+     },
+     "children": {
+      "vpcs.network.arubacloud.com/ns/vpc-prop": {
+       "kind": "X",
+       "name": "vpc-prop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1003"
+      },
+      "vpcs.network.arubacloud.com/ns/subnet-notsampled": {
+       "kind": "X",
+       "name": "subnet-notsampled",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1003"
+      },
+      "vpcs.network.arubacloud.com/ns/sg-notprop": {
+       "kind": "X",
+       "name": "sg-notprop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1003"
+      },
+      "vpcs.network.arubacloud.com/ns/lb-syncedonly": {
+       "kind": "X",
+       "name": "lb-syncedonly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "resourceVersion": "1003"
+      },
+      "vpcs.network.arubacloud.com/ns/db-reasononly": {
+       "kind": "X",
+       "name": "db-reasononly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1003"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "t": 1795860120.0,
+   "compositions": [
+    {
+     "composition": "comps.composition.krateo.io/ns/chain",
+     "parent": {
+      "name": "chain",
+      "ready": {
+       "status": "True",
+       "reason": "Available",
+       "message": "",
+       "lastTransitionTime": "2026-11-28T10:02:00Z"
+      },
+      "unevaluatedChildren": {
+       "noReadyCondition": 0
+      },
+      "managedChildrenCount": 4,
+      "generation": 1,
+      "observedGeneration": 1,
+      "resourceVersion": "102",
+      "writtenBy": {
+       "version": "2.13.140"
+      }
+     },
+     "children": {
+      "vpcs.network.arubacloud.com/ns/vpc-prop": {
+       "kind": "X",
+       "name": "vpc-prop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1004"
+      },
+      "vpcs.network.arubacloud.com/ns/subnet-notsampled": {
+       "kind": "X",
+       "name": "subnet-notsampled",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1004"
+      },
+      "vpcs.network.arubacloud.com/ns/sg-notprop": {
+       "kind": "X",
+       "name": "sg-notprop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1004"
+      },
+      "vpcs.network.arubacloud.com/ns/lb-syncedonly": {
+       "kind": "X",
+       "name": "lb-syncedonly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "resourceVersion": "1004"
+      },
+      "vpcs.network.arubacloud.com/ns/db-reasononly": {
+       "kind": "X",
+       "name": "db-reasononly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1004"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "t": 1795860130.0,
+   "compositions": [
+    {
+     "composition": "comps.composition.krateo.io/ns/chain",
+     "parent": {
+      "name": "chain",
+      "ready": {
+       "status": "True",
+       "reason": "Available",
+       "message": "",
+       "lastTransitionTime": "2026-11-28T10:02:00Z"
+      },
+      "unevaluatedChildren": {
+       "noReadyCondition": 0
+      },
+      "managedChildrenCount": 4,
+      "generation": 1,
+      "observedGeneration": 1,
+      "resourceVersion": "102",
+      "writtenBy": {
+       "version": "2.13.140"
+      }
+     },
+     "children": {
+      "vpcs.network.arubacloud.com/ns/vpc-prop": {
+       "kind": "X",
+       "name": "vpc-prop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1004"
+      },
+      "vpcs.network.arubacloud.com/ns/subnet-notsampled": {
+       "kind": "X",
+       "name": "subnet-notsampled",
+       "ready": {
+        "status": "False",
+        "reason": "Creating",
+        "message": "creating",
+        "lastTransitionTime": "2026-11-28T10:02:05Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1004"
+      },
+      "vpcs.network.arubacloud.com/ns/sg-notprop": {
+       "kind": "X",
+       "name": "sg-notprop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1004"
+      },
+      "vpcs.network.arubacloud.com/ns/lb-syncedonly": {
+       "kind": "X",
+       "name": "lb-syncedonly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "resourceVersion": "1004"
+      },
+      "vpcs.network.arubacloud.com/ns/db-reasononly": {
+       "kind": "X",
+       "name": "db-reasononly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1004"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "t": 1795860140.0,
+   "compositions": [
+    {
+     "composition": "comps.composition.krateo.io/ns/chain",
+     "parent": {
+      "name": "chain",
+      "ready": {
+       "status": "True",
+       "reason": "Available",
+       "message": "",
+       "lastTransitionTime": "2026-11-28T10:02:00Z"
+      },
+      "unevaluatedChildren": {
+       "noReadyCondition": 0
+      },
+      "managedChildrenCount": 4,
+      "generation": 1,
+      "observedGeneration": 1,
+      "resourceVersion": "102",
+      "writtenBy": {
+       "version": "2.13.140"
+      }
+     },
+     "children": {
+      "vpcs.network.arubacloud.com/ns/vpc-prop": {
+       "kind": "X",
+       "name": "vpc-prop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1004"
+      },
+      "vpcs.network.arubacloud.com/ns/subnet-notsampled": {
+       "kind": "X",
+       "name": "subnet-notsampled",
+       "ready": {
+        "status": "False",
+        "reason": "Creating",
+        "message": "creating",
+        "lastTransitionTime": "2026-11-28T10:02:05Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1004"
+      },
+      "vpcs.network.arubacloud.com/ns/sg-notprop": {
+       "kind": "X",
+       "name": "sg-notprop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1004"
+      },
+      "vpcs.network.arubacloud.com/ns/lb-syncedonly": {
+       "kind": "X",
+       "name": "lb-syncedonly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "resourceVersion": "1004"
+      },
+      "vpcs.network.arubacloud.com/ns/db-reasononly": {
+       "kind": "X",
+       "name": "db-reasononly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1004"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "t": 1795860150.0,
+   "compositions": [
+    {
+     "composition": "comps.composition.krateo.io/ns/chain",
+     "parent": {
+      "name": "chain",
+      "ready": {
+       "status": "True",
+       "reason": "Available",
+       "message": "",
+       "lastTransitionTime": "2026-11-28T10:02:00Z"
+      },
+      "unevaluatedChildren": {
+       "noReadyCondition": 0
+      },
+      "managedChildrenCount": 4,
+      "generation": 1,
+      "observedGeneration": 1,
+      "resourceVersion": "102",
+      "writtenBy": {
+       "version": "2.13.140"
+      }
+     },
+     "children": {
+      "vpcs.network.arubacloud.com/ns/vpc-prop": {
+       "kind": "X",
+       "name": "vpc-prop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1005"
+      },
+      "vpcs.network.arubacloud.com/ns/subnet-notsampled": {
+       "kind": "X",
+       "name": "subnet-notsampled",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:02:25Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1005"
+      },
+      "vpcs.network.arubacloud.com/ns/sg-notprop": {
+       "kind": "X",
+       "name": "sg-notprop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1005"
+      },
+      "vpcs.network.arubacloud.com/ns/lb-syncedonly": {
+       "kind": "X",
+       "name": "lb-syncedonly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "resourceVersion": "1005"
+      },
+      "vpcs.network.arubacloud.com/ns/db-reasononly": {
+       "kind": "X",
+       "name": "db-reasononly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1005"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "t": 1795860160.0,
+   "compositions": [
+    {
+     "composition": "comps.composition.krateo.io/ns/chain",
+     "parent": {
+      "name": "chain",
+      "ready": {
+       "status": "True",
+       "reason": "Available",
+       "message": "",
+       "lastTransitionTime": "2026-11-28T10:02:00Z"
+      },
+      "unevaluatedChildren": {
+       "noReadyCondition": 0
+      },
+      "managedChildrenCount": 4,
+      "generation": 1,
+      "observedGeneration": 1,
+      "resourceVersion": "102",
+      "writtenBy": {
+       "version": "2.13.140"
+      }
+     },
+     "children": {
+      "vpcs.network.arubacloud.com/ns/vpc-prop": {
+       "kind": "X",
+       "name": "vpc-prop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1005"
+      },
+      "vpcs.network.arubacloud.com/ns/subnet-notsampled": {
+       "kind": "X",
+       "name": "subnet-notsampled",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:02:25Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1005"
+      },
+      "vpcs.network.arubacloud.com/ns/sg-notprop": {
+       "kind": "X",
+       "name": "sg-notprop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1005"
+      },
+      "vpcs.network.arubacloud.com/ns/lb-syncedonly": {
+       "kind": "X",
+       "name": "lb-syncedonly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "resourceVersion": "1005"
+      },
+      "vpcs.network.arubacloud.com/ns/db-reasononly": {
+       "kind": "X",
+       "name": "db-reasononly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1005"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "t": 1795860170.0,
+   "compositions": [
+    {
+     "composition": "comps.composition.krateo.io/ns/chain",
+     "parent": {
+      "name": "chain",
+      "ready": {
+       "status": "True",
+       "reason": "Available",
+       "message": "",
+       "lastTransitionTime": "2026-11-28T10:02:00Z"
+      },
+      "unevaluatedChildren": {
+       "noReadyCondition": 0
+      },
+      "managedChildrenCount": 4,
+      "generation": 1,
+      "observedGeneration": 1,
+      "resourceVersion": "102",
+      "writtenBy": {
+       "version": "2.13.140"
+      }
+     },
+     "children": {
+      "vpcs.network.arubacloud.com/ns/vpc-prop": {
+       "kind": "X",
+       "name": "vpc-prop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1005"
+      },
+      "vpcs.network.arubacloud.com/ns/subnet-notsampled": {
+       "kind": "X",
+       "name": "subnet-notsampled",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:02:25Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1005"
+      },
+      "vpcs.network.arubacloud.com/ns/sg-notprop": {
+       "kind": "X",
+       "name": "sg-notprop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1005"
+      },
+      "vpcs.network.arubacloud.com/ns/lb-syncedonly": {
+       "kind": "X",
+       "name": "lb-syncedonly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "resourceVersion": "1005"
+      },
+      "vpcs.network.arubacloud.com/ns/db-reasononly": {
+       "kind": "X",
+       "name": "db-reasononly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1005"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "t": 1795860180.0,
+   "compositions": [
+    {
+     "composition": "comps.composition.krateo.io/ns/chain",
+     "parent": {
+      "name": "chain",
+      "ready": {
+       "status": "True",
+       "reason": "Available",
+       "message": "",
+       "lastTransitionTime": "2026-11-28T10:02:00Z"
+      },
+      "unevaluatedChildren": {
+       "noReadyCondition": 0
+      },
+      "managedChildrenCount": 4,
+      "generation": 1,
+      "observedGeneration": 1,
+      "resourceVersion": "102",
+      "writtenBy": {
+       "version": "2.13.140"
+      }
+     },
+     "children": {
+      "vpcs.network.arubacloud.com/ns/vpc-prop": {
+       "kind": "X",
+       "name": "vpc-prop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1006"
+      },
+      "vpcs.network.arubacloud.com/ns/subnet-notsampled": {
+       "kind": "X",
+       "name": "subnet-notsampled",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:02:25Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1006"
+      },
+      "vpcs.network.arubacloud.com/ns/sg-notprop": {
+       "kind": "X",
+       "name": "sg-notprop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1006"
+      },
+      "vpcs.network.arubacloud.com/ns/lb-syncedonly": {
+       "kind": "X",
+       "name": "lb-syncedonly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "resourceVersion": "1006"
+      },
+      "vpcs.network.arubacloud.com/ns/db-reasononly": {
+       "kind": "X",
+       "name": "db-reasononly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1006"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "t": 1795860190.0,
+   "compositions": [
+    {
+     "composition": "comps.composition.krateo.io/ns/chain",
+     "parent": {
+      "name": "chain",
+      "ready": {
+       "status": "True",
+       "reason": "Available",
+       "message": "",
+       "lastTransitionTime": "2026-11-28T10:02:00Z"
+      },
+      "unevaluatedChildren": {
+       "noReadyCondition": 0
+      },
+      "managedChildrenCount": 4,
+      "generation": 1,
+      "observedGeneration": 1,
+      "resourceVersion": "102",
+      "writtenBy": {
+       "version": "2.13.140"
+      }
+     },
+     "children": {
+      "vpcs.network.arubacloud.com/ns/vpc-prop": {
+       "kind": "X",
+       "name": "vpc-prop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1006"
+      },
+      "vpcs.network.arubacloud.com/ns/subnet-notsampled": {
+       "kind": "X",
+       "name": "subnet-notsampled",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:02:25Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1006"
+      },
+      "vpcs.network.arubacloud.com/ns/sg-notprop": {
+       "kind": "X",
+       "name": "sg-notprop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1006"
+      },
+      "vpcs.network.arubacloud.com/ns/lb-syncedonly": {
+       "kind": "X",
+       "name": "lb-syncedonly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "resourceVersion": "1006"
+      },
+      "vpcs.network.arubacloud.com/ns/db-reasononly": {
+       "kind": "X",
+       "name": "db-reasononly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1006"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "t": 1795860200.0,
+   "compositions": [
+    {
+     "composition": "comps.composition.krateo.io/ns/chain",
+     "parent": {
+      "name": "chain",
+      "ready": {
+       "status": "True",
+       "reason": "Available",
+       "message": "",
+       "lastTransitionTime": "2026-11-28T10:02:00Z"
+      },
+      "unevaluatedChildren": {
+       "noReadyCondition": 0
+      },
+      "managedChildrenCount": 4,
+      "generation": 1,
+      "observedGeneration": 1,
+      "resourceVersion": "102",
+      "writtenBy": {
+       "version": "2.13.140"
+      }
+     },
+     "children": {
+      "vpcs.network.arubacloud.com/ns/vpc-prop": {
+       "kind": "X",
+       "name": "vpc-prop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1006"
+      },
+      "vpcs.network.arubacloud.com/ns/subnet-notsampled": {
+       "kind": "X",
+       "name": "subnet-notsampled",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:02:25Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1006"
+      },
+      "vpcs.network.arubacloud.com/ns/sg-notprop": {
+       "kind": "X",
+       "name": "sg-notprop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1006"
+      },
+      "vpcs.network.arubacloud.com/ns/lb-syncedonly": {
+       "kind": "X",
+       "name": "lb-syncedonly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "resourceVersion": "1006"
+      },
+      "vpcs.network.arubacloud.com/ns/db-reasononly": {
+       "kind": "X",
+       "name": "db-reasononly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1006"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "t": 1795860210.0,
+   "compositions": [
+    {
+     "composition": "comps.composition.krateo.io/ns/chain",
+     "parent": {
+      "name": "chain",
+      "ready": {
+       "status": "True",
+       "reason": "Available",
+       "message": "",
+       "lastTransitionTime": "2026-11-28T10:02:00Z"
+      },
+      "unevaluatedChildren": {
+       "noReadyCondition": 0
+      },
+      "managedChildrenCount": 4,
+      "generation": 1,
+      "observedGeneration": 1,
+      "resourceVersion": "102",
+      "writtenBy": {
+       "version": "2.13.140"
+      }
+     },
+     "children": {
+      "vpcs.network.arubacloud.com/ns/vpc-prop": {
+       "kind": "X",
+       "name": "vpc-prop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1007"
+      },
+      "vpcs.network.arubacloud.com/ns/subnet-notsampled": {
+       "kind": "X",
+       "name": "subnet-notsampled",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:02:25Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1007"
+      },
+      "vpcs.network.arubacloud.com/ns/sg-notprop": {
+       "kind": "X",
+       "name": "sg-notprop",
+       "ready": {
+        "status": "False",
+        "reason": "Creating",
+        "message": "creating",
+        "lastTransitionTime": "2026-11-28T10:03:25Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1007"
+      },
+      "vpcs.network.arubacloud.com/ns/lb-syncedonly": {
+       "kind": "X",
+       "name": "lb-syncedonly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "resourceVersion": "1007"
+      },
+      "vpcs.network.arubacloud.com/ns/db-reasononly": {
+       "kind": "X",
+       "name": "db-reasononly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1007"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "t": 1795860220.0,
+   "compositions": [
+    {
+     "composition": "comps.composition.krateo.io/ns/chain",
+     "parent": {
+      "name": "chain",
+      "ready": {
+       "status": "True",
+       "reason": "Available",
+       "message": "",
+       "lastTransitionTime": "2026-11-28T10:02:00Z"
+      },
+      "unevaluatedChildren": {
+       "noReadyCondition": 0
+      },
+      "managedChildrenCount": 4,
+      "generation": 1,
+      "observedGeneration": 1,
+      "resourceVersion": "102",
+      "writtenBy": {
+       "version": "2.13.140"
+      }
+     },
+     "children": {
+      "vpcs.network.arubacloud.com/ns/vpc-prop": {
+       "kind": "X",
+       "name": "vpc-prop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1007"
+      },
+      "vpcs.network.arubacloud.com/ns/subnet-notsampled": {
+       "kind": "X",
+       "name": "subnet-notsampled",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:02:25Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1007"
+      },
+      "vpcs.network.arubacloud.com/ns/sg-notprop": {
+       "kind": "X",
+       "name": "sg-notprop",
+       "ready": {
+        "status": "False",
+        "reason": "Creating",
+        "message": "creating",
+        "lastTransitionTime": "2026-11-28T10:03:25Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1007"
+      },
+      "vpcs.network.arubacloud.com/ns/lb-syncedonly": {
+       "kind": "X",
+       "name": "lb-syncedonly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "resourceVersion": "1007"
+      },
+      "vpcs.network.arubacloud.com/ns/db-reasononly": {
+       "kind": "X",
+       "name": "db-reasononly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1007"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "t": 1795860230.0,
+   "compositions": [
+    {
+     "composition": "comps.composition.krateo.io/ns/chain",
+     "parent": {
+      "name": "chain",
+      "ready": {
+       "status": "True",
+       "reason": "Available",
+       "message": "",
+       "lastTransitionTime": "2026-11-28T10:02:00Z"
+      },
+      "unevaluatedChildren": {
+       "noReadyCondition": 0
+      },
+      "managedChildrenCount": 4,
+      "generation": 1,
+      "observedGeneration": 1,
+      "resourceVersion": "102",
+      "writtenBy": {
+       "version": "2.13.140"
+      }
+     },
+     "children": {
+      "vpcs.network.arubacloud.com/ns/vpc-prop": {
+       "kind": "X",
+       "name": "vpc-prop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1007"
+      },
+      "vpcs.network.arubacloud.com/ns/subnet-notsampled": {
+       "kind": "X",
+       "name": "subnet-notsampled",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:02:25Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1007"
+      },
+      "vpcs.network.arubacloud.com/ns/sg-notprop": {
+       "kind": "X",
+       "name": "sg-notprop",
+       "ready": {
+        "status": "False",
+        "reason": "Creating",
+        "message": "creating",
+        "lastTransitionTime": "2026-11-28T10:03:25Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1007"
+      },
+      "vpcs.network.arubacloud.com/ns/lb-syncedonly": {
+       "kind": "X",
+       "name": "lb-syncedonly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "resourceVersion": "1007"
+      },
+      "vpcs.network.arubacloud.com/ns/db-reasononly": {
+       "kind": "X",
+       "name": "db-reasononly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1007"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "t": 1795860240.0,
+   "compositions": [
+    {
+     "composition": "comps.composition.krateo.io/ns/chain",
+     "parent": {
+      "name": "chain",
+      "ready": {
+       "status": "True",
+       "reason": "Available",
+       "message": "",
+       "lastTransitionTime": "2026-11-28T10:02:00Z"
+      },
+      "unevaluatedChildren": {
+       "noReadyCondition": 0
+      },
+      "managedChildrenCount": 4,
+      "generation": 1,
+      "observedGeneration": 1,
+      "resourceVersion": "102",
+      "writtenBy": {
+       "version": "2.13.140"
+      }
+     },
+     "children": {
+      "vpcs.network.arubacloud.com/ns/vpc-prop": {
+       "kind": "X",
+       "name": "vpc-prop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1008"
+      },
+      "vpcs.network.arubacloud.com/ns/subnet-notsampled": {
+       "kind": "X",
+       "name": "subnet-notsampled",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:02:25Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1008"
+      },
+      "vpcs.network.arubacloud.com/ns/sg-notprop": {
+       "kind": "X",
+       "name": "sg-notprop",
+       "ready": {
+        "status": "False",
+        "reason": "Creating",
+        "message": "creating",
+        "lastTransitionTime": "2026-11-28T10:03:25Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1008"
+      },
+      "vpcs.network.arubacloud.com/ns/lb-syncedonly": {
+       "kind": "X",
+       "name": "lb-syncedonly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "resourceVersion": "1008"
+      },
+      "vpcs.network.arubacloud.com/ns/db-reasononly": {
+       "kind": "X",
+       "name": "db-reasononly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1008"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "t": 1795860250.0,
+   "compositions": [
+    {
+     "composition": "comps.composition.krateo.io/ns/chain",
+     "parent": {
+      "name": "chain",
+      "ready": {
+       "status": "True",
+       "reason": "Available",
+       "message": "",
+       "lastTransitionTime": "2026-11-28T10:02:00Z"
+      },
+      "unevaluatedChildren": {
+       "noReadyCondition": 0
+      },
+      "managedChildrenCount": 4,
+      "generation": 1,
+      "observedGeneration": 1,
+      "resourceVersion": "102",
+      "writtenBy": {
+       "version": "2.13.140"
+      }
+     },
+     "children": {
+      "vpcs.network.arubacloud.com/ns/vpc-prop": {
+       "kind": "X",
+       "name": "vpc-prop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1008"
+      },
+      "vpcs.network.arubacloud.com/ns/subnet-notsampled": {
+       "kind": "X",
+       "name": "subnet-notsampled",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:02:25Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1008"
+      },
+      "vpcs.network.arubacloud.com/ns/sg-notprop": {
+       "kind": "X",
+       "name": "sg-notprop",
+       "ready": {
+        "status": "False",
+        "reason": "Creating",
+        "message": "creating",
+        "lastTransitionTime": "2026-11-28T10:03:25Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1008"
+      },
+      "vpcs.network.arubacloud.com/ns/lb-syncedonly": {
+       "kind": "X",
+       "name": "lb-syncedonly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "resourceVersion": "1008"
+      },
+      "vpcs.network.arubacloud.com/ns/db-reasononly": {
+       "kind": "X",
+       "name": "db-reasononly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1008"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "t": 1795860260.0,
+   "compositions": [
+    {
+     "composition": "comps.composition.krateo.io/ns/chain",
+     "parent": {
+      "name": "chain",
+      "ready": {
+       "status": "True",
+       "reason": "Available",
+       "message": "",
+       "lastTransitionTime": "2026-11-28T10:02:00Z"
+      },
+      "unevaluatedChildren": {
+       "noReadyCondition": 0
+      },
+      "managedChildrenCount": 4,
+      "generation": 1,
+      "observedGeneration": 1,
+      "resourceVersion": "102",
+      "writtenBy": {
+       "version": "2.13.140"
+      }
+     },
+     "children": {
+      "vpcs.network.arubacloud.com/ns/vpc-prop": {
+       "kind": "X",
+       "name": "vpc-prop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1008"
+      },
+      "vpcs.network.arubacloud.com/ns/subnet-notsampled": {
+       "kind": "X",
+       "name": "subnet-notsampled",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:02:25Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1008"
+      },
+      "vpcs.network.arubacloud.com/ns/sg-notprop": {
+       "kind": "X",
+       "name": "sg-notprop",
+       "ready": {
+        "status": "False",
+        "reason": "Creating",
+        "message": "creating",
+        "lastTransitionTime": "2026-11-28T10:03:25Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1008"
+      },
+      "vpcs.network.arubacloud.com/ns/lb-syncedonly": {
+       "kind": "X",
+       "name": "lb-syncedonly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "resourceVersion": "1008"
+      },
+      "vpcs.network.arubacloud.com/ns/db-reasononly": {
+       "kind": "X",
+       "name": "db-reasononly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1008"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "t": 1795860270.0,
+   "compositions": [
+    {
+     "composition": "comps.composition.krateo.io/ns/chain",
+     "parent": {
+      "name": "chain",
+      "ready": {
+       "status": "True",
+       "reason": "Available",
+       "message": "",
+       "lastTransitionTime": "2026-11-28T10:02:00Z"
+      },
+      "unevaluatedChildren": {
+       "noReadyCondition": 0
+      },
+      "managedChildrenCount": 4,
+      "generation": 1,
+      "observedGeneration": 1,
+      "resourceVersion": "102",
+      "writtenBy": {
+       "version": "2.13.140"
+      }
+     },
+     "children": {
+      "vpcs.network.arubacloud.com/ns/vpc-prop": {
+       "kind": "X",
+       "name": "vpc-prop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1009"
+      },
+      "vpcs.network.arubacloud.com/ns/subnet-notsampled": {
+       "kind": "X",
+       "name": "subnet-notsampled",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:02:25Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1009"
+      },
+      "vpcs.network.arubacloud.com/ns/sg-notprop": {
+       "kind": "X",
+       "name": "sg-notprop",
+       "ready": {
+        "status": "False",
+        "reason": "Creating",
+        "message": "creating",
+        "lastTransitionTime": "2026-11-28T10:03:25Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1009"
+      },
+      "vpcs.network.arubacloud.com/ns/lb-syncedonly": {
+       "kind": "X",
+       "name": "lb-syncedonly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "resourceVersion": "1009"
+      },
+      "vpcs.network.arubacloud.com/ns/db-reasononly": {
+       "kind": "X",
+       "name": "db-reasononly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1009"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "t": 1795860280.0,
+   "compositions": [
+    {
+     "composition": "comps.composition.krateo.io/ns/chain",
+     "parent": {
+      "name": "chain",
+      "ready": {
+       "status": "True",
+       "reason": "Available",
+       "message": "",
+       "lastTransitionTime": "2026-11-28T10:02:00Z"
+      },
+      "unevaluatedChildren": {
+       "noReadyCondition": 0
+      },
+      "managedChildrenCount": 4,
+      "generation": 1,
+      "observedGeneration": 1,
+      "resourceVersion": "102",
+      "writtenBy": {
+       "version": "2.13.140"
+      }
+     },
+     "children": {
+      "vpcs.network.arubacloud.com/ns/vpc-prop": {
+       "kind": "X",
+       "name": "vpc-prop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1009"
+      },
+      "vpcs.network.arubacloud.com/ns/subnet-notsampled": {
+       "kind": "X",
+       "name": "subnet-notsampled",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:02:25Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1009"
+      },
+      "vpcs.network.arubacloud.com/ns/sg-notprop": {
+       "kind": "X",
+       "name": "sg-notprop",
+       "ready": {
+        "status": "False",
+        "reason": "Creating",
+        "message": "creating",
+        "lastTransitionTime": "2026-11-28T10:03:25Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1009"
+      },
+      "vpcs.network.arubacloud.com/ns/lb-syncedonly": {
+       "kind": "X",
+       "name": "lb-syncedonly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "resourceVersion": "1009"
+      },
+      "vpcs.network.arubacloud.com/ns/db-reasononly": {
+       "kind": "X",
+       "name": "db-reasononly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1009"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "t": 1795860290.0,
+   "compositions": [
+    {
+     "composition": "comps.composition.krateo.io/ns/chain",
+     "parent": {
+      "name": "chain",
+      "ready": {
+       "status": "True",
+       "reason": "Available",
+       "message": "",
+       "lastTransitionTime": "2026-11-28T10:02:00Z"
+      },
+      "unevaluatedChildren": {
+       "noReadyCondition": 0
+      },
+      "managedChildrenCount": 4,
+      "generation": 1,
+      "observedGeneration": 1,
+      "resourceVersion": "102",
+      "writtenBy": {
+       "version": "2.13.140"
+      }
+     },
+     "children": {
+      "vpcs.network.arubacloud.com/ns/vpc-prop": {
+       "kind": "X",
+       "name": "vpc-prop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1009"
+      },
+      "vpcs.network.arubacloud.com/ns/subnet-notsampled": {
+       "kind": "X",
+       "name": "subnet-notsampled",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:02:25Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1009"
+      },
+      "vpcs.network.arubacloud.com/ns/sg-notprop": {
+       "kind": "X",
+       "name": "sg-notprop",
+       "ready": {
+        "status": "False",
+        "reason": "Creating",
+        "message": "creating",
+        "lastTransitionTime": "2026-11-28T10:03:25Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1009"
+      },
+      "vpcs.network.arubacloud.com/ns/lb-syncedonly": {
+       "kind": "X",
+       "name": "lb-syncedonly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "resourceVersion": "1009"
+      },
+      "vpcs.network.arubacloud.com/ns/db-reasononly": {
+       "kind": "X",
+       "name": "db-reasononly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1009"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "t": 1795860300.0,
+   "compositions": [
+    {
+     "composition": "comps.composition.krateo.io/ns/chain",
+     "parent": {
+      "name": "chain",
+      "ready": {
+       "status": "True",
+       "reason": "Available",
+       "message": "",
+       "lastTransitionTime": "2026-11-28T10:02:00Z"
+      },
+      "unevaluatedChildren": {
+       "noReadyCondition": 0
+      },
+      "managedChildrenCount": 4,
+      "generation": 1,
+      "observedGeneration": 1,
+      "resourceVersion": "102",
+      "writtenBy": {
+       "version": "2.13.140"
+      }
+     },
+     "children": {
+      "vpcs.network.arubacloud.com/ns/vpc-prop": {
+       "kind": "X",
+       "name": "vpc-prop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1010"
+      },
+      "vpcs.network.arubacloud.com/ns/subnet-notsampled": {
+       "kind": "X",
+       "name": "subnet-notsampled",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:02:25Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1010"
+      },
+      "vpcs.network.arubacloud.com/ns/sg-notprop": {
+       "kind": "X",
+       "name": "sg-notprop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:04:55Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1010"
+      },
+      "vpcs.network.arubacloud.com/ns/lb-syncedonly": {
+       "kind": "X",
+       "name": "lb-syncedonly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "resourceVersion": "1010"
+      },
+      "vpcs.network.arubacloud.com/ns/db-reasononly": {
+       "kind": "X",
+       "name": "db-reasononly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1010"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "t": 1795860310.0,
+   "compositions": [
+    {
+     "composition": "comps.composition.krateo.io/ns/chain",
+     "parent": {
+      "name": "chain",
+      "ready": {
+       "status": "True",
+       "reason": "Available",
+       "message": "",
+       "lastTransitionTime": "2026-11-28T10:02:00Z"
+      },
+      "unevaluatedChildren": {
+       "noReadyCondition": 0
+      },
+      "managedChildrenCount": 4,
+      "generation": 1,
+      "observedGeneration": 1,
+      "resourceVersion": "102",
+      "writtenBy": {
+       "version": "2.13.140"
+      }
+     },
+     "children": {
+      "vpcs.network.arubacloud.com/ns/vpc-prop": {
+       "kind": "X",
+       "name": "vpc-prop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1010"
+      },
+      "vpcs.network.arubacloud.com/ns/subnet-notsampled": {
+       "kind": "X",
+       "name": "subnet-notsampled",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:02:25Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1010"
+      },
+      "vpcs.network.arubacloud.com/ns/sg-notprop": {
+       "kind": "X",
+       "name": "sg-notprop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:04:55Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1010"
+      },
+      "vpcs.network.arubacloud.com/ns/lb-syncedonly": {
+       "kind": "X",
+       "name": "lb-syncedonly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "resourceVersion": "1010"
+      },
+      "vpcs.network.arubacloud.com/ns/db-reasononly": {
+       "kind": "X",
+       "name": "db-reasononly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1010"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "t": 1795860320.0,
+   "compositions": [
+    {
+     "composition": "comps.composition.krateo.io/ns/chain",
+     "parent": {
+      "name": "chain",
+      "ready": {
+       "status": "True",
+       "reason": "Available",
+       "message": "",
+       "lastTransitionTime": "2026-11-28T10:02:00Z"
+      },
+      "unevaluatedChildren": {
+       "noReadyCondition": 0
+      },
+      "managedChildrenCount": 4,
+      "generation": 1,
+      "observedGeneration": 1,
+      "resourceVersion": "102",
+      "writtenBy": {
+       "version": "2.13.140"
+      }
+     },
+     "children": {
+      "vpcs.network.arubacloud.com/ns/vpc-prop": {
+       "kind": "X",
+       "name": "vpc-prop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1010"
+      },
+      "vpcs.network.arubacloud.com/ns/subnet-notsampled": {
+       "kind": "X",
+       "name": "subnet-notsampled",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:02:25Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1010"
+      },
+      "vpcs.network.arubacloud.com/ns/sg-notprop": {
+       "kind": "X",
+       "name": "sg-notprop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:04:55Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1010"
+      },
+      "vpcs.network.arubacloud.com/ns/lb-syncedonly": {
+       "kind": "X",
+       "name": "lb-syncedonly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "resourceVersion": "1010"
+      },
+      "vpcs.network.arubacloud.com/ns/db-reasononly": {
+       "kind": "X",
+       "name": "db-reasononly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1010"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "t": 1795860330.0,
+   "compositions": [
+    {
+     "composition": "comps.composition.krateo.io/ns/chain",
+     "parent": {
+      "name": "chain",
+      "ready": {
+       "status": "True",
+       "reason": "Available",
+       "message": "",
+       "lastTransitionTime": "2026-11-28T10:02:00Z"
+      },
+      "unevaluatedChildren": {
+       "noReadyCondition": 0
+      },
+      "managedChildrenCount": 4,
+      "generation": 1,
+      "observedGeneration": 1,
+      "resourceVersion": "102",
+      "writtenBy": {
+       "version": "2.13.140"
+      }
+     },
+     "children": {
+      "vpcs.network.arubacloud.com/ns/vpc-prop": {
+       "kind": "X",
+       "name": "vpc-prop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1011"
+      },
+      "vpcs.network.arubacloud.com/ns/subnet-notsampled": {
+       "kind": "X",
+       "name": "subnet-notsampled",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:02:25Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1011"
+      },
+      "vpcs.network.arubacloud.com/ns/sg-notprop": {
+       "kind": "X",
+       "name": "sg-notprop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:04:55Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1011"
+      },
+      "vpcs.network.arubacloud.com/ns/lb-syncedonly": {
+       "kind": "X",
+       "name": "lb-syncedonly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "resourceVersion": "1011"
+      },
+      "vpcs.network.arubacloud.com/ns/db-reasononly": {
+       "kind": "X",
+       "name": "db-reasononly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1011"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "t": 1795860340.0,
+   "compositions": [
+    {
+     "composition": "comps.composition.krateo.io/ns/chain",
+     "parent": {
+      "name": "chain",
+      "ready": {
+       "status": "True",
+       "reason": "Available",
+       "message": "",
+       "lastTransitionTime": "2026-11-28T10:02:00Z"
+      },
+      "unevaluatedChildren": {
+       "noReadyCondition": 0
+      },
+      "managedChildrenCount": 4,
+      "generation": 1,
+      "observedGeneration": 1,
+      "resourceVersion": "102",
+      "writtenBy": {
+       "version": "2.13.140"
+      }
+     },
+     "children": {
+      "vpcs.network.arubacloud.com/ns/vpc-prop": {
+       "kind": "X",
+       "name": "vpc-prop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1011"
+      },
+      "vpcs.network.arubacloud.com/ns/subnet-notsampled": {
+       "kind": "X",
+       "name": "subnet-notsampled",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:02:25Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1011"
+      },
+      "vpcs.network.arubacloud.com/ns/sg-notprop": {
+       "kind": "X",
+       "name": "sg-notprop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:04:55Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1011"
+      },
+      "vpcs.network.arubacloud.com/ns/lb-syncedonly": {
+       "kind": "X",
+       "name": "lb-syncedonly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "resourceVersion": "1011"
+      },
+      "vpcs.network.arubacloud.com/ns/db-reasononly": {
+       "kind": "X",
+       "name": "db-reasononly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1011"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "t": 1795860350.0,
+   "compositions": [
+    {
+     "composition": "comps.composition.krateo.io/ns/chain",
+     "parent": {
+      "name": "chain",
+      "ready": {
+       "status": "True",
+       "reason": "Available",
+       "message": "",
+       "lastTransitionTime": "2026-11-28T10:02:00Z"
+      },
+      "unevaluatedChildren": {
+       "noReadyCondition": 0
+      },
+      "managedChildrenCount": 4,
+      "generation": 1,
+      "observedGeneration": 1,
+      "resourceVersion": "102",
+      "writtenBy": {
+       "version": "2.13.140"
+      }
+     },
+     "children": {
+      "vpcs.network.arubacloud.com/ns/vpc-prop": {
+       "kind": "X",
+       "name": "vpc-prop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1011"
+      },
+      "vpcs.network.arubacloud.com/ns/subnet-notsampled": {
+       "kind": "X",
+       "name": "subnet-notsampled",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:02:25Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1011"
+      },
+      "vpcs.network.arubacloud.com/ns/sg-notprop": {
+       "kind": "X",
+       "name": "sg-notprop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:04:55Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1011"
+      },
+      "vpcs.network.arubacloud.com/ns/lb-syncedonly": {
+       "kind": "X",
+       "name": "lb-syncedonly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "resourceVersion": "1011"
+      },
+      "vpcs.network.arubacloud.com/ns/db-reasononly": {
+       "kind": "X",
+       "name": "db-reasononly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1011"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "t": 1795860360.0,
+   "compositions": [
+    {
+     "composition": "comps.composition.krateo.io/ns/chain",
+     "parent": {
+      "name": "chain",
+      "ready": {
+       "status": "False",
+       "reason": "Creating",
+       "message": "1 of 2 managed children are not ready: net-other",
+       "lastTransitionTime": "2026-11-28T10:06:00Z"
+      },
+      "unevaluatedChildren": {
+       "noReadyCondition": 0
+      },
+      "managedChildrenCount": 4,
+      "generation": 1,
+      "observedGeneration": 1,
+      "resourceVersion": "103",
+      "writtenBy": {
+       "version": "2.13.140"
+      }
+     },
+     "children": {
+      "vpcs.network.arubacloud.com/ns/vpc-prop": {
+       "kind": "X",
+       "name": "vpc-prop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1012"
+      },
+      "vpcs.network.arubacloud.com/ns/subnet-notsampled": {
+       "kind": "X",
+       "name": "subnet-notsampled",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:02:25Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1012"
+      },
+      "vpcs.network.arubacloud.com/ns/sg-notprop": {
+       "kind": "X",
+       "name": "sg-notprop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:04:55Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1012"
+      },
+      "vpcs.network.arubacloud.com/ns/lb-syncedonly": {
+       "kind": "X",
+       "name": "lb-syncedonly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "resourceVersion": "1012"
+      },
+      "vpcs.network.arubacloud.com/ns/db-reasononly": {
+       "kind": "X",
+       "name": "db-reasononly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1012"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "t": 1795860370.0,
+   "compositions": [
+    {
+     "composition": "comps.composition.krateo.io/ns/chain",
+     "parent": {
+      "name": "chain",
+      "ready": {
+       "status": "False",
+       "reason": "Creating",
+       "message": "1 of 2 managed children are not ready: net-other",
+       "lastTransitionTime": "2026-11-28T10:06:00Z"
+      },
+      "unevaluatedChildren": {
+       "noReadyCondition": 0
+      },
+      "managedChildrenCount": 4,
+      "generation": 1,
+      "observedGeneration": 1,
+      "resourceVersion": "103",
+      "writtenBy": {
+       "version": "2.13.140"
+      }
+     },
+     "children": {
+      "vpcs.network.arubacloud.com/ns/vpc-prop": {
+       "kind": "X",
+       "name": "vpc-prop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1012"
+      },
+      "vpcs.network.arubacloud.com/ns/subnet-notsampled": {
+       "kind": "X",
+       "name": "subnet-notsampled",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:02:25Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1012"
+      },
+      "vpcs.network.arubacloud.com/ns/sg-notprop": {
+       "kind": "X",
+       "name": "sg-notprop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:04:55Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1012"
+      },
+      "vpcs.network.arubacloud.com/ns/lb-syncedonly": {
+       "kind": "X",
+       "name": "lb-syncedonly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "resourceVersion": "1012"
+      },
+      "vpcs.network.arubacloud.com/ns/db-reasononly": {
+       "kind": "X",
+       "name": "db-reasononly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1012"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "t": 1795860380.0,
+   "compositions": [
+    {
+     "composition": "comps.composition.krateo.io/ns/chain",
+     "parent": {
+      "name": "chain",
+      "ready": {
+       "status": "False",
+       "reason": "Creating",
+       "message": "1 of 2 managed children are not ready: net-other",
+       "lastTransitionTime": "2026-11-28T10:06:00Z"
+      },
+      "unevaluatedChildren": {
+       "noReadyCondition": 0
+      },
+      "managedChildrenCount": 4,
+      "generation": 1,
+      "observedGeneration": 1,
+      "resourceVersion": "103",
+      "writtenBy": {
+       "version": "2.13.140"
+      }
+     },
+     "children": {
+      "vpcs.network.arubacloud.com/ns/vpc-prop": {
+       "kind": "X",
+       "name": "vpc-prop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1012"
+      },
+      "vpcs.network.arubacloud.com/ns/subnet-notsampled": {
+       "kind": "X",
+       "name": "subnet-notsampled",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:02:25Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1012"
+      },
+      "vpcs.network.arubacloud.com/ns/sg-notprop": {
+       "kind": "X",
+       "name": "sg-notprop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:04:55Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1012"
+      },
+      "vpcs.network.arubacloud.com/ns/lb-syncedonly": {
+       "kind": "X",
+       "name": "lb-syncedonly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "resourceVersion": "1012"
+      },
+      "vpcs.network.arubacloud.com/ns/db-reasononly": {
+       "kind": "X",
+       "name": "db-reasononly",
+       "ready": {
+        "status": "False",
+        "reason": "Creating",
+        "message": "creating",
+        "lastTransitionTime": "2026-11-28T10:06:20Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1012"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "t": 1795860390.0,
+   "compositions": [
+    {
+     "composition": "comps.composition.krateo.io/ns/chain",
+     "parent": {
+      "name": "chain",
+      "ready": {
+       "status": "False",
+       "reason": "Creating",
+       "message": "1 of 2 managed children are not ready: net-other",
+       "lastTransitionTime": "2026-11-28T10:06:00Z"
+      },
+      "unevaluatedChildren": {
+       "noReadyCondition": 0
+      },
+      "managedChildrenCount": 4,
+      "generation": 1,
+      "observedGeneration": 1,
+      "resourceVersion": "103",
+      "writtenBy": {
+       "version": "2.13.140"
+      }
+     },
+     "children": {
+      "vpcs.network.arubacloud.com/ns/vpc-prop": {
+       "kind": "X",
+       "name": "vpc-prop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1013"
+      },
+      "vpcs.network.arubacloud.com/ns/subnet-notsampled": {
+       "kind": "X",
+       "name": "subnet-notsampled",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:02:25Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1013"
+      },
+      "vpcs.network.arubacloud.com/ns/sg-notprop": {
+       "kind": "X",
+       "name": "sg-notprop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:04:55Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1013"
+      },
+      "vpcs.network.arubacloud.com/ns/lb-syncedonly": {
+       "kind": "X",
+       "name": "lb-syncedonly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "resourceVersion": "1013"
+      },
+      "vpcs.network.arubacloud.com/ns/db-reasononly": {
+       "kind": "X",
+       "name": "db-reasononly",
+       "ready": {
+        "status": "False",
+        "reason": "Creating",
+        "message": "creating",
+        "lastTransitionTime": "2026-11-28T10:06:20Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1013"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "t": 1795860400.0,
+   "compositions": [
+    {
+     "composition": "comps.composition.krateo.io/ns/chain",
+     "parent": {
+      "name": "chain",
+      "ready": {
+       "status": "False",
+       "reason": "Creating",
+       "message": "1 of 2 managed children are not ready: net-other",
+       "lastTransitionTime": "2026-11-28T10:06:00Z"
+      },
+      "unevaluatedChildren": {
+       "noReadyCondition": 0
+      },
+      "managedChildrenCount": 4,
+      "generation": 1,
+      "observedGeneration": 1,
+      "resourceVersion": "103",
+      "writtenBy": {
+       "version": "2.13.140"
+      }
+     },
+     "children": {
+      "vpcs.network.arubacloud.com/ns/vpc-prop": {
+       "kind": "X",
+       "name": "vpc-prop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1013"
+      },
+      "vpcs.network.arubacloud.com/ns/subnet-notsampled": {
+       "kind": "X",
+       "name": "subnet-notsampled",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:02:25Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1013"
+      },
+      "vpcs.network.arubacloud.com/ns/sg-notprop": {
+       "kind": "X",
+       "name": "sg-notprop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:04:55Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1013"
+      },
+      "vpcs.network.arubacloud.com/ns/lb-syncedonly": {
+       "kind": "X",
+       "name": "lb-syncedonly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "resourceVersion": "1013"
+      },
+      "vpcs.network.arubacloud.com/ns/db-reasononly": {
+       "kind": "X",
+       "name": "db-reasononly",
+       "ready": {
+        "status": "False",
+        "reason": "Creating",
+        "message": "creating",
+        "lastTransitionTime": "2026-11-28T10:06:20Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1013"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "t": 1795860410.0,
+   "compositions": [
+    {
+     "composition": "comps.composition.krateo.io/ns/chain",
+     "parent": {
+      "name": "chain",
+      "ready": {
+       "status": "False",
+       "reason": "Creating",
+       "message": "1 of 2 managed children are not ready: net-other",
+       "lastTransitionTime": "2026-11-28T10:06:00Z"
+      },
+      "unevaluatedChildren": {
+       "noReadyCondition": 0
+      },
+      "managedChildrenCount": 4,
+      "generation": 1,
+      "observedGeneration": 1,
+      "resourceVersion": "103",
+      "writtenBy": {
+       "version": "2.13.140"
+      }
+     },
+     "children": {
+      "vpcs.network.arubacloud.com/ns/vpc-prop": {
+       "kind": "X",
+       "name": "vpc-prop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1013"
+      },
+      "vpcs.network.arubacloud.com/ns/subnet-notsampled": {
+       "kind": "X",
+       "name": "subnet-notsampled",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:02:25Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1013"
+      },
+      "vpcs.network.arubacloud.com/ns/sg-notprop": {
+       "kind": "X",
+       "name": "sg-notprop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:04:55Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1013"
+      },
+      "vpcs.network.arubacloud.com/ns/lb-syncedonly": {
+       "kind": "X",
+       "name": "lb-syncedonly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "resourceVersion": "1013"
+      },
+      "vpcs.network.arubacloud.com/ns/db-reasononly": {
+       "kind": "X",
+       "name": "db-reasononly",
+       "ready": {
+        "status": "False",
+        "reason": "Creating",
+        "message": "creating",
+        "lastTransitionTime": "2026-11-28T10:06:20Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1013"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "t": 1795860420.0,
+   "compositions": [
+    {
+     "composition": "comps.composition.krateo.io/ns/chain",
+     "parent": {
+      "name": "chain",
+      "ready": {
+       "status": "False",
+       "reason": "Creating",
+       "message": "1 of 2 managed children are not ready: net-other",
+       "lastTransitionTime": "2026-11-28T10:06:00Z"
+      },
+      "unevaluatedChildren": {
+       "noReadyCondition": 0
+      },
+      "managedChildrenCount": 4,
+      "generation": 1,
+      "observedGeneration": 1,
+      "resourceVersion": "103",
+      "writtenBy": {
+       "version": "2.13.140"
+      }
+     },
+     "children": {
+      "vpcs.network.arubacloud.com/ns/vpc-prop": {
+       "kind": "X",
+       "name": "vpc-prop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1014"
+      },
+      "vpcs.network.arubacloud.com/ns/subnet-notsampled": {
+       "kind": "X",
+       "name": "subnet-notsampled",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:02:25Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1014"
+      },
+      "vpcs.network.arubacloud.com/ns/sg-notprop": {
+       "kind": "X",
+       "name": "sg-notprop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:04:55Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1014"
+      },
+      "vpcs.network.arubacloud.com/ns/lb-syncedonly": {
+       "kind": "X",
+       "name": "lb-syncedonly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "resourceVersion": "1014"
+      },
+      "vpcs.network.arubacloud.com/ns/db-reasononly": {
+       "kind": "X",
+       "name": "db-reasononly",
+       "ready": {
+        "status": "False",
+        "reason": "Creating",
+        "message": "creating",
+        "lastTransitionTime": "2026-11-28T10:06:20Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1014"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "t": 1795860430.0,
+   "compositions": [
+    {
+     "composition": "comps.composition.krateo.io/ns/chain",
+     "parent": {
+      "name": "chain",
+      "ready": {
+       "status": "False",
+       "reason": "Creating",
+       "message": "2 of 2 managed children are not ready: net-other, db-reasononly",
+       "lastTransitionTime": "2026-11-28T10:06:00Z"
+      },
+      "unevaluatedChildren": {
+       "noReadyCondition": 0
+      },
+      "managedChildrenCount": 4,
+      "generation": 1,
+      "observedGeneration": 1,
+      "resourceVersion": "104",
+      "writtenBy": {
+       "version": "2.13.140"
+      }
+     },
+     "children": {
+      "vpcs.network.arubacloud.com/ns/vpc-prop": {
+       "kind": "X",
+       "name": "vpc-prop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1014"
+      },
+      "vpcs.network.arubacloud.com/ns/subnet-notsampled": {
+       "kind": "X",
+       "name": "subnet-notsampled",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:02:25Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1014"
+      },
+      "vpcs.network.arubacloud.com/ns/sg-notprop": {
+       "kind": "X",
+       "name": "sg-notprop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:04:55Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1014"
+      },
+      "vpcs.network.arubacloud.com/ns/lb-syncedonly": {
+       "kind": "X",
+       "name": "lb-syncedonly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "resourceVersion": "1014"
+      },
+      "vpcs.network.arubacloud.com/ns/db-reasononly": {
+       "kind": "X",
+       "name": "db-reasononly",
+       "ready": {
+        "status": "False",
+        "reason": "Creating",
+        "message": "creating",
+        "lastTransitionTime": "2026-11-28T10:06:20Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1014"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "t": 1795860440.0,
+   "compositions": [
+    {
+     "composition": "comps.composition.krateo.io/ns/chain",
+     "parent": {
+      "name": "chain",
+      "ready": {
+       "status": "False",
+       "reason": "Creating",
+       "message": "2 of 2 managed children are not ready: net-other, db-reasononly",
+       "lastTransitionTime": "2026-11-28T10:06:00Z"
+      },
+      "unevaluatedChildren": {
+       "noReadyCondition": 0
+      },
+      "managedChildrenCount": 4,
+      "generation": 1,
+      "observedGeneration": 1,
+      "resourceVersion": "104",
+      "writtenBy": {
+       "version": "2.13.140"
+      }
+     },
+     "children": {
+      "vpcs.network.arubacloud.com/ns/vpc-prop": {
+       "kind": "X",
+       "name": "vpc-prop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1014"
+      },
+      "vpcs.network.arubacloud.com/ns/subnet-notsampled": {
+       "kind": "X",
+       "name": "subnet-notsampled",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:02:25Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1014"
+      },
+      "vpcs.network.arubacloud.com/ns/sg-notprop": {
+       "kind": "X",
+       "name": "sg-notprop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:04:55Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1014"
+      },
+      "vpcs.network.arubacloud.com/ns/lb-syncedonly": {
+       "kind": "X",
+       "name": "lb-syncedonly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "resourceVersion": "1014"
+      },
+      "vpcs.network.arubacloud.com/ns/db-reasononly": {
+       "kind": "X",
+       "name": "db-reasononly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:07:20Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1014"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "t": 1795860450.0,
+   "compositions": [
+    {
+     "composition": "comps.composition.krateo.io/ns/chain",
+     "parent": {
+      "name": "chain",
+      "ready": {
+       "status": "False",
+       "reason": "Creating",
+       "message": "2 of 2 managed children are not ready: net-other, db-reasononly",
+       "lastTransitionTime": "2026-11-28T10:06:00Z"
+      },
+      "unevaluatedChildren": {
+       "noReadyCondition": 0
+      },
+      "managedChildrenCount": 4,
+      "generation": 1,
+      "observedGeneration": 1,
+      "resourceVersion": "104",
+      "writtenBy": {
+       "version": "2.13.140"
+      }
+     },
+     "children": {
+      "vpcs.network.arubacloud.com/ns/vpc-prop": {
+       "kind": "X",
+       "name": "vpc-prop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1015"
+      },
+      "vpcs.network.arubacloud.com/ns/subnet-notsampled": {
+       "kind": "X",
+       "name": "subnet-notsampled",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:02:25Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1015"
+      },
+      "vpcs.network.arubacloud.com/ns/sg-notprop": {
+       "kind": "X",
+       "name": "sg-notprop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:04:55Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1015"
+      },
+      "vpcs.network.arubacloud.com/ns/lb-syncedonly": {
+       "kind": "X",
+       "name": "lb-syncedonly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "resourceVersion": "1015"
+      },
+      "vpcs.network.arubacloud.com/ns/db-reasononly": {
+       "kind": "X",
+       "name": "db-reasononly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:07:20Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1015"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "t": 1795860460.0,
+   "compositions": [
+    {
+     "composition": "comps.composition.krateo.io/ns/chain",
+     "parent": {
+      "name": "chain",
+      "ready": {
+       "status": "False",
+       "reason": "Creating",
+       "message": "2 of 2 managed children are not ready: net-other, db-reasononly",
+       "lastTransitionTime": "2026-11-28T10:06:00Z"
+      },
+      "unevaluatedChildren": {
+       "noReadyCondition": 0
+      },
+      "managedChildrenCount": 4,
+      "generation": 1,
+      "observedGeneration": 1,
+      "resourceVersion": "104",
+      "writtenBy": {
+       "version": "2.13.140"
+      }
+     },
+     "children": {
+      "vpcs.network.arubacloud.com/ns/vpc-prop": {
+       "kind": "X",
+       "name": "vpc-prop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1015"
+      },
+      "vpcs.network.arubacloud.com/ns/subnet-notsampled": {
+       "kind": "X",
+       "name": "subnet-notsampled",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:02:25Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1015"
+      },
+      "vpcs.network.arubacloud.com/ns/sg-notprop": {
+       "kind": "X",
+       "name": "sg-notprop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:04:55Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1015"
+      },
+      "vpcs.network.arubacloud.com/ns/lb-syncedonly": {
+       "kind": "X",
+       "name": "lb-syncedonly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "resourceVersion": "1015"
+      },
+      "vpcs.network.arubacloud.com/ns/db-reasononly": {
+       "kind": "X",
+       "name": "db-reasononly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:07:20Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1015"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "t": 1795860470.0,
+   "compositions": [
+    {
+     "composition": "comps.composition.krateo.io/ns/chain",
+     "parent": {
+      "name": "chain",
+      "ready": {
+       "status": "False",
+       "reason": "Creating",
+       "message": "2 of 2 managed children are not ready: net-other, db-reasononly",
+       "lastTransitionTime": "2026-11-28T10:06:00Z"
+      },
+      "unevaluatedChildren": {
+       "noReadyCondition": 0
+      },
+      "managedChildrenCount": 4,
+      "generation": 1,
+      "observedGeneration": 1,
+      "resourceVersion": "104",
+      "writtenBy": {
+       "version": "2.13.140"
+      }
+     },
+     "children": {
+      "vpcs.network.arubacloud.com/ns/vpc-prop": {
+       "kind": "X",
+       "name": "vpc-prop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1015"
+      },
+      "vpcs.network.arubacloud.com/ns/subnet-notsampled": {
+       "kind": "X",
+       "name": "subnet-notsampled",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:02:25Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1015"
+      },
+      "vpcs.network.arubacloud.com/ns/sg-notprop": {
+       "kind": "X",
+       "name": "sg-notprop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:04:55Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1015"
+      },
+      "vpcs.network.arubacloud.com/ns/lb-syncedonly": {
+       "kind": "X",
+       "name": "lb-syncedonly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "resourceVersion": "1015"
+      },
+      "vpcs.network.arubacloud.com/ns/db-reasononly": {
+       "kind": "X",
+       "name": "db-reasononly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:07:20Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1015"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "t": 1795860480.0,
+   "compositions": [
+    {
+     "composition": "comps.composition.krateo.io/ns/chain",
+     "parent": {
+      "name": "chain",
+      "ready": {
+       "status": "False",
+       "reason": "Creating",
+       "message": "2 of 2 managed children are not ready: net-other, db-reasononly",
+       "lastTransitionTime": "2026-11-28T10:06:00Z"
+      },
+      "unevaluatedChildren": {
+       "noReadyCondition": 0
+      },
+      "managedChildrenCount": 4,
+      "generation": 1,
+      "observedGeneration": 1,
+      "resourceVersion": "104",
+      "writtenBy": {
+       "version": "2.13.140"
+      }
+     },
+     "children": {
+      "vpcs.network.arubacloud.com/ns/vpc-prop": {
+       "kind": "X",
+       "name": "vpc-prop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1016"
+      },
+      "vpcs.network.arubacloud.com/ns/subnet-notsampled": {
+       "kind": "X",
+       "name": "subnet-notsampled",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:02:25Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1016"
+      },
+      "vpcs.network.arubacloud.com/ns/sg-notprop": {
+       "kind": "X",
+       "name": "sg-notprop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:04:55Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1016"
+      },
+      "vpcs.network.arubacloud.com/ns/lb-syncedonly": {
+       "kind": "X",
+       "name": "lb-syncedonly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "resourceVersion": "1016"
+      },
+      "vpcs.network.arubacloud.com/ns/db-reasononly": {
+       "kind": "X",
+       "name": "db-reasononly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:07:20Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1016"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "t": 1795860490.0,
+   "compositions": [
+    {
+     "composition": "comps.composition.krateo.io/ns/chain",
+     "parent": {
+      "name": "chain",
+      "ready": {
+       "status": "False",
+       "reason": "Creating",
+       "message": "2 of 2 managed children are not ready: net-other, db-reasononly",
+       "lastTransitionTime": "2026-11-28T10:06:00Z"
+      },
+      "unevaluatedChildren": {
+       "noReadyCondition": 0
+      },
+      "managedChildrenCount": 4,
+      "generation": 1,
+      "observedGeneration": 1,
+      "resourceVersion": "104",
+      "writtenBy": {
+       "version": "2.13.140"
+      }
+     },
+     "children": {
+      "vpcs.network.arubacloud.com/ns/vpc-prop": {
+       "kind": "X",
+       "name": "vpc-prop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1016"
+      },
+      "vpcs.network.arubacloud.com/ns/subnet-notsampled": {
+       "kind": "X",
+       "name": "subnet-notsampled",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:02:25Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1016"
+      },
+      "vpcs.network.arubacloud.com/ns/sg-notprop": {
+       "kind": "X",
+       "name": "sg-notprop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:04:55Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1016"
+      },
+      "vpcs.network.arubacloud.com/ns/lb-syncedonly": {
+       "kind": "X",
+       "name": "lb-syncedonly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "resourceVersion": "1016"
+      },
+      "vpcs.network.arubacloud.com/ns/db-reasononly": {
+       "kind": "X",
+       "name": "db-reasononly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:07:20Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1016"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "t": 1795860500.0,
+   "compositions": [
+    {
+     "composition": "comps.composition.krateo.io/ns/chain",
+     "parent": {
+      "name": "chain",
+      "ready": {
+       "status": "False",
+       "reason": "Creating",
+       "message": "2 of 2 managed children are not ready: net-other, db-reasononly",
+       "lastTransitionTime": "2026-11-28T10:06:00Z"
+      },
+      "unevaluatedChildren": {
+       "noReadyCondition": 0
+      },
+      "managedChildrenCount": 4,
+      "generation": 1,
+      "observedGeneration": 1,
+      "resourceVersion": "104",
+      "writtenBy": {
+       "version": "2.13.140"
+      }
+     },
+     "children": {
+      "vpcs.network.arubacloud.com/ns/vpc-prop": {
+       "kind": "X",
+       "name": "vpc-prop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1016"
+      },
+      "vpcs.network.arubacloud.com/ns/subnet-notsampled": {
+       "kind": "X",
+       "name": "subnet-notsampled",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:02:25Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1016"
+      },
+      "vpcs.network.arubacloud.com/ns/sg-notprop": {
+       "kind": "X",
+       "name": "sg-notprop",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:04:55Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1016"
+      },
+      "vpcs.network.arubacloud.com/ns/lb-syncedonly": {
+       "kind": "X",
+       "name": "lb-syncedonly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:01:35Z"
+       },
+       "resourceVersion": "1016"
+      },
+      "vpcs.network.arubacloud.com/ns/db-reasononly": {
+       "kind": "X",
+       "name": "db-reasononly",
+       "ready": {
+        "status": "True",
+        "reason": "Available",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:07:20Z"
+       },
+       "synced": {
+        "status": "True",
+        "reason": "ReconcileSuccess",
+        "message": "",
+        "lastTransitionTime": "2026-11-28T10:00:00Z"
+       },
+       "resourceVersion": "1016"
+      }
+     }
+    }
+   ]
+  }
+ ],
+ "events": [],
+ "cdc_log_lines": [
+  "2026-11-28T10:00:00Z INFO reconciling composition chain",
+  "2026-11-28T10:00:01Z INFO composition chain observed",
+  "2026-11-28T10:01:00Z INFO reconciling composition chain",
+  "2026-11-28T10:01:01Z INFO composition chain observed",
+  "2026-11-28T10:02:00Z INFO reconciling composition chain",
+  "2026-11-28T10:02:01Z INFO composition chain observed",
+  "2026-11-28T10:03:00Z INFO reconciling composition chain",
+  "2026-11-28T10:03:01Z INFO composition chain observed",
+  "2026-11-28T10:04:00Z INFO reconciling composition chain",
+  "2026-11-28T10:04:01Z INFO composition chain observed",
+  "2026-11-28T10:05:00Z INFO reconciling composition chain",
+  "2026-11-28T10:05:01Z INFO composition chain observed",
+  "2026-11-28T10:06:00Z INFO reconciling composition chain",
+  "2026-11-28T10:06:01Z INFO composition chain observed",
+  "2026-11-28T10:07:00Z INFO reconciling composition chain",
+  "2026-11-28T10:07:01Z INFO composition chain observed",
+  "2026-11-28T10:08:00Z INFO reconciling composition chain",
+  "2026-11-28T10:08:01Z INFO composition chain observed"
+ ]
+}
